@@ -1,0 +1,44 @@
+<h2>持仓页 UI 优化方向确认</h2>
+<p class="subtitle">左侧是当前 Flutter 截图，右侧是 uni-app 目标。先确认我们要追求的目标是“尽量复刻右图”，还是只解决当前明显问题。</p>
+
+<div class="split">
+  <div class="mockup">
+    <div class="mockup-header">当前 Flutter</div>
+    <div class="mockup-body" style="display:flex;justify-content:center;background:#eef1f5;padding:12px">
+      <img src="flutter-current.png" style="width:236px;max-width:100%;border:1px solid #d8dde6;box-shadow:0 8px 24px rgba(20,30,50,.12)" />
+    </div>
+  </div>
+  <div class="mockup">
+    <div class="mockup-header">目标 uni-app</div>
+    <div class="mockup-body" style="display:flex;justify-content:center;background:#fff5ef;padding:12px">
+      <img src="uni-target.png" style="width:232px;max-width:100%;border:1px solid #eaded5;box-shadow:0 8px 24px rgba(80,42,20,.12)" />
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>我看到的主要偏差</h3>
+  <div class="options" data-multiselect>
+    <div class="option" data-choice="pixel-match" onclick="toggleSelect(this)">
+      <div class="letter">A</div>
+      <div class="content">
+        <h3>接近 1:1 复刻右图</h3>
+        <p>修顶部米色背景和基金群 logo、账本 tab 样式、资产卡间距、列表行高列宽、关联板块数据显示、底部留白。</p>
+      </div>
+    </div>
+    <div class="option" data-choice="fix-obvious" onclick="toggleSelect(this)">
+      <div class="letter">B</div>
+      <div class="content">
+        <h3>只修明显问题</h3>
+        <p>优先解决顶部红框/logo 异常、OVERFLOW、乱码/符号、列表错位和缺失的关联板块，不追求完全贴右图。</p>
+      </div>
+    </div>
+    <div class="option" data-choice="modernize" onclick="toggleSelect(this)">
+      <div class="letter">C</div>
+      <div class="content">
+        <h3>在右图基础上小幅 Flutter 化</h3>
+        <p>保留右图信息密度和颜色系统，但让控件触摸区域、排版和动效更符合 Flutter/Material 的手感。</p>
+      </div>
+    </div>
+  </div>
+</div>

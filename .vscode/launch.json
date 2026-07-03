@@ -1,0 +1,11 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "养基助手",
+      "request": "launch",
+      "type": "dart",
+      "args": ["--web-port=8888"]
+    }
+  ]
+}
