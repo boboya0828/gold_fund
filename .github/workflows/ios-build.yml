@@ -62,17 +62,21 @@ jobs:
         run: |
           set -e
           rm -f "build/${{ inputs.build_id }}.ipa"
-          if ls build/ios/ipa/*.ipa >/dev/null 2>&1; then
-            cp "$(ls build/ios/ipa/*.ipa | head -1)" "build/${{ inputs.build_id }}.ipa"
-          elif [ -d build/ios/iphoneos/Runner.app ]; then
+          echo "Build outputs:"
+          find build -maxdepth 6 \( -name "*.ipa" -o -name "*.app" \) -print
+          IPA_PATH=$(find build -maxdepth 6 -name "*.ipa" -type f | head -1)
+          APP_PATH=$(find build -maxdepth 6 -name "*.app" -type d | head -1)
+          if [ -n "$IPA_PATH" ]; then
+            cp "$IPA_PATH" "build/${{ inputs.build_id }}.ipa"
+          elif [ -n "$APP_PATH" ]; then
             rm -rf build/Payload
             mkdir -p build/Payload
-            cp -R build/ios/iphoneos/Runner.app build/Payload/
+            cp -R "$APP_PATH" build/Payload/
             (cd build && zip -qry "${{ inputs.build_id }}.ipa" Payload)
             rm -rf build/Payload
           else
-            echo "No IPA or Runner.app found"
-            find build -maxdepth 4 -type f -o -type d
+            echo "No IPA or .app found"
+            find build -maxdepth 6 -type f -o -type d
             exit 1
           fi
           test -f "build/${{ inputs.build_id }}.ipa"
