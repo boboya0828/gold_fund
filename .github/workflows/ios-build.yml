@@ -1,0 +1,53 @@
+name: iOS Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      unsigned:
+        description: "Build unsigned IPA"
+        required: false
+        default: "true"
+
+jobs:
+  build-ios:
+    runs-on: macos-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.44.4"
+          channel: stable
+          cache: true
+
+      - name: Flutter doctor
+        run: flutter doctor -v
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build unsigned debug IPA
+        run: flutter build ipa --debug --no-codesign
+
+      - name: Package unsigned IPA
+        run: |
+          mkdir -p build/ios/ipa
+          if [ -d build/ios/iphoneos/Runner.app ]; then
+            rm -rf Payload
+            mkdir Payload
+            cp -R build/ios/iphoneos/Runner.app Payload/
+            (cd Payload && zip -qry ../build/ios/ipa/gold_fund-debug-unsigned.ipa Runner.app)
+            rm -rf Payload
+          fi
+          ls -la build/ios/ipa
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: ipa
+          path: build/ios/ipa/*.ipa
+          if-no-files-found: error
