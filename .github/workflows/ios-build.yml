@@ -3,10 +3,35 @@ name: iOS Build
 on:
   workflow_dispatch:
     inputs:
-      unsigned:
-        description: "Build unsigned IPA"
+      build_id:
+        description: "Unique build identifier"
+        required: true
+        type: string
+      ios_path:
+        description: "Path to iOS project"
         required: false
-        default: "true"
+        type: string
+        default: "ios"
+      scheme:
+        description: "Xcode scheme to build"
+        required: false
+        type: string
+        default: "Runner"
+      use_signing:
+        description: "Enable code signing"
+        required: false
+        type: boolean
+        default: false
+      configuration:
+        description: "Build configuration"
+        required: false
+        type: string
+        default: "Debug"
+      flutter_version:
+        description: "Flutter version"
+        required: false
+        type: string
+        default: "3.44.4"
 
 jobs:
   build-ios:
