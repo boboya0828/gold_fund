@@ -21,12 +21,12 @@ on:
         description: "Enable code signing"
         required: false
         type: boolean
-        default: false
+        default: true
       configuration:
         description: "Build configuration"
         required: false
         type: string
-        default: "Debug"
+        default: "Release"
       flutter_version:
         description: "Flutter version"
         required: false
@@ -55,10 +55,72 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Build unsigned debug IPA
-        run: flutter build ipa --debug --no-codesign
+      - name: Install Apple signing assets
+        env:
+          IOS_CERTIFICATE: ${{ secrets.IOS_CERTIFICATE }}
+          IOS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+          IOS_PROVISIONING_PROFILE: ${{ secrets.IOS_PROVISIONING_PROFILE }}
+          KEYCHAIN_PASSWORD: ${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          set -euo pipefail
+          if [ -z "${IOS_CERTIFICATE:-}" ] || [ -z "${IOS_CERTIFICATE_PASSWORD:-}" ] || [ -z "${IOS_PROVISIONING_PROFILE:-}" ]; then
+            echo "Missing iOS signing secrets. Expected IOS_CERTIFICATE, IOS_CERTIFICATE_PASSWORD, IOS_PROVISIONING_PROFILE."
+            exit 1
+          fi
 
-      - name: Package unsigned IPA
+          CERTIFICATE_PATH="$RUNNER_TEMP/build_certificate.p12"
+          PROFILE_PATH="$RUNNER_TEMP/build_profile.mobileprovision"
+          KEYCHAIN_PATH="$RUNNER_TEMP/app-signing.keychain-db"
+
+          echo -n "$IOS_CERTIFICATE" | base64 --decode -o "$CERTIFICATE_PATH"
+          echo -n "$IOS_PROVISIONING_PROFILE" | base64 --decode -o "$PROFILE_PATH"
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$CERTIFICATE_PATH" -P "$IOS_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security list-keychain -d user -s "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
+          security cms -D -i "$PROFILE_PATH" > "$RUNNER_TEMP/profile.plist"
+          PROFILE_UUID=$(/usr/libexec/PlistBuddy -c 'Print UUID' "$RUNNER_TEMP/profile.plist")
+          cp "$PROFILE_PATH" "$HOME/Library/MobileDevice/Provisioning Profiles/$PROFILE_UUID.mobileprovision"
+
+      - name: Create export options
+        run: |
+          cat > ios/ExportOptions.plist <<'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key>
+            <string>development</string>
+            <key>signingStyle</key>
+            <string>manual</string>
+            <key>teamID</key>
+            <string>M7CXGX86SJ</string>
+            <key>provisioningProfiles</key>
+            <dict>
+              <key>com.gold.xuansheng</key>
+              <string>YangJiZhu_Dev</string>
+            </dict>
+            <key>compileBitcode</key>
+            <false/>
+            <key>stripSwiftSymbols</key>
+            <true/>
+          </dict>
+          </plist>
+          EOF
+
+      - name: Build signed IPA
+        run: |
+          flutter build ipa --release \
+            --export-options-plist=ios/ExportOptions.plist \
+            --build-name=1.0.0 \
+            --build-number=${{ github.run_number }}
+
+      - name: Package signed IPA
         run: |
           set -e
           rm -f "build/${{ inputs.build_id }}.ipa"

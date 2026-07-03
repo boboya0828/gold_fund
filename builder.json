@@ -8,7 +8,7 @@
   "ios": {
     "path": "ios",
     "scheme": "Runner",
-    "signing": false
+    "signing": true
   },
   "mobai": {
     "url": "http://localhost:8686",
