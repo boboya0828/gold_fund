@@ -442,11 +442,12 @@ class _SortHeader extends StatelessWidget {
 
     return GestureDetector(
       onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.only(right: 9),
-        child: Stack(
-          children: [
-            Column(
+      child: Stack(
+        children: [
+          // 标题/日期文字：右侧留 9px (对齐源码 padding-right:18rpx)，给排序箭头留空间
+          Padding(
+            padding: const EdgeInsets.only(right: 9),
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
@@ -460,31 +461,33 @@ class _SortHeader extends StatelessWidget {
                 ),
               ],
             ),
-            Positioned(
-              right: -1,
-              top: 0,
-              bottom: 0,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _SortTriangle(
-                    pointsUp: true,
-                    color: isActive && state.sortOrder == 'asc'
-                        ? activeColor
-                        : inactiveColor,
-                  ),
-                  const SizedBox(height: 1),
-                  _SortTriangle(
-                    pointsUp: false,
-                    color: isActive && state.sortOrder == 'desc'
-                        ? activeColor
-                        : inactiveColor,
-                  ),
-                ],
-              ),
+          ),
+          // 排序箭头：贴列真实右边缘 (对齐源码 .navimag { position:absolute; right:0 },
+          // 不受父级 padding 影响，与下方数据列的右边缘对齐)
+          Positioned(
+            right: 0,
+            top: 0,
+            bottom: 0,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _SortTriangle(
+                  pointsUp: true,
+                  color: isActive && state.sortOrder == 'asc'
+                      ? activeColor
+                      : inactiveColor,
+                ),
+                const SizedBox(height: 1),
+                _SortTriangle(
+                  pointsUp: false,
+                  color: isActive && state.sortOrder == 'desc'
+                      ? activeColor
+                      : inactiveColor,
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

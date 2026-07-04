@@ -51,20 +51,22 @@ class _HomePageState extends ConsumerState<HomePage> {
 
     return Scaffold(
       backgroundColor: bgColor,
-      body: SafeArea(
-        child: Stack(
-          children: [
-            // ---- 固定顶部背景图 (仅浅色, 对齐 .bg/.fixed-header background-size:100% 437rpx) ----
-            if (!isDark)
-              const Positioned(
-                top: 0, left: 0, right: 0,
-                child: Image(
-                  image: AssetImage('assets/images/img/position-bg1.png'),
-                  width: double.infinity,
-                  fit: BoxFit.fitWidth,
-                ),
+      body: Stack(
+        children: [
+          // ---- 固定顶部背景图 (仅浅色, 对齐 .bg/.fixed-header background-size:100% 437rpx) ----
+          // 放在 SafeArea 外层，让背景延伸到状态栏后面 (状态栏透明)，
+          // 否则状态栏那一条会露出纯色 Scaffold 背景，跟渐变头部断层。
+          if (!isDark)
+            const Positioned(
+              top: 0, left: 0, right: 0,
+              child: Image(
+                image: AssetImage('assets/images/img/position-bg1.png'),
+                width: double.infinity,
+                fit: BoxFit.fitWidth,
               ),
-            Column(
+            ),
+          SafeArea(
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // ---- 固定头部: Logo + 搜索 + Banner (对齐 .fixed-header) ----
@@ -97,8 +99,8 @@ class _HomePageState extends ConsumerState<HomePage> {
                 ),
               ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

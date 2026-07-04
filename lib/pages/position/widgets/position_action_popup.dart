@@ -31,6 +31,11 @@ class PositionActionPopup extends StatelessWidget {
 
   static const double _popupWidth = 260;
   static const double _popupMaxHeight = 83; // 33 + 50
+  static const double _popupGap = 8; // 源码 popupGap
+  static const double _tabbarReserve = 60; // 源码 uni.upx2px(120)
+  static const double _arrowWidth = 14; // 源码 border-left/right 14rpx
+  static const double _arrowHeight = 8; // 源码 border-bottom 16rpx
+  static const double _arrowCenterFraction = 0.3; // 源码 .popup-arrow left:30%
 
   @override
   Widget build(BuildContext context) {
@@ -38,76 +43,83 @@ class PositionActionPopup extends StatelessWidget {
     final item = selectedIndex >= 0 && selectedIndex < items.length ? items[selectedIndex] : null;
     final title = item?.shortName ?? '资产操作';
 
-    // 计算弹窗位置：优先放在行上方，否则放下方
-    final spaceAbove = rowOffset.dy;
-    final spaceBelow = MediaQuery.of(context).size.height - rowOffset.dy - rowHeight;
-    final showAbove = spaceAbove > _popupMaxHeight || spaceBelow < _popupMaxHeight;
+    // 1:1 复刻源码 getRowPopupStyle：只判断下方空间(扣除底部 TabBar 预留)是否足够，
+    // 不够才翻到上方；不会因为"上方空间也够"就抢先翻上去。
+    final screenHeight = MediaQuery.of(context).size.height;
+    final safeBottom = MediaQuery.of(context).padding.bottom;
+    final bottomLimit = screenHeight - _tabbarReserve - safeBottom - _popupGap;
+    final downTop = rowOffset.dy + rowHeight + _popupGap;
+    final upTop = (rowOffset.dy - _popupMaxHeight - _popupGap).clamp(0.0, double.infinity);
+    final showAbove = downTop + _popupMaxHeight > bottomLimit;
+    final top = showAbove ? upTop : downTop;
 
-    final double top;
-    if (showAbove) {
-      top = rowOffset.dy - _popupMaxHeight - 8;
-    } else {
-      top = rowOffset.dy + rowHeight + 8;
-    }
-    // 水平居中于行，左边界约束 16
-    double left = rowOffset.dx + (rowHeight > 0 ? 0 : 0) - (_popupWidth / 2) + (rowHeight > 0 ? 8 : 0);
-    left = left.clamp(16.0, screenWidth - _popupWidth - 16);
+    // 源码 left:16px 固定值，不随行位置居中
+    const left = 16.0;
 
     return Positioned(
       left: left,
-      top: top.clamp(80.0, MediaQuery.of(context).size.height - _popupMaxHeight - 16),
+      top: top,
       child: _buildPopup(title, showAbove),
     );
   }
 
   Widget _buildPopup(String title, bool showAbove) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (!showAbove) _arrowUp(),
+    final popupBody = Container(
+      width: _popupWidth,
+      decoration: BoxDecoration(
+        color: const Color(0xFF383A47),
+        borderRadius: BorderRadius.circular(6),
+        boxShadow: const [BoxShadow(color: Color(0x2E201915), blurRadius: 18, offset: Offset(0, 7))],
+      ),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        // popup-title
         Container(
-          width: _popupWidth,
-          decoration: BoxDecoration(
-            color: const Color(0xFF383A47),
-            borderRadius: BorderRadius.circular(6),
-            boxShadow: const [BoxShadow(color: Color(0x2E201915), blurRadius: 18, offset: Offset(0, 7))],
+          height: 33,
+          alignment: Alignment.center,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: const BoxDecoration(
+            border: Border(bottom: BorderSide(color: Color(0x1FFFFFFF), width: 0.5)),
           ),
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            // popup-title
-            Container(
-              height: 33,
-              alignment: Alignment.center,
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              decoration: const BoxDecoration(
-                border: Border(bottom: BorderSide(color: Color(0x1FFFFFFF), width: 0.5)),
-              ),
-              child: Text(title,
-                style: AppTextStyles.cn(12, color: Colors.white, weight: FontWeight.w700),
-                maxLines: 1, overflow: TextOverflow.ellipsis),
-            ),
-            // popup-actions
-            SizedBox(
-              height: 50,
-              child: Row(children: [
-                _action('置顶', Icons.arrow_upward, onPinTop),
-                _divider(),
-                _action('修改持仓', Icons.edit, () {
-                  onEdit();
-                }),
-                _divider(),
-                _action('批量编辑', Icons.settings, onBatchEdit),
-                _divider(),
-                _action('删除', Icons.delete_outline, () {
-                  final items = state.sortedItems;
-                  final selItem = selectedIndex >= 0 && selectedIndex < items.length ? items[selectedIndex] : null;
-                  if (selItem != null) onDelete(selItem.shortName);
-                }),
-              ]),
-            ),
+          child: Text(title,
+            style: AppTextStyles.cn(12, color: Colors.white, weight: FontWeight.w700),
+            maxLines: 1, overflow: TextOverflow.ellipsis),
+        ),
+        // popup-actions
+        SizedBox(
+          height: 50,
+          child: Row(children: [
+            _action('置顶', Icons.arrow_upward, onPinTop),
+            _divider(),
+            _action('修改持仓', Icons.edit, () {
+              onEdit();
+            }),
+            _divider(),
+            _action('批量编辑', Icons.settings, onBatchEdit),
+            _divider(),
+            _action('删除', Icons.delete_outline, () {
+              final items = state.sortedItems;
+              final selItem = selectedIndex >= 0 && selectedIndex < items.length ? items[selectedIndex] : null;
+              if (selItem != null) onDelete(selItem.shortName);
+            }),
           ]),
         ),
-        if (showAbove) _arrowDown(),
-      ],
+      ]),
+    );
+
+    // 三角形中心对齐 popup 宽度的 30% 处 (源码 left:30%; transform:translateX(-50%))，
+    // 用 Stack + 负偏移绝对定位，避免依赖 Column 的隐式宽度传导。
+    final arrowLeft = _popupWidth * _arrowCenterFraction - _arrowWidth / 2;
+    return SizedBox(
+      width: _popupWidth,
+      child: Stack(clipBehavior: Clip.none, children: [
+        popupBody,
+        Positioned(
+          left: arrowLeft,
+          top: showAbove ? null : -_arrowHeight,
+          bottom: showAbove ? -_arrowHeight : null,
+          child: CustomPaint(size: const Size(_arrowWidth, _arrowHeight), painter: _ArrowPainter(up: !showAbove)),
+        ),
+      ]),
     );
   }
 
@@ -128,28 +140,6 @@ class PositionActionPopup extends StatelessWidget {
   Widget _divider() {
     // 源码 .popup-item::before top:0;bottom:0 → 满行高分隔线, rgba(255,255,255,0.14)
     return Container(width: 0.5, height: 50, color: const Color(0x24FFFFFF));
-  }
-
-  Widget _arrowUp() {
-    // 朝上的三角形 (popup 在行下方时)，源码 .popup-arrow left:30%
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Padding(
-        padding: const EdgeInsets.only(left: _popupWidth * 0.3),
-        child: CustomPaint(size: const Size(12, 6), painter: _ArrowPainter(up: true)),
-      ),
-    );
-  }
-
-  Widget _arrowDown() {
-    // 朝下的三角形 (popup 在行上方时)，源码 .popup-arrow left:30%
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Padding(
-        padding: const EdgeInsets.only(left: _popupWidth * 0.3),
-        child: CustomPaint(size: const Size(12, 6), painter: _ArrowPainter(up: false)),
-      ),
-    );
   }
 }
 

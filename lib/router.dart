@@ -176,8 +176,10 @@ class AppRouter {
             // 自选搜索
             GoRoute(
               path: '/optional-search',
-              pageBuilder: (context, state) => const NoTransitionPage(
-                child: OptionalSearchPage(),
+              pageBuilder: (context, state) => NoTransitionPage(
+                child: OptionalSearchPage(
+                  bookId: int.tryParse(state.uri.queryParameters['bookId'] ?? '') ?? 0,
+                ),
               ),
             ),
             // 分组管理

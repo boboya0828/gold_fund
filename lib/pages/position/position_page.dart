@@ -53,6 +53,13 @@ class _PositionPageState extends ConsumerState<PositionPage> {
     return Scaffold(
       backgroundColor: scaffoldBg,
       body: Stack(children: [
+        // 导航头背景图放在 SafeArea 外层，延伸到状态栏后面 (状态栏透明)，
+        // 高度 = 状态栏高度 + 导航头自身内容高度(92 = 10+29+10+38+5)，保持底边位置不变，
+        // 否则状态栏那一条会露出纯色 Scaffold 背景，跟背景图断层。
+        if (!isDark)
+          Positioned(top: 0, left: 0, right: 0, height: topPadding + 92,
+            child: Image.asset('assets/images/img/position-bg.png', fit: BoxFit.cover, alignment: Alignment.topCenter,
+              errorBuilder: (context, error, stackTrace) => const SizedBox.shrink())),
         SafeArea(
           // nav/资产卡/列头固定；下拉刷新只作用于列表(移入 PositionHoldingTable)，对齐 uni-app
           child: Column(children: [

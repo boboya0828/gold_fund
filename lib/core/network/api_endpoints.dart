@@ -96,7 +96,8 @@ class ApiEndpoints {
   static const favoriteClear = '/asset/api/Favorite/clear';            // DELETE
 
   // Symbol
-  static const assetSymbolSearch = '/asset/api/Symbol/search';         // GET
+  static const assetSymbolSearch = '/asset/api/Symbol/search';         // GET ?keyword=&assetType=
+  static const assetSymbolSearchInfo = '/asset/api/Symbol/searchInfo'; // GET ?assetType= — 热搜/历史
   static const assetSymbolHotIndex = '/asset/api/Symbol/hotIndex';     // GET
   static const assetSymbolIndicators = '/asset/api/Symbol/indicators'; // GET
   static const assetSymbolMinuteKline = '/asset/api/Symbol/minuteKline'; // GET /{symbolId}

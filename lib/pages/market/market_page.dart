@@ -149,35 +149,38 @@ class _MarketPageState extends ConsumerState<MarketPage> {
 
     return Scaffold(
       backgroundColor: bg,
-      body: SafeArea(
-        child: RefreshIndicator(
-          color: AppColors.upColor,
-          onRefresh: _loadData,
-          child: SingleChildScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            child: Column(children: [
-              _header(isDark, topPad),
-              _quoteStrip(isDark),
-              const SizedBox(height: 9),
-              _distPanel(isDark),
-              const SizedBox(height: 9),
-              _sectorPanel(isDark),
-              const SizedBox(height: 9),
-              _fundPanel(isDark),
-              const SizedBox(height: 69),
-            ]),
+      body: Stack(children: [
+        // Hero bg 层放在 SafeArea 外层，延伸到状态栏后面 (状态栏透明)，
+        // 高度补上 topPad 以保持底边位置不变，否则状态栏那一条会露出纯色 Scaffold 背景。
+        Positioned(top: 0, left: 0, right: 0, height: 210 + topPad,
+          child: Container(color: isDark ? AppColors.darkBg : const Color(0xFFf9ecd6))),
+        SafeArea(
+          child: RefreshIndicator(
+            color: AppColors.upColor,
+            onRefresh: _loadData,
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              child: Column(children: [
+                _header(isDark, topPad),
+                _quoteStrip(isDark),
+                const SizedBox(height: 9),
+                _distPanel(isDark),
+                const SizedBox(height: 9),
+                _sectorPanel(isDark),
+                const SizedBox(height: 9),
+                _fundPanel(isDark),
+                const SizedBox(height: 69),
+              ]),
+            ),
           ),
         ),
-      ),
+      ]),
     );
   }
 
   // ===== Header with hero bg =====
   Widget _header(bool isDark, double tp) {
     return Stack(children: [
-      // Hero bg layer (420rpx=210px)
-      Positioned(top: 0, left: 0, right: 0, height: 210,
-        child: Container(color: isDark ? AppColors.darkBg : const Color(0xFFf9ecd6))),
       // Content
       Container(
         color: isDark ? AppColors.darkBg : const Color(0xFFf7e7cf),
@@ -185,7 +188,7 @@ class _MarketPageState extends ConsumerState<MarketPage> {
         child: Padding(
           padding: const EdgeInsets.fromLTRB(12, 0, 12, 9),
           child: Row(children: [
-            Image.asset('assets/images/img/position-bg1.png', width: 18, height: 18),
+            Image.asset('assets/images/img/jianbei.png', width: 18, height: 18),
             const SizedBox(width: 5),
             Text('行情榜单', style: AppTextStyles.cn(14, color: isDark ? AppColors.darkText : Colors.black)),
             const SizedBox(width: 10),
@@ -236,7 +239,7 @@ class _MarketPageState extends ConsumerState<MarketPage> {
               Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                 Text(c.change, style: AppTextStyles.cn(11, color: tc)),
                 const SizedBox(width: 5), Text(c.rate, style: AppTextStyles.cn(11, color: tc)),
-                const SizedBox(width: 5), Text(up ? '▲' : '▼', style: TextStyle(fontSize: 8, color: tc)),
+                const SizedBox(width: 5), Icon(up ? Icons.arrow_drop_up : Icons.arrow_drop_down, size: 14, color: tc),
               ]),
             ])));
         }).toList()),

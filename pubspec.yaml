@@ -121,6 +121,7 @@ flutter:
     - assets/images/img/tongzhi.png
     - assets/images/img/photo.png
     - assets/images/img/tzico.png
+    - assets/images/img/jianbei.png
 
   fonts:
     - family: siyuanheitiCNRegular

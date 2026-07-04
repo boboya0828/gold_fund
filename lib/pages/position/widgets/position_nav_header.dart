@@ -35,20 +35,10 @@ class PositionNavHeader extends ConsumerWidget {
 
     return Container(
       // 源码 .pages-nav 浅色底 #F1F1F3（背景图之下的底色）
+      // 注意：背景图已上移到 position_page.dart 页面级 Stack (延伸到状态栏后)，这里不再绘制。
       color: isDark ? const Color(0xFF202125) : const Color(0xFFF1F1F3),
       child: Stack(
         children: [
-          if (!isDark)
-            Positioned.fill(
-              child: Image.asset(
-                backgroundAsset,
-                key: const Key('position-nav-background'),
-                fit: BoxFit.cover,
-                alignment: Alignment.topCenter,
-                errorBuilder: (context, error, stackTrace) =>
-                    const SizedBox.expand(),
-              ),
-            ),
           // pages-nav padding: SafeArea 已消费状态栏，此处补 10px（对齐 topHeight=statusBarHeight+10）
           Padding(
             padding: const EdgeInsets.only(
@@ -163,7 +153,7 @@ class PositionNavHeader extends ConsumerWidget {
                             Text(
                               state.bookNames[i],
                               style: AppTextStyles.cn(
-                                state.tabIndex == i ? 17 : 15,
+                                15,
                                 color: state.tabIndex == i
                                     ? (isDark
                                           ? Colors.white
