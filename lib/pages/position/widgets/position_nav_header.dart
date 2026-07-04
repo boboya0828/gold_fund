@@ -34,7 +34,8 @@ class PositionNavHeader extends ConsumerWidget {
         : const Color(0xFF452008);
 
     return Container(
-      color: isDark ? const Color(0xFF202125) : const Color(0xFFFFF8F2),
+      // 源码 .pages-nav 浅色底 #F1F1F3（背景图之下的底色）
+      color: isDark ? const Color(0xFF202125) : const Color(0xFFF1F1F3),
       child: Stack(
         children: [
           if (!isDark)

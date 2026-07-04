@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../features/position/providers/position_provider.dart';
-import '../../theme/app_colors.dart';
 import 'widgets/position_nav_header.dart';
 import 'widgets/position_asset_card.dart';
 import 'widgets/position_holding_table.dart';
@@ -26,9 +25,14 @@ class _PositionPageState extends ConsumerState<PositionPage> {
   bool _showPopup = false;
   int _selectedIndex = -1;
 
+  // 表格模式菜单锚点：跟随表头模式图标定位（源码 top=rect.bottom+10, right 对齐图标右缘）
+  final GlobalKey _modeIconKey = GlobalKey();
+  double _modeMenuTop = 160;
+  double _modeMenuRight = 16;
+
   // 长按行的定位数据 (用于操作弹窗跟随)
-  final Offset _rowOffset = Offset.zero;
-  final double _rowHeight = 50;
+  Offset _rowOffset = Offset.zero;
+  double _rowHeight = 50;
 
   @override
   void initState() {
@@ -50,43 +54,43 @@ class _PositionPageState extends ConsumerState<PositionPage> {
       backgroundColor: scaffoldBg,
       body: Stack(children: [
         SafeArea(
-          child: RefreshIndicator(
-            color: AppColors.upColor,
-            onRefresh: () => ref.read(positionProvider.notifier).refresh(),
-            child: SingleChildScrollView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              child: Column(children: [
-                PositionNavHeader(
-                  state: state,
-                  isDark: isDark,
-                  topPadding: topPadding,
-                  onSearchTap: () => context.push('/search'),
-                  onMenuTap: () => setState(() {
-                    _showTableModeMenu = false;
-                    _showQuickMenu = !_showQuickMenu;
-                  }),
-                ),
-                PositionAssetCard(state: state, isDark: isDark),
-                PositionHoldingTable(
-                  state: state,
-                  isDark: isDark,
-                  selectedIndex: _selectedIndex,
-                  onSelect: (idx) => setState(() {
-                    _selectedIndex = idx;
-                    _showPopup = idx >= 0;
-                  }),
-                  onRowTap: () => setState(() {
-                    _selectedIndex = -1;
-                    _showPopup = false;
-                  }),
-                  onSortToggle: () => setState(() {
-                    _showQuickMenu = false;
-                    _showTableModeMenu = !_showTableModeMenu;
-                  }),
-                ),
-              ]),
+          // nav/资产卡/列头固定；下拉刷新只作用于列表(移入 PositionHoldingTable)，对齐 uni-app
+          child: Column(children: [
+            PositionNavHeader(
+              state: state,
+              isDark: isDark,
+              topPadding: topPadding,
+              onSearchTap: () => context.push('/search'),
+              onMenuTap: () => setState(() {
+                _showTableModeMenu = false;
+                _showQuickMenu = !_showQuickMenu;
+              }),
             ),
-          ),
+            PositionAssetCard(state: state, isDark: isDark),
+            Expanded(
+              child: PositionHoldingTable(
+                state: state,
+                isDark: isDark,
+                selectedIndex: _selectedIndex,
+                modeIconKey: _modeIconKey,
+                onSelect: (idx) => setState(() {
+                  _selectedIndex = idx;
+                  _showPopup = idx >= 0;
+                }),
+                onLongSelect: (idx, rowOffset, rowHeight) => setState(() {
+                  _selectedIndex = idx;
+                  _showPopup = idx >= 0;
+                  _rowOffset = rowOffset;
+                  _rowHeight = rowHeight;
+                }),
+                onRowTap: () => setState(() {
+                  _selectedIndex = -1;
+                  _showPopup = false;
+                }),
+                onSortToggle: _toggleTableModeMenu,
+              ),
+            ),
+          ]),
         ),
 
         // 快捷菜单蒙层
@@ -97,7 +101,7 @@ class _PositionPageState extends ConsumerState<PositionPage> {
           ),
           Positioned(
             right: 12,
-            top: topPadding + 34,
+            top: topPadding + 44,
             child: PositionQuickMenu(
               isDark: isDark,
               onSync: () => _goOptionalSearch(),
@@ -115,8 +119,8 @@ class _PositionPageState extends ConsumerState<PositionPage> {
             child: Container(color: maskColor),
           ),
           Positioned(
-            right: 16,
-            top: 160,
+            right: _modeMenuRight,
+            top: _modeMenuTop,
             child: PositionTableModeMenu(
               isDark: isDark,
               currentMode: state.tableMode,
@@ -182,6 +186,21 @@ class _PositionPageState extends ConsumerState<PositionPage> {
 
   void _closeMenus() {
     setState(() { _showQuickMenu = false; _showTableModeMenu = false; });
+  }
+
+  // 模式菜单切换：按表头模式图标的实际位置锚定（源码 top=rect.bottom+10，菜单右缘对齐图标右缘）
+  void _toggleTableModeMenu() {
+    final box = _modeIconKey.currentContext?.findRenderObject() as RenderBox?;
+    if (box != null) {
+      final pos = box.localToGlobal(Offset.zero);
+      _modeMenuTop = pos.dy + box.size.height + 10;
+      _modeMenuRight =
+          MediaQuery.of(context).size.width - (pos.dx + box.size.width);
+    }
+    setState(() {
+      _showQuickMenu = false;
+      _showTableModeMenu = !_showTableModeMenu;
+    });
   }
 
   void _goOptionalSearch() {

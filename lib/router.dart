@@ -330,14 +330,12 @@ class _MainShellState extends State<MainShell> {
                     SizedBox(
                       width: 21, height: 21, // 42rpx
                       child: Center(
-                        child: AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 250),
-                          child: Image.asset(
-                            isActive ? tab.activeIcon : (isDark ? tab.darkIcon : tab.lightIcon),
-                            key: ValueKey('${tab.label}_$isActive'),
-                            width: 20, height: 20, // 40rpx
-                            opacity: AlwaysStoppedAnimation(isActive ? 1.0 : inactiveOpacity),
-                          ),
+                        // 源码 <image mode="aspectFit">：PNG 瞬时切换 + opacity 差异，无交叉淡入
+                        child: Image.asset(
+                          isActive ? tab.activeIcon : (isDark ? tab.darkIcon : tab.lightIcon),
+                          width: 20, height: 20, // 40rpx
+                          fit: BoxFit.contain,
+                          opacity: AlwaysStoppedAnimation(isActive ? 1.0 : inactiveOpacity),
                         ),
                       ),
                     ),

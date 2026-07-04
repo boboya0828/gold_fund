@@ -2,9 +2,11 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "养基助手",
+      "name": "Flutter Chrome Debug",
       "request": "launch",
       "type": "dart",
+      "deviceId": "chrome",
+      "program": "lib/main.dart",
       "args": ["--web-port=8888"]
     }
   ]

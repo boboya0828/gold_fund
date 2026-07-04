@@ -1,6 +1,9 @@
 name: iOS Build
 
 on:
+  push:
+    branches:
+      - master
   workflow_dispatch:
     inputs:
       build_id:
@@ -37,6 +40,8 @@ jobs:
   build-ios:
     runs-on: macos-latest
     timeout-minutes: 30
+    env:
+      BUILD_ID: ${{ github.event.inputs.build_id || github.sha }}
 
     steps:
       - name: Checkout
@@ -123,26 +128,26 @@ jobs:
       - name: Package signed IPA
         run: |
           set -e
-          rm -f "build/${{ inputs.build_id }}.ipa"
+          rm -f "build/$BUILD_ID.ipa"
           echo "Build outputs:"
           find build -maxdepth 6 \( -name "*.ipa" -o -name "*.app" \) -print
           IPA_PATH=$(find build -maxdepth 6 -name "*.ipa" -type f | head -1)
           APP_PATH=$(find build -maxdepth 6 -name "*.app" -type d | head -1)
           if [ -n "$IPA_PATH" ]; then
-            cp "$IPA_PATH" "build/${{ inputs.build_id }}.ipa"
+            cp "$IPA_PATH" "build/$BUILD_ID.ipa"
           elif [ -n "$APP_PATH" ]; then
             rm -rf build/Payload
             mkdir -p build/Payload
             cp -R "$APP_PATH" build/Payload/
-            (cd build && zip -qry "${{ inputs.build_id }}.ipa" Payload)
+            (cd build && zip -qry "$BUILD_ID.ipa" Payload)
             rm -rf build/Payload
           else
             echo "No IPA or .app found"
             find build -maxdepth 6 -type f -o -type d
             exit 1
           fi
-          test -f "build/${{ inputs.build_id }}.ipa"
-          ls -lh "build/${{ inputs.build_id }}.ipa"
+          test -f "build/$BUILD_ID.ipa"
+          ls -lh "build/$BUILD_ID.ipa"
 
       - name: Upload IPA
         uses: actions/upload-artifact@v4

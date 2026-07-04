@@ -22,7 +22,8 @@ class PositionHoldingRow extends StatelessWidget {
   final bool showMoney;
   final bool showProfit;
   final VoidCallback onTap;
-  final VoidCallback onLongPress;
+  // 长按回传被按行的全局左上角 + 行高，供操作弹框跟随定位
+  final void Function(Offset globalTopLeft, double height) onLongPress;
 
   const PositionHoldingRow({
     super.key,
@@ -56,7 +57,12 @@ class PositionHoldingRow extends StatelessWidget {
 
     return GestureDetector(
       onTap: onTap,
-      onLongPress: onLongPress,
+      onLongPressStart: (_) {
+        final box = context.findRenderObject() as RenderBox?;
+        if (box != null) {
+          onLongPress(box.localToGlobal(Offset.zero), box.size.height);
+        }
+      },
       child: Container(
         key: Key('position-holding-row-$index'),
         padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -119,7 +125,8 @@ class PositionHoldingRow extends StatelessWidget {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
-        if (isNormal || isCompact) ...[
+        // 源码：￥市值子行仅在 normal(listMunActive==0) 显示；compact/minimal 只显示名称单行
+        if (isNormal) ...[
           const SizedBox(height: 6),
           Row(
             children: [
@@ -152,7 +159,7 @@ class PositionHoldingRow extends StatelessWidget {
               Text(
                 '￥${showMoney ? item.marketValue.toStringAsFixed(2) : '******'}',
                 style: AppTextStyles.cn(
-                  isNormal ? 10.5 : 9,
+                  10.5, // 21rpx，源码 .holding-name__sub 恒定字号
                   color: isDark
                       ? const Color(0xFF9297A1)
                       : const Color(0xFF77798B),

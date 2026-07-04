@@ -14,6 +14,7 @@ class AppColors {
   static const upColor = Color(0xFFE05665);        // 涨（红）1:1 uni-app is-up
   static const downColor = Color(0xFF31B87A);      // 跌（绿）light 1:1 uni-app is-down
   static const downColorDark = Color(0xFF20B979);  // 跌（绿）dark
+  static const positionDownColor = Color(0xFF00B26A); // 持仓页跌（绿）1:1 positionv1 .is-down（明暗同色）
   static const fundRateDefault = Color(0xFFff4b52); // 基金涨跌幅默认红
 
   // ===== 浅色模式 =====

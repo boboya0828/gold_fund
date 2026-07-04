@@ -5,6 +5,7 @@ import '../../../theme/app_colors.dart';
 import '../../../theme/app_icons.dart';
 import '../../../theme/text_styles.dart';
 import '../../../features/position/providers/position_provider.dart';
+import '../../../shared/widgets/z_paging_refresh.dart';
 import 'position_holding_row.dart';
 
 /// 持仓表格容器 — 1:1 复刻 .holding-card (含 header + 列表)
@@ -12,9 +13,12 @@ class PositionHoldingTable extends ConsumerWidget {
   final PositionState state;
   final bool isDark;
   final int selectedIndex;
-  final ValueChanged<int> onSelect; // 触发长按选中
+  final ValueChanged<int> onSelect; // 触发选中
+  final void Function(int index, Offset rowOffset, double rowHeight)?
+      onLongSelect; // 触发长按选中并回传行位置
   final VoidCallback onRowTap; // 普通 tap
-  final VoidCallback onSortToggle; // 排序触发
+  final VoidCallback onSortToggle; // 模式菜单切换触发
+  final GlobalKey? modeIconKey; // 模式图标锚点（菜单定位用）
 
   const PositionHoldingTable({
     super.key,
@@ -22,8 +26,10 @@ class PositionHoldingTable extends ConsumerWidget {
     required this.isDark,
     required this.selectedIndex,
     required this.onSelect,
+    this.onLongSelect,
     required this.onRowTap,
     required this.onSortToggle,
+    this.modeIconKey,
   });
 
   @override
@@ -74,9 +80,10 @@ class PositionHoldingTable extends ConsumerWidget {
       holdProfitW = availW * 0.9 / 4.1;
     }
 
+    // 表头固定；下拉刷新 + 列表滚动区在下方 (对齐 uni-app: 列头在 z-paging 外, 刷新头在列头下方)
     return Column(
       children: [
-        // 表头
+        // 固定表头
         _buildHeader(
           isDark,
           isNormal,
@@ -96,88 +103,101 @@ class PositionHoldingTable extends ConsumerWidget {
           context,
           ref,
         ),
-        // 列表
-        if (items.isEmpty)
-          Padding(
-            padding: const EdgeInsets.only(top: 60),
-            child: _buildEmptyState(context, isDark),
-          )
-        else
-          Container(
+        // 列表区 (仅此处可下拉刷新)；整块灰底 = uni-app .active-box #f5f5f5/#111315
+        Expanded(
+          child: ColoredBox(
             color: isDark ? const Color(0xFF111315) : const Color(0xFFF5F5F5),
-            child: Container(
-              color: isDark ? const Color(0xFF202125) : Colors.white,
-              // 性能优化：使用 ListView.builder 替代 Column+map
-              child: ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: items.length,
-                itemBuilder: (ctx, i) {
-                  final item = items[i];
-                  return PositionHoldingRow(
-                    item: item,
-                    index: i,
-                    isDark: isDark,
-                    nameW: nameW,
-                    dayProfitW: dayProfitW,
-                    indicatorW: indicatorW,
-                    holdProfitW: holdProfitW,
-                    isNormal: isNormal,
-                    isCompact: isCompact,
-                    isMinimal: isMinimal,
-                    gapW: gapW,
-                    isLast: i == items.length - 1,
-                    isSelected: selectedIndex == i,
-                    showMoney: showMoney,
-                    showProfit: showProfit,
-                    onTap: () {
-                      onSelect(-1);
-                      onRowTap();
-                      context.push(
-                        '/position-details?symbolId=${item.symbolId}&assetType=${item.assetType}',
-                      );
-                    },
-                    onLongPress: () => onSelect(i),
-                  );
-                },
-              ),
-            ),
-          ),
-        // 底部同步按钮
-        if (items.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(left: 16, top: 10, bottom: 100),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: GestureDetector(
-                onTap: () => context.push('/optional-search'),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      AppIcons.add,
-                      size: 12,
-                      color: isDark
-                          ? const Color(0xFF8F949D)
-                          : const Color(0xFF7A7A82),
-                    ),
-                    const SizedBox(width: 2),
-                    Text(
-                      '同步持仓',
-                      style: AppTextStyles.cn(
-                        11,
+            child: items.isEmpty
+              ? _buildEmptyState(context, isDark)
+              : ZPagingRefresh(
+                  isDark: isDark,
+                  onRefresh: () =>
+                      ref.read(positionProvider.notifier).refresh(),
+                  child: Column(
+                    children: [
+                      Container(
+                        // 列表行容器白底 = uni-app .holding-card #ffffff/#202125
                         color: isDark
-                            ? const Color(0xFF8F949D)
-                            : const Color(0xFF7A7A82),
+                            ? const Color(0xFF202125)
+                            : Colors.white,
+                        // 性能优化：使用 ListView.builder 替代 Column+map
+                        child: ListView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: items.length,
+                          itemBuilder: (ctx, i) {
+                            final item = items[i];
+                            return PositionHoldingRow(
+                              item: item,
+                              index: i,
+                              isDark: isDark,
+                              nameW: nameW,
+                              dayProfitW: dayProfitW,
+                              indicatorW: indicatorW,
+                              holdProfitW: holdProfitW,
+                              isNormal: isNormal,
+                              isCompact: isCompact,
+                              isMinimal: isMinimal,
+                              gapW: gapW,
+                              isLast: i == items.length - 1,
+                              isSelected: selectedIndex == i,
+                              showMoney: showMoney,
+                              showProfit: showProfit,
+                              onTap: () {
+                                onSelect(-1);
+                                onRowTap();
+                                context.push(
+                                  '/position-details?symbolId=${item.symbolId}&assetType=${item.assetType}',
+                                );
+                              },
+                              onLongPress: (offset, height) {
+                                if (onLongSelect != null) {
+                                  onLongSelect!(i, offset, height);
+                                } else {
+                                  onSelect(i);
+                                }
+                              },
+                            );
+                          },
+                        ),
                       ),
-                    ),
-                  ],
+                      // 底部同步按钮 (随列表滚动, 对齐 uni-app .addbox 在 z-paging 内)
+                      Padding(
+                        padding:
+                            const EdgeInsets.only(left: 16, top: 10, bottom: 100),
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: GestureDetector(
+                            onTap: () => context.push('/optional-search'),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  AppIcons.add,
+                                  size: 12,
+                                  color:
+                                      mutedIconColor, // 源码 .addbox 图标用 mutedIconColor
+                                ),
+                                const SizedBox(width: 2),
+                                Text(
+                                  '同步持仓',
+                                  style: AppTextStyles.cn(
+                                    11,
+                                    color: isDark
+                                        ? const Color(0xFF8F949D)
+                                        : const Color(0xFF7A7A82),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          )
-        else
-          const SizedBox(height: 100),
+        ),
       ],
     );
   }
@@ -235,6 +255,7 @@ class PositionHoldingTable extends ConsumerWidget {
                   ),
                   const SizedBox(width: 10),
                   GestureDetector(
+                    key: modeIconKey,
                     onTap: () => _toggleTableModeMenu(context),
                     child: Icon(
                       _tableModeIcon(state.tableMode),
@@ -322,8 +343,7 @@ class PositionHoldingTable extends ConsumerWidget {
   }
 
   void _toggleTableModeMenu(BuildContext context) {
-    onSortToggle();
-    // 触发主页面层的 setState，委托回调
+    // 委托回主页面层切换菜单显隐（onSortToggle 内部 toggle）
     onSortToggle();
   }
 
@@ -418,7 +438,7 @@ class _SortHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isActive = state.sortField == field;
-    final activeColor = AppColors.primary;
+    const activeColor = Color(0xFFE05665); // 源码排序箭头激活色
 
     return GestureDetector(
       onTap: onTap,

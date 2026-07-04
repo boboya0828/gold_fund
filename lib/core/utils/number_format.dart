@@ -11,8 +11,27 @@ String keepTwoDecimalWithoutRound(double value) {
   return str;
 }
 
+/// 千分位分隔（复刻 uni-app utils/index.js addThousandSeparator）
+/// 对已格式化的字符串整数部分插入逗号，保留小数部分
+String addThousandSeparator(String num) {
+  final parts = num.split('.');
+  parts[0] = parts[0].replaceAllMapped(
+    RegExp(r'\B(?=(\d{3})+(?!\d))'),
+    (m) => ',',
+  );
+  return parts.join('.');
+}
+
+/// 千分位 + 2 位小数（复刻 uni-app formatMoney：13814.08 → 13,814.08，不转万/亿）
+String formatThousands(double value) {
+  if (value.isNaN) return '0.00';
+  return addThousandSeparator(value.toStringAsFixed(2));
+}
+
 /// 格式化金额显示
 /// 大额显示万/亿单位，保留两位小数
+/// ⚠️ 注意：uni-app 的 formatMoney 实为纯千分位(见 formatThousands)，此函数是历史误移植，
+/// 仅在确需万/亿单位处使用；金额千分位展示请用 formatThousands。
 String formatMoney(double value) {
   if (value.abs() >= 100000000) {
     return '${(value / 100000000).toStringAsFixed(2)}亿';

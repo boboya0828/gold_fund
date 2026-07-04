@@ -32,9 +32,10 @@ class PositionQuickMenu extends StatelessWidget {
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF282B32) : Colors.white,
         borderRadius: BorderRadius.circular(8), // 16rpx
+        // 源码浅色 .quick-menu-panel 无阴影，仅深色有
         boxShadow: isDark
             ? [BoxShadow(color: Colors.black.withAlpha(87), blurRadius: 17)]
-            : [BoxShadow(color: const Color(0x291A2240), blurRadius: 14)],
+            : null,
       ),
       child: Column(children: [
         _item(AppIcons.add, '同步持仓', menuTextColor, menuIconColor, onSync),

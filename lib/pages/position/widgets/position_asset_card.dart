@@ -6,6 +6,7 @@ import '../../position/position_provider_types.dart'
     show PositionState, AssetVisibleMode;
 import '../../../features/position/providers/position_provider.dart'
     show positionProvider;
+import '../../../core/utils/number_format.dart' show formatThousands;
 import 'position_profit_color.dart';
 
 /// 资产总览卡片 — 1:1 复刻 .asset-card
@@ -73,7 +74,7 @@ class PositionAssetCard extends ConsumerWidget {
                 const SizedBox(height: 8),
                 Text(
                   showMoney
-                      ? state.totalMarketValue.toStringAsFixed(2)
+                      ? formatThousands(state.totalMarketValue) // 千分位, 1:1 uni-app formatMoney
                       : '******',
                   style: AppTextStyles.num(
                     20,
@@ -102,14 +103,20 @@ class PositionAssetCard extends ConsumerWidget {
                             vertical: 3,
                           ),
                           decoration: BoxDecoration(
-                            color: const Color(0x19E05665),
+                            // 源码 .newDate: light rgba(224,86,101,0.098) / dark rgba(224,86,101,0.16)
+                            color: isDark
+                                ? const Color(0x29E05665)
+                                : const Color(0x19E05665),
                             borderRadius: BorderRadius.circular(999),
                           ),
                           child: Text(
                             state.refreshTime!,
                             style: AppTextStyles.cn(
                               12,
-                              color: positionProfitUpColor(),
+                              // light #FF4D5D / dark #E05665
+                              color: isDark
+                                  ? const Color(0xFFE05665)
+                                  : positionProfitUpColor(),
                               weight: FontWeight.w500,
                               height: 1,
                             ),

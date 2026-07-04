@@ -120,6 +120,7 @@ flutter:
     - assets/images/img/leftico.png
     - assets/images/img/tongzhi.png
     - assets/images/img/photo.png
+    - assets/images/img/tzico.png
 
   fonts:
     - family: siyuanheitiCNRegular

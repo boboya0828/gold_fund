@@ -8,6 +8,7 @@ import '../../theme/app_colors.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/text_styles.dart';
 import '../../shared/widgets/book_selector_menu.dart';
+import '../../shared/widgets/z_paging_refresh.dart';
 import '../../features/home/widgets/fund_group_notice.dart';
 import '../../features/home/widgets/price_flash.dart';
 import '../../features/auth/providers/auth_provider.dart';
@@ -74,26 +75,24 @@ class _HomePageState extends ConsumerState<HomePage> {
                 const SizedBox(height: 15),
                 // ---- 可滚动内容区 (对齐 z-paging home-refresh-body) ----
                 Expanded(
-                  child: RefreshIndicator(
-                    color: AppColors.upColor,
+                  // 下拉刷新 — z-paging 风格 (对齐 uni-app home-refresh)
+                  child: ZPagingRefresh(
+                    isDark: isDark,
                     onRefresh: () => ref.read(homeProvider.notifier).refresh(),
-                    child: SingleChildScrollView(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        _buildGoldSilverCards(homeState.topSymbols, isDark),
-                        const SizedBox(height: 15),
-                        _buildMarketScroll(homeState.marketList, isDark),
-                        const SizedBox(height: 15),
-                        // ---- "我的资产" 区域 (标题在卡片外部上方) ----
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: _buildAssetSection(homeState, isDark),
-                        ),
-                        const SizedBox(height: 15),
-                        _buildFundList(homeState, isDark),
-                        const SizedBox(height: 70),
-                      ]),
-                    ),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      _buildGoldSilverCards(homeState.topSymbols, isDark),
+                      const SizedBox(height: 15),
+                      _buildMarketScroll(homeState.marketList, isDark),
+                      const SizedBox(height: 15),
+                      // ---- "我的资产" 区域 (标题在卡片外部上方) ----
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: _buildAssetSection(homeState, isDark),
+                      ),
+                      const SizedBox(height: 15),
+                      _buildFundList(homeState, isDark),
+                      const SizedBox(height: 70),
+                    ]),
                   ),
                 ),
               ],
@@ -155,10 +154,9 @@ class _HomePageState extends ConsumerState<HomePage> {
           boxShadow: isDark ? null : [BoxShadow(color: const Color(0x0F2E1D0F), blurRadius: 15, offset: const Offset(0, 5))],
         ),
         padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 6),
+        // 动画在涨跌幅徽章上(见 MetalRateBadge)，非整卡，对齐 uni-app .cardtop-rate
         child: Row(children: [
-          Expanded(child: PriceFlashWrapper(
-            price: topSymbols[0].latestPrice ?? 0, isDark: isDark,
-            child: _buildMetalCard(topSymbols[0], isDark))),
+          Expanded(child: _buildMetalCard(topSymbols[0], isDark)),
           Container(width: 1, height: 70, decoration: BoxDecoration(
             gradient: isDark ? null : const LinearGradient(
               begin: Alignment.topCenter, end: Alignment.bottomCenter,
@@ -167,9 +165,7 @@ class _HomePageState extends ConsumerState<HomePage> {
             ),
             color: isDark ? const Color(0xFF2B2D33) : null,
           )),
-          Expanded(child: PriceFlashWrapper(
-            price: topSymbols[1].latestPrice ?? 0, isDark: isDark,
-            child: _buildMetalCard(topSymbols[1], isDark))),
+          Expanded(child: _buildMetalCard(topSymbols[1], isDark)),
         ]),
       ),
     );
@@ -180,10 +176,6 @@ class _HomePageState extends ConsumerState<HomePage> {
     // zdj .cardtop-rate--up bg:#EA5D70 / .cardtop-rate--down bg:#00ad90
     final priceColor = isUp ? _upColor : _metalDownColor;
     final rateColor = priceColor;
-    final rateBg = isUp
-        ? (isDark ? AppColors.metalUpBgDark : AppColors.metalUpBgLight)
-        : (isDark ? AppColors.metalDownBgDark : AppColors.metalDownBgLight);
-    final arrowIcon = isUp ? 'assets/images/img/upico.png' : 'assets/images/img/down.png';
 
     return GestureDetector(
       onTap: () => _goMetalDetails(data),
@@ -198,16 +190,14 @@ class _HomePageState extends ConsumerState<HomePage> {
             Padding(padding: const EdgeInsets.only(bottom: 1), child: Text('元/克', style: AppTextStyles.cn(12, color: isDark ? AppColors.darkText : AppColors.lightText, height: 1.2))),
           ]),
           const SizedBox(height: 12),
-          Container(
-            width: 110, height: 23,
-            decoration: BoxDecoration(color: rateBg, borderRadius: BorderRadius.circular(999)),
-            child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-              Text(data.changeFormatted, style: AppTextStyles.cn(12, color: rateColor, weight: FontWeight.w600)),
-              const SizedBox(width: 4),
-              Text(data.changeRateFormatted, style: AppTextStyles.cn(12, color: rateColor, weight: FontWeight.w600)),
-              const SizedBox(width: 2),
-              Image.asset(arrowIcon, width: 8, height: 9),
-            ]),
+          // 涨跌幅徽章 (价格变动时闪烁, 1:1 uni-app .cardtop-rate)
+          MetalRateBadge(
+            isUp: isUp,
+            isDark: isDark,
+            price: data.latestPrice ?? 0,
+            changeText: data.changeFormatted,
+            rateText: data.changeRateFormatted,
+            textColor: rateColor,
           ),
         ]),
       ),
@@ -462,6 +452,7 @@ class _HomePageState extends ConsumerState<HomePage> {
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text('基金列表', style: AppTextStyles.cn(14, color: isDark ? AppColors.darkText : AppColors.lightText)),
         const SizedBox(height: 11),
+        // 对齐 uni-app：未登录=热门基金榜(getFundHeatTop)，空列表只留标题、无占位卡
         if (funds.isNotEmpty)
           GridView.builder(
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -474,40 +465,8 @@ class _HomePageState extends ConsumerState<HomePage> {
             physics: const NeverScrollableScrollPhysics(),
             itemCount: funds.length.clamp(0, 10),
             itemBuilder: (_, i) => _buildFundItemData(funds[i], isDark),
-          )
-        else
-          _buildFundEmptyState(isDark),
-      ]),
-    );
-  }
-
-  Widget _buildFundEmptyState(bool isDark) {
-    return GridView.builder(
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        mainAxisExtent: 71, // 142rpx 空状态卡片
-        crossAxisSpacing: 8, mainAxisSpacing: 8,
-      ),
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: 2,
-      itemBuilder: (_, __) => GestureDetector(
-        onTap: () => _handleSearch(),
-        child: Container(
-          decoration: BoxDecoration(
-            color: isDark ? AppColors.darkSurface : AppColors.white,
-            border: Border.all(color: const Color(0xFFF0CDD2), width: 1),
-            borderRadius: BorderRadius.circular(12),
           ),
-          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-            Container(width: 24, height: 24, decoration: BoxDecoration(
-              color: isDark ? AppColors.emptyIconBgDark : AppColors.emptyIconBg, shape: BoxShape.circle,
-            ), child: const Icon(Icons.add, size: 14, color: AppColors.primary)),
-            const SizedBox(height: 6),
-            Text('添加基金', style: AppTextStyles.cn(12, color: AppColors.primary, weight: FontWeight.w500)),
-          ]),
-        ),
-      ),
+      ]),
     );
   }
 

@@ -236,7 +236,8 @@ class PositionState {
 
   const PositionState({
     this.books = const [],
-    this.tabIndex = 0,
+    this.tabIndex = 1, // 1:1 uni-app taberIndex ref(1)：默认选第一个账本(非"全部")；无账本时 loadData 越界回退到 0
+
     this.items = const [],
     this.totalMarketValue = 0,
     this.totalDayProfit = 0,

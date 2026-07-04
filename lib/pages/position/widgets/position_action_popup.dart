@@ -70,7 +70,7 @@ class PositionActionPopup extends StatelessWidget {
           decoration: BoxDecoration(
             color: const Color(0xFF383A47),
             borderRadius: BorderRadius.circular(6),
-            boxShadow: const [BoxShadow(color: Color(0x29201915), blurRadius: 18, offset: Offset(0, 7))],
+            boxShadow: const [BoxShadow(color: Color(0x2E201915), blurRadius: 18, offset: Offset(0, 7))],
           ),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             // popup-title
@@ -117,7 +117,7 @@ class PositionActionPopup extends StatelessWidget {
         onTap: onTap,
         onTapUp: (_) {}, // 防止点击穿透
         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Icon(icon, size: 18, color: Colors.white),
+          Icon(icon, size: 21, color: Colors.white),
           const SizedBox(height: 4),
           Text(label, style: AppTextStyles.cn(10, color: Colors.white, weight: FontWeight.w500)),
         ]),
@@ -126,26 +126,27 @@ class PositionActionPopup extends StatelessWidget {
   }
 
   Widget _divider() {
-    return Container(width: 0.5, height: 16, color: const Color(0x23FFFFFF));
+    // 源码 .popup-item::before top:0;bottom:0 → 满行高分隔线, rgba(255,255,255,0.14)
+    return Container(width: 0.5, height: 50, color: const Color(0x24FFFFFF));
   }
 
   Widget _arrowUp() {
-    // 朝上的三角形 (popup 在行下方时)
+    // 朝上的三角形 (popup 在行下方时)，源码 .popup-arrow left:30%
     return Align(
       alignment: Alignment.centerLeft,
       child: Padding(
-        padding: const EdgeInsets.only(left: 24),
+        padding: const EdgeInsets.only(left: _popupWidth * 0.3),
         child: CustomPaint(size: const Size(12, 6), painter: _ArrowPainter(up: true)),
       ),
     );
   }
 
   Widget _arrowDown() {
-    // 朝下的三角形 (popup 在行上方时)
+    // 朝下的三角形 (popup 在行上方时)，源码 .popup-arrow left:30%
     return Align(
       alignment: Alignment.centerLeft,
       child: Padding(
-        padding: const EdgeInsets.only(left: 24),
+        padding: const EdgeInsets.only(left: _popupWidth * 0.3),
         child: CustomPaint(size: const Size(12, 6), painter: _ArrowPainter(up: false)),
       ),
     );
