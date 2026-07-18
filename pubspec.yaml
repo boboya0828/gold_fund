@@ -122,6 +122,27 @@ flutter:
     - assets/images/img/photo.png
     - assets/images/img/tzico.png
     - assets/images/img/jianbei.png
+    - assets/images/img/vipbg.png
+    - assets/images/img/vipbg-b.png
+    - assets/images/img/vipzb.png
+    - assets/images/img/viplc.png
+    - assets/images/img/vipbs.png
+    - assets/images/img/vipwp.png
+    - assets/images/img/vipico1.png
+    - assets/images/img/uico1.png
+    - assets/images/img/uico1-b.png
+    - assets/images/img/uico2.png
+    - assets/images/img/uico2-b.png
+    - assets/images/img/uico4.png
+    - assets/images/img/uico4-b.png
+    - assets/images/img/uico5.png
+    - assets/images/img/uico5-b.png
+    - assets/images/img/uico6.png
+    - assets/images/img/uico6-b.png
+    - assets/images/img/uico7.png
+    - assets/images/img/uico7-b.png
+    - assets/images/img/right-ico.png
+    - assets/images/img/right-ico1.png
 
   fonts:
     - family: siyuanheitiCNRegular

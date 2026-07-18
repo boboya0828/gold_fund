@@ -133,9 +133,9 @@ class _PhoneLoginPageState extends ConsumerState<PhoneLoginPage> {
     }
     setState(() => _loading = true);
     try {
-      final captchaId = await ref.read(authProvider.notifier).generateCaptcha();
-      if (captchaId != null && mounted) {
-        setState(() { _captchaId = captchaId; _captchaQuestion = '3+5=?'; _loading = false; });
+      final captcha = await ref.read(authProvider.notifier).generateCaptcha();
+      if (captcha != null && mounted) {
+        setState(() { _captchaId = captcha.id; _captchaQuestion = captcha.question; _loading = false; });
         _showCaptchaDialog();
       } else {
         setState(() => _loading = false);
@@ -209,8 +209,14 @@ class _PhoneLoginPageState extends ConsumerState<PhoneLoginPage> {
   }
 
   Future<void> _refreshCaptcha() async {
-    final id = await ref.read(authProvider.notifier).generateCaptcha();
-    if (mounted) setState(() { _captchaId = id; _captchaQuestion = '3+5=?'; _captchaError = null; });
+    final captcha = await ref.read(authProvider.notifier).generateCaptcha();
+    if (mounted) {
+      if (captcha != null) {
+        setState(() { _captchaId = captcha.id; _captchaQuestion = captcha.question; _captchaError = null; });
+      } else {
+        setState(() => _captchaError = '获取验证码失败');
+      }
+    }
   }
 
   Future<void> _handleCaptchaConfirm() async {

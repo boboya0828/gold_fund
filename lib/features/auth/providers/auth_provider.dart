@@ -40,6 +40,13 @@ class AuthState {
   }
 }
 
+/// 人机验证码 — captchaId 用于提交答案，question 是展示给用户的题面
+class CaptchaInfo {
+  final String id;
+  final String question;
+  const CaptchaInfo({required this.id, required this.question});
+}
+
 /// 认证 Provider - 匹配 uni-app 的登录流程
 class AuthNotifier extends StateNotifier<AuthState> {
   final ApiClient _api = ApiClient();
@@ -183,13 +190,17 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
-  /// 获取人机验证码
-  Future<String?> generateCaptcha() async {
+  /// 获取人机验证码 — 对齐 zdj phone.vue normalizeCaptcha()，同时取出 id 与题面文案
+  Future<CaptchaInfo?> generateCaptcha() async {
     try {
       final response = await _api.get(ApiEndpoints.generateCaptcha);
       final data = response.data as Map<String, dynamic>;
       if (data['code'] == 200) {
-        return data['data'] as String?;
+        final raw = data['data'];
+        final payload = raw is Map ? raw : data;
+        final id = (payload['captchaId'] ?? payload['id'] ?? '') as String? ?? '';
+        final question = (payload['captchaQuestion'] ?? payload['question'] ?? payload['expression'] ?? payload['content'] ?? '请完成验证') as String? ?? '请完成验证';
+        return CaptchaInfo(id: id, question: question);
       }
     } catch (_) {}
     return null;

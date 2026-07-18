@@ -186,8 +186,9 @@ class _OptionalPageState extends ConsumerState<OptionalPage> {
 
   Widget _buildNav(bool isDark, double topPad) => Container(
     padding: EdgeInsets.only(top: topPad > 0 ? 0 : 8),
-    // 背景渐变图已上移至外层 Stack (延伸到状态栏后)，这里只保留纯色兜底
-    color: isDark ? const Color(0xFF202125) : const Color(0xFFF1F1F3),
+    // 背景图已上移至外层 Stack (延伸到状态栏后)。浅色模式下这里必须透明，
+    // 否则实色会盖住下层的背景图（暗色模式无背景图，用实色兜底）。
+    color: isDark ? const Color(0xFF202125) : Colors.transparent,
     child: Column(children: [
       const SizedBox(height: 5),
       Padding(
@@ -269,7 +270,10 @@ class _OptionalPageState extends ConsumerState<OptionalPage> {
   Widget _buildList(bool isDark, double nameW, double colW) {
     final sorted = _sorted;
     if (sorted.isEmpty) {
-      return Padding(padding: const EdgeInsets.only(top: 80), child: Column(children: [
+      return Container(
+        width: double.infinity,
+        color: isDark ? AppColors.darkSurface : Colors.white,
+        child: Padding(padding: const EdgeInsets.only(top: 80, bottom: 80), child: Column(children: [
         Text('暂无自选', style: AppTextStyles.cn(15, color: isDark ? AppColors.darkText : const Color(0xFF333333), weight: FontWeight.w600)),
         const SizedBox(height: 9),
         Text('添加基金后，可在这里查看关联板块和当日涨幅', style: AppTextStyles.cn(12, color: const Color(0xFF8d8b87))),
@@ -279,7 +283,8 @@ class _OptionalPageState extends ConsumerState<OptionalPage> {
           child: Container(width: 110, height: 36, decoration: BoxDecoration(
             color: AppColors.primary, borderRadius: BorderRadius.circular(999)),
             alignment: Alignment.center, child: Text('新增自选', style: AppTextStyles.cn(13, color: Colors.white)))),
-      ]));
+        ])),
+      );
     }
     return Container(color: isDark ? AppColors.darkSurface : Colors.white,
       child: Column(children: [

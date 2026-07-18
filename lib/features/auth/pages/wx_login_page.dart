@@ -49,7 +49,9 @@ class _WxLoginPageState extends ConsumerState<WxLoginPage> {
                 SizedBox(
                   width: double.infinity, height: 44,
                   child: OutlinedButton(
-                    onPressed: _loading ? null : () => context.push('/login/phone'),
+                    onPressed: _loading ? null : () {
+                      if (_ensureAgreementAccepted()) context.push('/login/phone');
+                    },
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppColors.primary,
                       side: const BorderSide(color: AppColors.primary, width: 0.5),
@@ -59,7 +61,7 @@ class _WxLoginPageState extends ConsumerState<WxLoginPage> {
                     child: const Text('手机号登录', style: TextStyle(fontSize: 15)),
                   ),
                 ),
-                const SizedBox(height: 25),
+                const SizedBox(height: 15),
 
                 // 协议复选框
                 _buildAgreement(),
@@ -85,7 +87,9 @@ class _WxLoginPageState extends ConsumerState<WxLoginPage> {
     return SizedBox(
       width: double.infinity, height: 45,
       child: ElevatedButton(
-        onPressed: (!_agreed || loading) ? null : _handleWechatLogin,
+        onPressed: loading ? null : () {
+          if (_ensureAgreementAccepted()) _handleWechatLogin();
+        },
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.primary,
           foregroundColor: Colors.white,
@@ -136,7 +140,9 @@ class _WxLoginPageState extends ConsumerState<WxLoginPage> {
 
   Widget _buildMoreLogin() {
     return GestureDetector(
-      onTap: _agreed ? () => _showOtherLoginSheet() : null,
+      onTap: () {
+        if (_ensureAgreementAccepted()) _showOtherLoginSheet();
+      },
       child: Row(children: [
         const Expanded(child: Divider(color: Color(0xFFE5E5E5))),
         const Padding(
@@ -194,6 +200,15 @@ class _WxLoginPageState extends ConsumerState<WxLoginPage> {
         ),
       ),
     );
+  }
+
+  /// 对齐 zdj wxLogin.vue ensureAgreementAccepted：未勾选协议时弹 toast 并阻止后续操作
+  bool _ensureAgreementAccepted() {
+    if (_agreed) return true;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('请先同意用户协议与隐私条款'), duration: Duration(seconds: 2)),
+    );
+    return false;
   }
 
   Future<void> _handleWechatLogin() async {

@@ -6,6 +6,7 @@ import '../../core/network/api_endpoints.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/text_styles.dart';
+import '../../shared/widgets/z_paging_refresh.dart';
 
 /// 行情页面 - 1:1 复刻 uni-app pages/market/index.uvue
 class MarketPage extends ConsumerStatefulWidget {
@@ -155,24 +156,26 @@ class _MarketPageState extends ConsumerState<MarketPage> {
         Positioned(top: 0, left: 0, right: 0, height: 210 + topPad,
           child: Container(color: isDark ? AppColors.darkBg : const Color(0xFFf9ecd6))),
         SafeArea(
-          child: RefreshIndicator(
-            color: AppColors.upColor,
-            onRefresh: _loadData,
-            child: SingleChildScrollView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              child: Column(children: [
-                _header(isDark, topPad),
-                _quoteStrip(isDark),
-                const SizedBox(height: 9),
-                _distPanel(isDark),
-                const SizedBox(height: 9),
-                _sectorPanel(isDark),
-                const SizedBox(height: 9),
-                _fundPanel(isDark),
-                const SizedBox(height: 69),
-              ]),
+          child: Column(children: [
+            // 头部 (Logo+标题+搜索) 固定在顶部，不随下拉刷新滚动，对齐源码 z-paging :fixed="false"
+            _header(isDark, topPad),
+            Expanded(
+              child: ZPagingRefresh(
+                isDark: isDark,
+                onRefresh: _loadData,
+                child: Column(children: [
+                  _quoteStrip(isDark),
+                  const SizedBox(height: 9),
+                  _distPanel(isDark),
+                  const SizedBox(height: 9),
+                  _sectorPanel(isDark),
+                  const SizedBox(height: 9),
+                  _fundPanel(isDark),
+                  const SizedBox(height: 69),
+                ]),
+              ),
             ),
-          ),
+          ]),
         ),
       ]),
     );
@@ -209,7 +212,11 @@ class _MarketPageState extends ConsumerState<MarketPage> {
   }
 
   // ===== Quote cards strip (border-radius 5px) =====
+  // 卡片宽度对齐 zdj: width: calc((100vw - 88rpx) / 3) → (屏宽 - 44) / 3，
+  // 使得默认视口内正好显示 3 张卡片，多余的可横向滑动查看。
   Widget _quoteStrip(bool isDark) {
+    final screenW = MediaQuery.of(context).size.width;
+    final cardW = (screenW - 44) / 3;
     return Container(
       decoration: BoxDecoration(
         color: isDark ? AppColors.darkSurface : Colors.white,
@@ -224,22 +231,22 @@ class _MarketPageState extends ConsumerState<MarketPage> {
           return GestureDetector(
             onTap: () => context.push('/market-details?symbolId=${c.symbolId}&name=${Uri.encodeComponent(c.name)}'),
             child: Container(
-              width: 96, margin: const EdgeInsets.only(right: 10),
+              width: cardW, margin: const EdgeInsets.only(right: 10),
               padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 6),
               decoration: BoxDecoration(
               color: isDark ? (up ? const Color(0xFF282828) : const Color(0xFF24282A))
                   : (up ? const Color(0xFFFCF6F6) : const Color(0xFFF4FAFB)),
               border: Border.all(color: isDark ? const Color(0xFF2B2D33) : const Color(0xFFE9E3E5)),
               borderRadius: BorderRadius.circular(8)),
-            child: Column(children: [
-              Text(c.name, style: AppTextStyles.cn(13, color: isDark ? AppColors.darkText : const Color(0xFF333333))),
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              Text(c.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppTextStyles.cn(13, color: isDark ? AppColors.darkText : const Color(0xFF333333))),
               const SizedBox(height: 4),
-              Text(c.price, style: AppTextStyles.num(18, color: tc, weight: FontWeight.w600)),
+              Text(c.price, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppTextStyles.num(18, color: tc, weight: FontWeight.w600)),
               const SizedBox(height: 4),
-              Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                Text(c.change, style: AppTextStyles.cn(11, color: tc)),
-                const SizedBox(width: 5), Text(c.rate, style: AppTextStyles.cn(11, color: tc)),
-                const SizedBox(width: 5), Icon(up ? Icons.arrow_drop_up : Icons.arrow_drop_down, size: 14, color: tc),
+              Row(mainAxisSize: MainAxisSize.min, mainAxisAlignment: MainAxisAlignment.center, children: [
+                Flexible(child: Text(c.change, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppTextStyles.cn(11, color: tc))),
+                const SizedBox(width: 5), Flexible(child: Text(c.rate, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppTextStyles.cn(11, color: tc))),
+                const SizedBox(width: 5), _TrendArrow(up: up, color: tc),
               ]),
             ])));
         }).toList()),
@@ -269,12 +276,12 @@ class _MarketPageState extends ConsumerState<MarketPage> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween, crossAxisAlignment: CrossAxisAlignment.end,
           children: _distData.map((d) {
             final bc = d.type == 'down' ? const Color(0xFF16b85f) : (d.type == 'flat' ? const Color(0xFF9ea7bc) : const Color(0xFFff4d57));
-            return SizedBox(width: 30, child: Column(mainAxisAlignment: MainAxisAlignment.end, children: [
-              Text('${d.value}', style: AppTextStyles.num(11, color: valColor)),
+            return SizedBox(width: 30, child: Column(mainAxisSize: MainAxisSize.min, mainAxisAlignment: MainAxisAlignment.end, children: [
+              Text('${d.value}', maxLines: 1, softWrap: false, overflow: TextOverflow.visible, style: AppTextStyles.num(11, color: valColor)),
               const SizedBox(height: 4),
               Container(height: d.height.toDouble(), width: 14,
                 decoration: BoxDecoration(color: bc, borderRadius: const BorderRadius.vertical(top: Radius.circular(2)))),
-              const SizedBox(height: 5), Text(d.label, style: AppTextStyles.num(9, color: lblColor)),
+              const SizedBox(height: 5), Text(d.label, maxLines: 1, softWrap: false, overflow: TextOverflow.visible, style: AppTextStyles.num(9, color: lblColor)),
             ]));
           }).toList()),
         ),
@@ -403,6 +410,38 @@ class _MarketPageState extends ConsumerState<MarketPage> {
   String _fs(double v) => '${v >= 0 ? "+" : ""}${v.toStringAsFixed(2)}';
   String _fr(int r) => r < 10 ? '0$r' : '$r';
   Color _rc(int r, bool d) => r == 1 ? const Color(0xFFee9f1c) : r == 2 ? const Color(0xFF8e8e98) : r == 3 ? const Color(0xFFd28d5f) : (d ? AppColors.darkText : const Color(0xFF191919));
+}
+
+// 涨跌趋势小三角，对齐 zdj .trend-arrow (border-left/right 6rpx, border-top/bottom 10rpx)。
+// 不用 Icons.arrow_drop_up/down，因其内建留白偏大，在窄卡片内会挤出溢出。
+class _TrendArrow extends StatelessWidget {
+  final bool up;
+  final Color color;
+  const _TrendArrow({required this.up, required this.color});
+
+  @override
+  Widget build(BuildContext context) => CustomPaint(size: const Size(6, 5), painter: _TrendArrowPainter(up: up, color: color));
+}
+
+class _TrendArrowPainter extends CustomPainter {
+  final bool up;
+  final Color color;
+  const _TrendArrowPainter({required this.up, required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final path = Path();
+    if (up) {
+      path..moveTo(size.width / 2, 0)..lineTo(size.width, size.height)..lineTo(0, size.height);
+    } else {
+      path..moveTo(0, 0)..lineTo(size.width, 0)..lineTo(size.width / 2, size.height);
+    }
+    path.close();
+    canvas.drawPath(path, Paint()..color = color);
+  }
+
+  @override
+  bool shouldRepaint(covariant _TrendArrowPainter oldDelegate) => oldDelegate.up != up || oldDelegate.color != color;
 }
 
 class QuoteCard { final String symbolId, name, price, change, rate, trend; const QuoteCard({required this.symbolId, required this.name, required this.price, required this.change, required this.rate, required this.trend}); }

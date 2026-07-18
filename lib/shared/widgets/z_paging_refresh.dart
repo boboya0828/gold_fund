@@ -60,14 +60,38 @@ class ZPagingRefresh extends StatelessWidget {
   }
 }
 
-class _ZpRefreshHeader extends StatelessWidget {
+class _ZpRefreshHeader extends StatefulWidget {
   final RefreshIndicatorMode mode;
   final bool isDark;
 
   const _ZpRefreshHeader({required this.mode, required this.isDark});
 
   @override
+  State<_ZpRefreshHeader> createState() => _ZpRefreshHeaderState();
+}
+
+class _ZpRefreshHeaderState extends State<_ZpRefreshHeader> {
+  // 刷新成功后 CupertinoSliverRefreshControl 会把 extent 收缩回 0，
+  // 收缩过程中一旦 extent 低于阈值，框架会把 mode 又报回 drag/armed，
+  // 导致"刷新成功"的对勾一闪就变回箭头。这里锁定：一旦见过 done，
+  // 在真正 inactive（收起动画结束）之前都继续展示 done 的样式。
+  bool _justCompleted = false;
+
+  @override
+  void didUpdateWidget(covariant _ZpRefreshHeader oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.mode == RefreshIndicatorMode.done) {
+      _justCompleted = true;
+    } else if (widget.mode == RefreshIndicatorMode.inactive) {
+      _justCompleted = false;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final mode = _justCompleted ? RefreshIndicatorMode.done : widget.mode;
+    final isDark = widget.isDark;
+
     if (mode == RefreshIndicatorMode.inactive) {
       return const SizedBox.shrink();
     }
@@ -94,34 +118,49 @@ class _ZpRefreshHeader extends StatelessWidget {
         break;
     }
 
-    return Center(
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          SizedBox(
-            width: 17,
-            height: 17,
-            child: Center(child: _buildIcon(indicatorColor)),
-          ),
-          const SizedBox(width: 6), // 9rpx≈4.5，取 6 视觉更稳
-          Text(text, style: AppTextStyles.cn(15, color: titleColor, height: 1)),
-        ],
+    // RepaintBoundary 隔离刷新头自身的图层：CupertinoSliverRefreshControl 在
+    // drag/armed/refresh/done 间快速切换子树类型时，若不单独成层，
+    // 偶尔会在合成时把图标残留的图层画到其他内容之上（"显示在最顶层"）。
+    return RepaintBoundary(
+      child: Center(
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            SizedBox(
+              width: 17,
+              height: 17,
+              child: Center(
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 150),
+                  switchInCurve: Curves.easeOut,
+                  switchOutCurve: Curves.easeIn,
+                  transitionBuilder: (child, animation) =>
+                      FadeTransition(opacity: animation, child: child),
+                  child: _buildIcon(mode, indicatorColor),
+                ),
+              ),
+            ),
+            const SizedBox(width: 6), // 9rpx≈4.5，取 6 视觉更稳
+            Text(text, style: AppTextStyles.cn(15, color: titleColor, height: 1)),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildIcon(Color color) {
+  Widget _buildIcon(RefreshIndicatorMode mode, Color color) {
     switch (mode) {
       case RefreshIndicatorMode.refresh:
-        return CupertinoActivityIndicator(color: color, radius: 8);
+        return CupertinoActivityIndicator(key: const ValueKey('refresh'), color: color, radius: 8);
       case RefreshIndicatorMode.done:
-        return Icon(Icons.check, size: 17, color: color);
+        return Icon(Icons.check, key: const ValueKey('done'), size: 17, color: color);
       case RefreshIndicatorMode.armed:
       case RefreshIndicatorMode.drag:
       default:
         // 箭头：drag 朝下(turns .5)、armed 朝上(turns 0)，0.2s 平滑旋转（对齐 z-paging）
         return AnimatedRotation(
+          key: const ValueKey('arrow'),
           turns: mode == RefreshIndicatorMode.armed ? 0.0 : 0.5,
           duration: const Duration(milliseconds: 200),
           child: Icon(Icons.arrow_upward, size: 15, color: color),

@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/text_styles.dart';
+import '../../shared/widgets/z_paging_refresh.dart';
 
 /// 会员页面 - 1:1 复刻 uni-app pages/member/index.vue (来自 wxapp-yjzs)
 class MemberPage extends ConsumerStatefulWidget {
@@ -59,19 +60,19 @@ class _MemberPageState extends ConsumerState<MemberPage> {
     return Scaffold(
       backgroundColor: bg,
       body: SafeArea(
-        child: RefreshIndicator(
-          color: AppColors.upColor,
-          onRefresh: () async { _loadUser(); },
-          child: SingleChildScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-          child: Column(children: [
-            // Fixed title
-            Container(
-              height: 44,
-              color: bg,
-              alignment: Alignment.center,
-              child: Text('VIP专区', style: AppTextStyles.cn(16, weight: FontWeight.w600, color: isDark ? AppColors.darkText : const Color(0xFF333333))),
-            ),
+        child: Column(children: [
+          // 固定标题，不随下拉刷新滚动，对齐源码 z-paging :fixed="false"
+          Container(
+            height: 44,
+            color: bg,
+            alignment: Alignment.center,
+            child: Text('VIP专区', style: AppTextStyles.cn(16, weight: FontWeight.w600, color: isDark ? AppColors.darkText : const Color(0xFF333333))),
+          ),
+          Expanded(
+            child: ZPagingRefresh(
+              isDark: isDark,
+              onRefresh: () async { _loadUser(); },
+              child: Column(children: [
             // ===== User VIP Card + VIP Menu Overlap =====
             // Stack 精确复刻 uni-app 负 margin 叠加: 12+139-65+121-37 = 170
             SizedBox(
@@ -90,12 +91,14 @@ class _MemberPageState extends ConsumerState<MemberPage> {
                       ),
                       padding: const EdgeInsets.fromLTRB(17, 20, 17, 0),
                       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        // Avatar
-                        Container(width: 50, height: 50, decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(25),
-                          color: Colors.grey.shade300,
-                          image: _avatar.isNotEmpty ? DecorationImage(image: NetworkImage(_avatar), fit: BoxFit.cover) : null,
-                        ), child: _avatar.isEmpty ? const Icon(Icons.person, size: 30, color: Colors.white) : null),
+                        // Avatar — 对齐 wxapp-yjzs defaultAvatar: photo.png
+                        ClipOval(child: _avatar.isNotEmpty
+                            ? CachedNetworkImage(
+                                imageUrl: _avatar, width: 50, height: 50, fit: BoxFit.cover,
+                                placeholder: (_, _) => Container(width: 50, height: 50, color: Colors.grey.shade300),
+                                errorWidget: (_, _, _) => Image.asset('assets/images/img/photo.png', width: 50, height: 50, fit: BoxFit.cover),
+                              )
+                            : Image.asset('assets/images/img/photo.png', width: 50, height: 50, fit: BoxFit.cover)),
                         const SizedBox(width: 12),
                         // Name + VIP badge
                         Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -103,7 +106,7 @@ class _MemberPageState extends ConsumerState<MemberPage> {
                           Row(children: [
                             Text(_nickname, style: AppTextStyles.cn(16, color: const Color(0xFF333333))),
                             const SizedBox(width: 14),
-                            _cachedIcon('https://huangjinetf.com/wxapp/image/img/vipico1.png', 14, 12.5),
+                            Image.asset('assets/images/img/vipico1.png', width: 14, height: 12.5),
                           ]),
                           const SizedBox(height: 6),
                           Row(children: [
@@ -123,18 +126,18 @@ class _MemberPageState extends ConsumerState<MemberPage> {
                       decoration: BoxDecoration(
                         // 深色模式切换背景图 (对齐 zdj vipMenuBg: vipbg.png / vipbg-b.png)
                         image: DecorationImage(
-                          image: CachedNetworkImageProvider(isDark
-                              ? 'https://huangjinetf.com/wxapp/image/img/vipbg-b.png'
-                              : 'https://huangjinetf.com/wxapp/image/img/vipbg.png'),
+                          image: AssetImage(isDark
+                              ? 'assets/images/img/vipbg-b.png'
+                              : 'assets/images/img/vipbg.png'),
                           fit: BoxFit.fill),
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         children: [
-                          _vipMenuItem('https://huangjinetf.com/wxapp/image/img/vipzb.png', 'VIP早报', () => context.push('/member/morning-news')),
-                          _vipMenuItem('https://huangjinetf.com/wxapp/image/img/viplc.png', '流入流出', () => context.push('/member/contrast')),
-                          _vipMenuItem('https://huangjinetf.com/wxapp/image/img/vipbs.png', '关注度飙升', () => context.push('/member/rising-chart')),
-                          _vipMenuItem('https://huangjinetf.com/wxapp/image/img/vipwp.png', '尾盘参考', () {}),
+                          _vipMenuItem('assets/images/img/vipzb.png', 'VIP早报', () => context.push('/member/morning-news')),
+                          _vipMenuItem('assets/images/img/viplc.png', '流入流出', () => context.push('/member/contrast')),
+                          _vipMenuItem('assets/images/img/vipbs.png', '关注度飙升', () => context.push('/member/rising-chart')),
+                          _vipMenuItem('assets/images/img/vipwp.png', '尾盘参考', () {}),
                         ],
                       ),
                     ),
@@ -171,27 +174,18 @@ class _MemberPageState extends ConsumerState<MemberPage> {
             ),
 
             const SizedBox(height: 50), // uni-app: padding-bottom 100rpx
-          ]),
-        ),
-      )),
+              ]),
+            ),
+          ),
+        ]),
+      ),
     );
   }
 
-  /// 缓存的网络图标 — 带透明占位，避免显示破损图标
-  Widget _cachedIcon(String url, double w, double h) {
-    return CachedNetworkImage(
-      imageUrl: url,
-      width: w,
-      height: h,
-      placeholder: (_, _) => SizedBox(width: w, height: h),
-      errorWidget: (_, _, _) => SizedBox(width: w, height: h),
-    );
-  }
-
-  Widget _vipMenuItem(String img, String label, VoidCallback onTap) => GestureDetector(
+  Widget _vipMenuItem(String asset, String label, VoidCallback onTap) => GestureDetector(
     onTap: onTap,
     child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-      _cachedIcon(img, 39, 39),
+      Image.asset(asset, width: 39, height: 39),
       const SizedBox(height: 4),
       Text(label, style: AppTextStyles.cn(13)),
     ]));
@@ -221,7 +215,7 @@ class _MemberPageState extends ConsumerState<MemberPage> {
     height: 109,
     padding: const EdgeInsets.fromLTRB(12, 13, 12, 11),
     decoration: BoxDecoration(color: isDark ? AppColors.darkSurface : Colors.white, borderRadius: BorderRadius.circular(6)),
-    child: Column(children: [
+    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Text('今日流入流出人数', style: AppTextStyles.cn(15, color: isDark ? AppColors.darkText : const Color(0xFF333333), weight: FontWeight.w600)),
       const SizedBox(height: 22),
       Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
@@ -251,15 +245,13 @@ class _MemberPageState extends ConsumerState<MemberPage> {
         height: 43,
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(border: Border(bottom: BorderSide(color: isDark ? const Color(0xFF2B2D33) : const Color(0xFFefefef)))),
-        child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          GestureDetector(
-            onTap: () => context.push('/member/rising-chart'),
-            child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              Text('今日关注度飙升榜', style: AppTextStyles.cn(15, color: isDark ? AppColors.darkText : const Color(0xFF333333), weight: FontWeight.w600)),
-              Icon(Icons.chevron_right, size: 16, color: isDark ? AppColors.darkText : const Color(0xFF333333)),
-            ]),
-          ),
-        ]),
+        child: GestureDetector(
+          onTap: () => context.push('/member/rising-chart'),
+          child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+            Text('今日关注度飙升榜', style: AppTextStyles.cn(15, color: isDark ? AppColors.darkText : const Color(0xFF333333), weight: FontWeight.w600)),
+            Icon(Icons.chevron_right, size: 16, color: isDark ? AppColors.darkText : const Color(0xFF333333)),
+          ]),
+        ),
       ),
       for (var i = 1; i <= 3; i++)
         Container(

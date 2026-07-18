@@ -147,19 +147,25 @@ class _PhoneCodePageState extends ConsumerState<PhoneCodePage> {
     final phone = (GoRouterState.of(context).extra as String?) ?? '';
     setState(() => _loading = true);
     final success = await ref.read(authProvider.notifier).phoneLogin(phone, _codeCtrl.text);
-    if (mounted) {
+    if (!mounted) return;
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('登录成功'), duration: Duration(milliseconds: 1500)),
+      );
+      await Future.delayed(const Duration(milliseconds: 800));
+      if (mounted) context.go('/home');
+    } else {
       setState(() => _loading = false);
-      if (success) {
-        context.go('/home');
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(ref.read(authProvider).error ?? '登录失败，请重试'), duration: const Duration(seconds: 2)),
+      );
     }
   }
 
   Future<void> _handleResend() async {
-    // 打开验证码弹窗 (简化版，完整版同phone.vue)
-    final captchaId = await ref.read(authProvider.notifier).generateCaptcha();
-    if (captchaId != null && mounted) {
-      setState(() { _captchaId = captchaId; _captchaQuestion = '3+5=?'; });
+    final captcha = await ref.read(authProvider.notifier).generateCaptcha();
+    if (captcha != null && mounted) {
+      setState(() { _captchaId = captcha.id; _captchaQuestion = captcha.question; });
       _showCaptchaDialog();
     }
   }
@@ -197,8 +203,14 @@ class _PhoneCodePageState extends ConsumerState<PhoneCodePage> {
             Row(children: [
               Expanded(child: SizedBox(height: 40, child: ElevatedButton(
                 onPressed: () async {
-                  final id = await ref.read(authProvider.notifier).generateCaptcha();
-                  if (mounted) setState(() { _captchaId = id; _captchaQuestion = '3+5=?'; _captchaError = null; });
+                  final captcha = await ref.read(authProvider.notifier).generateCaptcha();
+                  if (mounted) {
+                    if (captcha != null) {
+                      setState(() { _captchaId = captcha.id; _captchaQuestion = captcha.question; _captchaError = null; });
+                    } else {
+                      setState(() => _captchaError = '获取验证码失败');
+                    }
+                  }
                 },
                 style: ElevatedButton.styleFrom(backgroundColor: isDark ? const Color(0xFF282828) : const Color(0xFFF5F5F5),
                   foregroundColor: isDark ? const Color(0xFFA7ADB8) : const Color(0xFF666666), shape: const StadiumBorder(), elevation: 0),
@@ -212,8 +224,15 @@ class _PhoneCodePageState extends ConsumerState<PhoneCodePage> {
                   final phone = (GoRouterState.of(context).extra as String?) ?? '';
                   final success = await ref.read(authProvider.notifier).sendSmsCode(phone, _captchaId ?? '', answer);
                   if (mounted) {
-                    if (success) { Navigator.pop(ctx); _startCountdown(); }
-                    else { setState(() => _captchaError = '答案错误，请重试'); }
+                    if (success) {
+                      Navigator.pop(ctx);
+                      _startCountdown();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('验证码已发送'), duration: Duration(seconds: 1)),
+                      );
+                    } else {
+                      setState(() => _captchaError = '答案错误，请重试');
+                    }
                   }
                 },
                 style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white, shape: const StadiumBorder(), elevation: 0),

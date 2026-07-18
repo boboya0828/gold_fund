@@ -22,6 +22,7 @@ import 'pages/profile/profile_page.dart';
 import 'pages/user/curve_page.dart';
 import 'pages/user/profile_edit_page.dart';
 import 'pages/user/share_page.dart';
+import 'pages/user/settings_page.dart';
 import 'pages/search/search_page.dart';
 import 'pages/common/webview_page.dart';
 import 'features/auth/pages/wx_login_page.dart';
@@ -231,6 +232,12 @@ class AppRouter {
               path: '/user/share',
               pageBuilder: (context, state) => const NoTransitionPage(
                 child: SharePage(),
+              ),
+            ),
+            GoRoute(
+              path: '/user/settings',
+              pageBuilder: (context, state) => const NoTransitionPage(
+                child: SettingsPage(),
               ),
             ),
             // 公关页面

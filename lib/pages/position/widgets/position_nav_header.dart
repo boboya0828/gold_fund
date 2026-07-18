@@ -34,9 +34,9 @@ class PositionNavHeader extends ConsumerWidget {
         : const Color(0xFF452008);
 
     return Container(
-      // 源码 .pages-nav 浅色底 #F1F1F3（背景图之下的底色）
-      // 注意：背景图已上移到 position_page.dart 页面级 Stack (延伸到状态栏后)，这里不再绘制。
-      color: isDark ? const Color(0xFF202125) : const Color(0xFFF1F1F3),
+      // 注意：背景图已上移到 position_page.dart 页面级 Stack (延伸到状态栏后)。
+      // 浅色模式下这里必须透明，否则实色会盖住下层的背景图（暗色模式无背景图，用实色兜底）。
+      color: isDark ? const Color(0xFF202125) : Colors.transparent,
       child: Stack(
         children: [
           // pages-nav padding: SafeArea 已消费状态栏，此处补 10px（对齐 topHeight=statusBarHeight+10）
