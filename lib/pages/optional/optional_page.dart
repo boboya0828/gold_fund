@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/network/api_client.dart';
 import '../../core/network/api_endpoints.dart';
 import '../../core/services/fund_group_service.dart';
+import '../../shared/widgets/z_paging_refresh.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/text_styles.dart';
@@ -320,24 +321,21 @@ class _OptionalPageState extends ConsumerState<OptionalPage> {
           const Positioned(top: 0, left: 0, right: 0, child: Image(
             image: AssetImage('assets/images/img/position-bg.png'), fit: BoxFit.fitWidth, alignment: Alignment.topCenter)),
         SafeArea(
-          child: RefreshIndicator(
-            color: AppColors.upColor,
+          child: ZPagingRefresh(
+            isDark: isDark,
             onRefresh: _loadData,
-            child: SingleChildScrollView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              child: Column(children: [
-                _buildNav(isDark, topPad),
-                // 源码 .page-content/.active-box 区域背景 #f5f5f5（暗色 #111315）
-                Container(
-                  color: isDark ? AppColors.darkBg : const Color(0xFFF5F5F5),
-                  child: Column(children: [
-                    _buildTableHeader(isDark, nameW, colW),
-                    _buildList(isDark, nameW, colW),
-                    const SizedBox(height: 120),
-                  ]),
-                ),
-              ]),
-            ),
+            child: Column(children: [
+              _buildNav(isDark, topPad),
+              // 源码 .page-content/.active-box 区域背景 #f5f5f5（暗色 #111315）
+              Container(
+                color: isDark ? AppColors.darkBg : const Color(0xFFF5F5F5),
+                child: Column(children: [
+                  _buildTableHeader(isDark, nameW, colW),
+                  _buildList(isDark, nameW, colW),
+                  const SizedBox(height: 120),
+                ]),
+              ),
+            ]),
           ),
         ),
         // ===== 快捷菜单（+号）=====
