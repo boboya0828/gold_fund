@@ -51,13 +51,20 @@ class AppUpdateService {
   static Future<Map<String, dynamic>> _buildPayload() async {
     final info = await PackageInfo.fromPlatform();
     final platform = _platform();
+    // 对齐 getAppChannel：iOS 固定 appstore；其余优先读本地存储渠道（APP_CHANNEL/appChannel）。
+    // plus.runtime.channel 与按设备品牌推断渠道依赖 uni-app 专有 API / 设备信息插件，Flutter 端不适用，
+    // 无存储渠道时回退 'official'。
+    final prefs = await SharedPreferences.getInstance();
+    final channel = platform == 'ios'
+        ? 'appstore'
+        : (prefs.getString('APP_CHANNEL') ?? prefs.getString('appChannel') ?? 'official');
     return {
       'platform': platform,
-      'channel': platform == 'ios' ? 'appstore' : 'official',
+      'channel': channel,
       'packageName': info.packageName,
       'versionName': info.version,
       'versionCode': int.tryParse(info.buildNumber) ?? 0,
-      'device': '',
+      'device': '', // vue 取 systemInfo.deviceModel，需设备信息插件，暂留空
     };
   }
 
@@ -104,7 +111,8 @@ class AppUpdateService {
       title: (data['title'] ?? '发现新版本').toString(),
       description:
           (data['description'] ?? data['desc'] ?? data['updateDesc'] ?? '本次更新优化了使用体验，建议升级后使用。').toString(),
-      updateList: _normalizeList(data['content'] ?? data['updateList'] ?? data['releaseNotes']),
+      updateList: _normalizeList(
+          data['content'] ?? data['updateList'] ?? data['releaseNotes'] ?? data['updateDesc'] ?? data['description']),
       downloadUrl: (data['downloadUrl'] ?? data['marketUrl'] ?? data['storeUrl'] ?? data['apkUrl'] ?? data['url'] ?? '')
           .toString(),
       storeUrl: (data['storeUrl'] ?? data['marketUrl'] ?? '').toString(),
@@ -173,7 +181,8 @@ class AppUpdateService {
     }
     if (value is String) {
       return value
-          .split(RegExp(r'\||\r?\n|；|;'))
+          // 对齐 vue normalizeUpdateList 的分隔规则：| 换行 ；; 以及 “1.”“1、” 编号起点
+          .split(RegExp(r'\||\r?\n|；|;|(?=\d+[.、])'))
           .map((e) => e.trim())
           .where((e) => e.isNotEmpty)
           .toList();

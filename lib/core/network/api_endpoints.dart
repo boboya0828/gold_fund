@@ -78,6 +78,7 @@ class ApiEndpoints {
   static const assetBatchInput = '/asset/api/Asset/batchinput';        // POST
   static const assetBatchCorrect = '/asset/api/Asset/batchcorrect';    // POST
   static const assetOcr = '/asset/api/Asset/ocrSource';               // POST
+  static const assetDeleteV2 = '/asset/api/Asset';                     // DELETE /{assetId} 需拼接
 
   // Profit
   static const profitCalendarAsset = '/asset/api/Profit/asset';        // GET /{assetId}
@@ -113,6 +114,15 @@ class ApiEndpoints {
   static const marketFundPickTop = '/asset/api/Market/FundPickTop';    // GET — 基金自选榜单
   static const marketFundContinuousUpCount = '/asset/api/Market/FundContinuousUpCount'; // GET
   static const marketFundChangeCount = '/asset/api/Market/FundChangeCount'; // GET
+  static const marketFundHoldTop = '/asset/api/Market/FundHoldTop';    // GET
+  static const marketFundStreakTop = '/asset/api/Market/FundStreakTop'; // GET
+  static const marketFundQuoteTop = '/asset/api/Market/FundQuoteTop';  // GET
+
+  // Banner
+  static const banner = '/asset/api/Banner';                           // GET ?limit=
+
+  // Vip
+  static const vipHome = '/asset/api/Vip/home';                        // GET
 
   // Barrage
   static const barrage = '/asset/api/Barrage';                         // POST(send) GET /{fundId}

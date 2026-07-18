@@ -197,20 +197,15 @@ class BookItem {
   const BookItem({required this.bookId, required this.bookName});
 }
 
-/// 资产可见模式: 0=全部可见, 1=隐藏金额, 2=隐藏盈亏
-enum AssetVisibleMode { showAll, hideAmount, hideProfit }
-
-extension AssetVisibleModeExt on AssetVisibleMode {
-  AssetVisibleMode next() {
-    switch (this) {
-      case AssetVisibleMode.showAll:
-        return AssetVisibleMode.hideAmount;
-      case AssetVisibleMode.hideAmount:
-        return AssetVisibleMode.hideProfit;
-      case AssetVisibleMode.hideProfit:
-        return AssetVisibleMode.showAll;
-    }
-  }
+/// 资产可见级别 — 1:1 复刻 uni-app assetVisible (0~4)
+/// 0=全部显示, 1=隐藏持有金额, 2=再隐藏收益金额, 3=再隐藏收益率, 4=再隐藏基金名称
+class AssetVisibleLevel {
+  AssetVisibleLevel._();
+  static const showAll = 0;
+  static const hideHoldAmount = 1;
+  static const hideIncomeAmount = 2;
+  static const hideIncomeRate = 3;
+  static const hideFundName = 4;
 }
 
 /// 表格展示模式: 0=普通, 1=简洁, 2=极简
@@ -224,10 +219,13 @@ class PositionState {
   final double totalMarketValue;
   final double totalDayProfit;
   final double totalDayChangeRatio;
-  final AssetVisibleMode visibleMode;
+  final int assetVisible; // 0~4，见 AssetVisibleLevel
   final bool isLoading;
   final String? refreshTime;
   final bool showRatioTip;
+  final bool showNotOpened; // 刷新时非交易日提示「尚未开盘」
+  final bool showProfitRatio; // 当日总收益主显 金额/收益率 切换（持久化）
+  final String curTradeDate; // 接口返回的当前交易日 (yyyy-MM-dd)
   final TableShowMode tableMode;
   final String sortField;
   final String sortOrder; // 'asc' or 'desc'
@@ -242,10 +240,13 @@ class PositionState {
     this.totalMarketValue = 0,
     this.totalDayProfit = 0,
     this.totalDayChangeRatio = 0,
-    this.visibleMode = AssetVisibleMode.showAll,
+    this.assetVisible = 0,
     this.isLoading = false,
     this.refreshTime,
     this.showRatioTip = false,
+    this.showNotOpened = false,
+    this.showProfitRatio = false,
+    this.curTradeDate = '',
     this.tableMode = TableShowMode.normal,
     this.sortField = 'sort',
     this.sortOrder = 'desc',
@@ -260,10 +261,13 @@ class PositionState {
     double? totalMarketValue,
     double? totalDayProfit,
     double? totalDayChangeRatio,
-    AssetVisibleMode? visibleMode,
+    int? assetVisible,
     bool? isLoading,
     String? refreshTime,
     bool? showRatioTip,
+    bool? showNotOpened,
+    bool? showProfitRatio,
+    String? curTradeDate,
     TableShowMode? tableMode,
     String? sortField,
     String? sortOrder,
@@ -276,10 +280,13 @@ class PositionState {
     totalMarketValue: totalMarketValue ?? this.totalMarketValue,
     totalDayProfit: totalDayProfit ?? this.totalDayProfit,
     totalDayChangeRatio: totalDayChangeRatio ?? this.totalDayChangeRatio,
-    visibleMode: visibleMode ?? this.visibleMode,
+    assetVisible: assetVisible ?? this.assetVisible,
     isLoading: isLoading ?? this.isLoading,
     refreshTime: refreshTime ?? this.refreshTime,
     showRatioTip: showRatioTip ?? this.showRatioTip,
+    showNotOpened: showNotOpened ?? this.showNotOpened,
+    showProfitRatio: showProfitRatio ?? this.showProfitRatio,
+    curTradeDate: curTradeDate ?? this.curTradeDate,
     tableMode: tableMode ?? this.tableMode,
     sortField: sortField ?? this.sortField,
     sortOrder: sortOrder ?? this.sortOrder,
@@ -297,10 +304,50 @@ class PositionState {
       ? books[tabIndex - 1].bookId
       : null;
 
+  // ---- 隐私级别派生 (1:1 uni-app hideXxx computed) ----
+  bool get hideHoldAmount => assetVisible >= AssetVisibleLevel.hideHoldAmount;
+  bool get hideIncomeAmount =>
+      assetVisible >= AssetVisibleLevel.hideIncomeAmount;
+  bool get hideIncomeRate => assetVisible >= AssetVisibleLevel.hideIncomeRate;
+  bool get hideFundName => assetVisible >= AssetVisibleLevel.hideFundName;
+
+  /// 表头日期标签 (MM-dd)：优先接口 curTradeDate，否则最近一个工作日
+  /// (uni-app 用 chinese-days 跳过法定节假日，这里仅跳过周末 —— 见迁移报告)
+  String get headerDateLabel {
+    final d = _parseDate(curTradeDate) ?? _lastWeekday(DateTime.now());
+    final m = '${d.month}'.padLeft(2, '0');
+    final day = '${d.day}'.padLeft(2, '0');
+    return '$m-$day';
+  }
+
+  static DateTime? _parseDate(String value) {
+    if (value.isEmpty) return null;
+    final m = RegExp(r'^(\d{4})[-/](\d{1,2})[-/](\d{1,2})').firstMatch(value);
+    if (m != null) {
+      return DateTime(
+        int.parse(m.group(1)!),
+        int.parse(m.group(2)!),
+        int.parse(m.group(3)!),
+      );
+    }
+    return DateTime.tryParse(value);
+  }
+
+  static DateTime _lastWeekday(DateTime from) {
+    var d = from;
+    for (var i = 0; i < 15; i++) {
+      if (d.weekday >= DateTime.monday && d.weekday <= DateTime.friday) {
+        return d;
+      }
+      d = d.subtract(const Duration(days: 1));
+    }
+    return from;
+  }
+
   /// 排序后的列表
   List<PositionItem> get sortedItems {
     final result = List<PositionItem>.from(items);
-    if (sortField == 'sort') return result;
+    if (sortField == 'sort' || sortField.isEmpty) return result;
     result.sort((a, b) {
       final av = _getSortValue(a, sortField);
       final bv = _getSortValue(b, sortField);
@@ -314,7 +361,11 @@ class PositionState {
       case 'dayProfit':
         return item.dayProfit;
       case 'increaseRatio':
-        return item.firstIndicator?.changeRatio ?? 0;
+        // 1:1 uni-app getSortValue: 普通模式按关联板块涨幅，简洁/极简按最新涨幅
+        if (tableMode == TableShowMode.normal) {
+          return item.firstIndicator?.changeRatio ?? 0;
+        }
+        return item.latestChgRate;
       case 'latestPrice.chgRate':
         return item.latestChgRate;
       case 'holdProfit':
@@ -324,7 +375,7 @@ class PositionState {
     }
   }
 
-  /// 是否基金市场休市
+  /// 是否基金市场休市（近似：周末或 9:00-15:00 之外）
   bool get isFundMarketClosed {
     final now = DateTime.now();
     final day = now.weekday;
@@ -340,13 +391,18 @@ class PositionNotifier extends StateNotifier<PositionState> {
   final ApiClient _api = ApiClient();
 
   PositionNotifier() : super(const PositionState()) {
-    _restoreTableMode();
+    _restorePrefs();
   }
 
-  Future<void> _restoreTableMode() async {
+  Future<void> _restorePrefs() async {
     final prefs = await SharedPreferences.getInstance();
     final mode = prefs.getInt('tableShowMode') ?? 0;
-    state = state.copyWith(tableMode: TableShowMode.values[mode.clamp(0, 2)]);
+    // 1:1 uni-app positionShowProfitRatio 缓存
+    final showRatio = prefs.getBool('positionShowProfitRatio') ?? false;
+    state = state.copyWith(
+      tableMode: TableShowMode.values[mode.clamp(0, 2)],
+      showProfitRatio: showRatio,
+    );
   }
 
   Future<void> _saveTableMode(TableShowMode mode) async {
@@ -403,14 +459,16 @@ class PositionNotifier extends StateNotifier<PositionState> {
       final items = list.map((e) => PositionItem.fromJson(e)).toList();
       final totalMarketValue = _toNum(payload['totalMarketValue']) ?? 0;
       final totalDayProfit = _toNum(payload['totalDayProfit']) ?? 0;
-      final totalDayChangeRatio =
-          (_toNum(payload['totalDayChangeRatio']) ?? 0) * 100;
+      // 1:1 uni-app：接口已返回百分比数值，前端直接展示，不再 ×100
+      final totalDayChangeRatio = _toNum(payload['totalDayChangeRatio']) ?? 0;
+      final curTradeDate = payload['curTradeDate'] as String? ?? '';
 
       state = state.copyWith(
         items: items,
         totalMarketValue: totalMarketValue,
         totalDayProfit: totalDayProfit,
         totalDayChangeRatio: totalDayChangeRatio,
+        curTradeDate: curTradeDate,
       );
     } catch (_) {}
   }
@@ -444,9 +502,18 @@ class PositionNotifier extends StateNotifier<PositionState> {
         final h = '${now.hour}'.padLeft(2, '0');
         final m = '${now.minute}'.padLeft(2, '0');
         final s = '${now.second}'.padLeft(2, '0');
-        state = state.copyWith(refreshTime: '$h:$m:$s', showRatioTip: true);
+        // 1:1 uni-app onRefresh: 非交易日显示「尚未开盘」(chinese-days 法定节假日
+        // 判断在 Flutter 端用周末近似)，3 秒后提示自动消失
+        final notOpened = !_isFundTradingDay(now);
+        state = state.copyWith(
+          refreshTime: '$h:$m:$s',
+          showRatioTip: true,
+          showNotOpened: notOpened,
+        );
         Future.delayed(const Duration(seconds: 3), () {
-          if (mounted) state = state.copyWith(showRatioTip: false);
+          if (mounted) {
+            state = state.copyWith(showRatioTip: false, showNotOpened: false);
+          }
         });
       }
     } catch (e) {
@@ -456,21 +523,34 @@ class PositionNotifier extends StateNotifier<PositionState> {
     }
   }
 
+  /// 是否基金交易日 (近似：仅排除周末；法定节假日见迁移报告)
+  bool _isFundTradingDay(DateTime d) {
+    return d.weekday >= DateTime.monday && d.weekday <= DateTime.friday;
+  }
+
   /// 下拉刷新
   Future<void> refresh() => loadData(showRefreshTip: true);
 
-  /// 切换账本
+  /// 切换账本 — 1:1 uni-app watch(taberIndex)：只重新拉取资产列表，不重拉账本
   void selectTab(int index) {
     if (index == state.tabIndex) return;
     state = state.copyWith(tabIndex: index);
-    loadData();
+    _fetchAssets(state.currentBookId);
   }
 
   // ==================== 交互 ====================
 
-  /// 切换资产可见性
-  void toggleVisible() {
-    state = state.copyWith(visibleMode: state.visibleMode.next());
+  /// 设置资产可见级别 (0~4) — 1:1 uni-app selectAssetVisibleMode
+  void setAssetVisible(int level) {
+    state = state.copyWith(assetVisible: level.clamp(0, 4));
+  }
+
+  /// 切换当日总收益 金额/收益率 主显 — 1:1 uni-app toggleProfitDisplay（持久化）
+  Future<void> toggleProfitDisplay() async {
+    final next = !state.showProfitRatio;
+    state = state.copyWith(showProfitRatio: next);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('positionShowProfitRatio', next);
   }
 
   /// 切换排序 — 1:1 复刻 uni-app toggleMetalSort: desc → asc → cleared → desc
@@ -489,11 +569,14 @@ class PositionNotifier extends StateNotifier<PositionState> {
   }
 
   /// 置顶 — 将指定项移到列表顶部并保存排序
-  Future<void> pinToTop(int assetId) async {
+  /// 返回结果供页面 toast：'notFound' | 'alreadyTop' | 'pinned' | 'failed'
+  Future<String> pinToTop(int assetId) async {
     final items = List<PositionItem>.from(state.items);
     final idx = items.indexWhere((i) => i.assetId == assetId);
-    if (idx < 0) return;
-    if (idx == 0 && state.sortField.isEmpty) return; // 已在顶部
+    if (idx < 0) return 'notFound';
+    if (idx == 0 && (state.sortField.isEmpty || state.sortField == 'sort')) {
+      return 'alreadyTop'; // 已在顶部
+    }
     final item = items.removeAt(idx);
     items.insert(0, item);
     // 重置排序
@@ -513,8 +596,9 @@ class PositionNotifier extends StateNotifier<PositionState> {
           data: {'assetOrders': orderMap},
         );
       }
+      return 'pinned';
     } catch (_) {
-      /* 静默处理 */
+      return 'failed';
     }
   }
 
@@ -524,12 +608,10 @@ class PositionNotifier extends StateNotifier<PositionState> {
     _saveTableMode(mode);
   }
 
-  /// 删除资产
+  /// 删除资产 — 1:1 uni-app deleteAsset: DELETE /asset/api/Asset/{assetId} (V2)
   Future<bool> deleteAsset(int assetId) async {
     try {
-      final res = await _api.delete(
-        '${ApiEndpoints.assetDetailDelete}/$assetId',
-      );
+      final res = await _api.delete('${ApiEndpoints.assetDeleteV2}/$assetId');
       final code = res.data?['code'] as int?;
       return code == 200;
     } catch (_) {

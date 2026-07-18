@@ -33,6 +33,8 @@ class AppIcons {
   static const switchIcon = IconData(0xe656, fontFamily: _family);
   /// 切换2 icon-qiehuan \e61a
   static const switch2 = IconData(0xe61a, fontFamily: _family);
+  /// 切换3 icon-qiehuan2 \e62a — 收益金额/收益率切换
+  static const qiehuan2 = IconData(0xe62a, fontFamily: _family);
 
   // ---- 图片/输入 ----
   /// 相册 icon-xiangce-xianxing \e7bf

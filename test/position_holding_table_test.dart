@@ -8,7 +8,7 @@ import 'package:yangji_zhushou/pages/position/widgets/position_nav_header.dart';
 
 void main() {
   PositionState positionState({
-    AssetVisibleMode visibleMode = AssetVisibleMode.showAll,
+    int assetVisible = 0,
     TableShowMode tableMode = TableShowMode.normal,
   }) {
     return PositionState(
@@ -16,7 +16,7 @@ void main() {
       tableMode: tableMode,
       totalMarketValue: 9988.66,
       totalDayProfit: 88.12,
-      visibleMode: visibleMode,
+      assetVisible: assetVisible,
       items: [
         PositionItem.fromJson({
           'assetId': 1,
@@ -53,6 +53,8 @@ void main() {
               onSelect: (_) {},
               onRowTap: () {},
               onSortToggle: () {},
+              onSortManage: () {},
+              onSyncTap: () {},
             ),
           ),
         ),
@@ -79,7 +81,7 @@ void main() {
           home: Scaffold(
             body: Column(
               children: [
-                PositionAssetCard(state: state, isDark: false),
+                PositionAssetCard(state: state, isDark: false, onEyeTap: () {}),
                 PositionHoldingTable(
                   state: state,
                   isDark: false,
@@ -87,6 +89,8 @@ void main() {
                   onSelect: (_) {},
                   onRowTap: () {},
                   onSortToggle: () {},
+                  onSortManage: () {},
+                  onSyncTap: () {},
                 ),
               ],
             ),
@@ -203,6 +207,8 @@ void main() {
               onSelect: (_) {},
               onRowTap: () {},
               onSortToggle: () {},
+              onSortManage: () {},
+              onSyncTap: () {},
             ),
           ),
         ),
@@ -233,6 +239,8 @@ void main() {
               onSelect: (_) {},
               onRowTap: () {},
               onSortToggle: () {},
+              onSortManage: () {},
+              onSyncTap: () {},
             ),
           ),
         ),

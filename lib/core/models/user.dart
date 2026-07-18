@@ -1,6 +1,7 @@
 /// 用户相关模型
 class UserInfo {
   final int id;
+  final String? username;
   final String? nickname;
   final String? avatarUrl;
   final String? phoneNumber;
@@ -11,6 +12,7 @@ class UserInfo {
 
   const UserInfo({
     required this.id,
+    this.username,
     this.nickname,
     this.avatarUrl,
     this.phoneNumber,
@@ -23,6 +25,7 @@ class UserInfo {
   factory UserInfo.fromJson(Map<String, dynamic> json) {
     return UserInfo(
       id: json['id'] as int? ?? 0,
+      username: json['username'] as String?,
       nickname: json['nickname'] as String?,
       avatarUrl: json['avatarUrl'] as String?,
       phoneNumber: json['phoneNumber'] as String?,
@@ -37,6 +40,7 @@ class UserInfo {
 
   Map<String, dynamic> toJson() => {
     'id': id,
+    'username': username,
     'nickname': nickname,
     'avatarUrl': avatarUrl,
     'phoneNumber': phoneNumber,
@@ -48,6 +52,7 @@ class UserInfo {
 
   UserInfo copyWith({
     int? id,
+    String? username,
     String? nickname,
     String? avatarUrl,
     String? phoneNumber,
@@ -58,6 +63,7 @@ class UserInfo {
   }) {
     return UserInfo(
       id: id ?? this.id,
+      username: username ?? this.username,
       nickname: nickname ?? this.nickname,
       avatarUrl: avatarUrl ?? this.avatarUrl,
       phoneNumber: phoneNumber ?? this.phoneNumber,

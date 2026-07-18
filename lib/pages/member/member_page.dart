@@ -1,15 +1,23 @@
 import 'dart:convert';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import '../../core/network/api_client.dart';
+import '../../core/network/api_endpoints.dart';
+import '../../shared/widgets/z_paging_refresh.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/text_styles.dart';
-import '../../shared/widgets/z_paging_refresh.dart';
+import 'widgets/member_models.dart';
+import 'widgets/member_timeline.dart';
+import 'widgets/member_vip_header.dart';
 
-/// 会员页面 - 1:1 复刻 uni-app pages/member/index.vue (来自 wxapp-yjzs)
+/// 会员页面 - 1:1 复刻 uni-app pages/member/index.vue (zdj-v1)
+///
+/// 数据：GET /asset/api/Vip/home（uni-app getVipHome），
+/// 归一化逻辑逐项对齐 index.vue 的 computed（displayGroups 等）。
 class MemberPage extends ConsumerStatefulWidget {
   const MemberPage({super.key});
   @override
@@ -17,163 +25,410 @@ class MemberPage extends ConsumerStatefulWidget {
 }
 
 class _MemberPageState extends ConsumerState<MemberPage> {
+  final ApiClient _api = ApiClient();
+
   String _avatar = '';
   String _nickname = '未登录';
-  String _vipExpiry = '2026-07-15';
+  bool _vipHomeLoaded = false;
+  List<VipTimelineGroup> _groups = const [];
 
   @override
   void initState() {
     super.initState();
+    // 对齐 uni-app onLoad/onReady：读取本地用户信息 + 触发 z-paging reload
     _loadUser();
+    _loadVipHome();
   }
+
+  // ===================== 用户信息（对齐 loadUserInfo/normalizeUserInfo） =====================
 
   void _loadUser() {
     SharedPreferences.getInstance().then((p) {
-      final token = p.getString('token');
-      if (token == null || token.isEmpty) {
-        if (mounted) setState(() => _nickname = '未登录');
+      final raw = p.getString('userInfo');
+      if (raw == null || raw.isEmpty || !raw.startsWith('{')) {
+        if (mounted) {
+          setState(() {
+            _nickname = '未登录';
+            _avatar = '';
+          });
+        }
         return;
       }
-      final raw = p.getString('userInfo');
-      if (raw != null && raw.isNotEmpty && raw.startsWith('{')) {
-        try {
-          final userData = Map<String, dynamic>.from(
+      try {
+        final data = Map<String, dynamic>.from(
             const JsonDecoder().convert(raw) as Map);
-          if (mounted) setState(() {
-            _nickname = (userData['nickname'] ?? userData['nickName'] ?? userData['userName'] ?? userData['username'] ?? 'VIP用户') as String;
-            _avatar = (userData['avatarUrl'] ?? userData['avatar'] ?? userData['headimgurl'] ?? '') as String;
+        // normalizeUserInfo: avatarUrl || avatar；nickname || userName || username
+        final avatar =
+            _pickText([data['avatarUrl'], data['avatar']]);
+        final nickname = _pickText(
+            [data['nickname'], data['userName'], data['username']]);
+        if (mounted) {
+          setState(() {
+            _avatar = avatar;
+            _nickname = nickname.isEmpty ? '未登录' : nickname;
           });
-        } catch (_) {
-          if (mounted) setState(() => _nickname = 'VIP用户');
         }
-      } else {
-        if (mounted) setState(() => _nickname = 'VIP用户');
+      } catch (_) {
+        if (mounted) setState(() => _nickname = '未登录');
       }
     });
   }
 
+  // ===================== VIP 首页数据（对齐 loadVipHome/displayGroups） =====================
+
+  Future<void> _loadVipHome() async {
+    try {
+      final res = await _api.get(ApiEndpoints.vipHome);
+      // unwrapApiData: res?.data ?? res ?? {}
+      final body = res.data;
+      dynamic data = body;
+      if (body is Map && body['data'] != null) data = body['data'];
+      final map = data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
+      if (mounted) {
+        setState(() {
+          _groups = _buildDisplayGroups(map);
+          _vipHomeLoaded = true;
+        });
+      }
+    } catch (_) {
+      // uni-app: console.error + showToast('获取VIP数据失败')，数据置空
+      if (mounted) {
+        setState(() {
+          _groups = const [];
+          _vipHomeLoaded = true;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('获取VIP数据失败')),
+        );
+      }
+    }
+  }
+
+  /// displayGroups：优先 groups/groupList/data.groups，否则 items/records/list
+  /// 合成单分组；空 items 的分组被过滤。
+  List<VipTimelineGroup> _buildDisplayGroups(Map<String, dynamic> home) {
+    final groupsRaw = _pickFirstArray([
+      home['groups'],
+      home['groupList'],
+      home['data'] is Map ? (home['data'] as Map)['groups'] : null,
+    ]);
+
+    if (groupsRaw.isNotEmpty) {
+      final out = <VipTimelineGroup>[];
+      for (var gi = 0; gi < groupsRaw.length; gi++) {
+        final g = groupsRaw[gi] is Map
+            ? Map<String, dynamic>.from(groupsRaw[gi] as Map)
+            : <String, dynamic>{};
+        final itemsRaw =
+            _pickFirstArray([g['items'], g['list'], g['records']]);
+        final items = <VipTimelineItem>[
+          for (var ii = 0; ii < itemsRaw.length; ii++)
+            _normalizeTimelineItem(itemsRaw[ii],
+                groupDate: g['date'], index: ii),
+        ];
+        if (items.isEmpty) continue;
+        // formatChineseDate(group.date || items[0]?.time)
+        final firstTime = itemsRaw.isNotEmpty && itemsRaw[0] is Map
+            ? (itemsRaw[0] as Map)['time']
+            : null;
+        out.add(VipTimelineGroup(
+          dateText: _formatChineseDate(g['date'] ?? firstTime),
+          items: items,
+        ));
+      }
+      return out;
+    }
+
+    final directRaw =
+        _pickFirstArray([home['items'], home['records'], home['list']]);
+    final items = <VipTimelineItem>[
+      for (var i = 0; i < directRaw.length; i++)
+        _normalizeTimelineItem(directRaw[i], index: i),
+    ];
+    if (items.isEmpty) return const [];
+    // formatChineseDate(fallbackItems[0]?.time || fallbackItems[0]?.groupDate)
+    final firstRaw = directRaw.first is Map
+        ? Map<String, dynamic>.from(directRaw.first as Map)
+        : <String, dynamic>{};
+    return [
+      VipTimelineGroup(
+        dateText:
+            _formatChineseDate(firstRaw['time'] ?? firstRaw['groupDate']),
+        items: items,
+      ),
+    ];
+  }
+
+  /// normalizeTimelineItem + getReportTitle + getReportDesc
+  VipTimelineItem _normalizeTimelineItem(dynamic raw,
+      {dynamic groupDate, required int index}) {
+    final item = raw is Map
+        ? Map<String, dynamic>.from(raw)
+        : <String, dynamic>{};
+    final type = (item['type'] ?? '').toString();
+    final gDate = _pickText([groupDate, item['groupDate']]);
+
+    // getReportTitle
+    final String title;
+    if (type == 'attention_rise_rank') {
+      title = _pickText([item['title']], fallback: '今日关注度飙升');
+    } else {
+      const fallbackMap = {
+        'morning_report': 'VIP早报',
+        'closing_report': '指数集体翻红，哪些是机会？',
+      };
+      title = _pickText(
+          [item['title'], item['name'], item['typeName'], fallbackMap[type]],
+          fallback: '--');
+    }
+
+    // getReportDesc
+    final String desc;
+    if (type == 'morning_report') {
+      desc = _pickText(
+          [item['summary'], item['desc'], item['description']],
+          fallback: '点击查看VIP早报吧～');
+    } else if (type == 'closing_report') {
+      desc = _pickText(
+          [item['summary'], item['desc'], item['description']],
+          fallback: '赶紧点击查看尾盘参考吧～');
+    } else {
+      desc = _pickText([item['summary'], item['desc'], item['description']]);
+    }
+
+    final timeText = _formatTimeOnly(_firstNonNull(
+        [item['time'], item['publishTime'], item['createdTime'], item['updateTime']]));
+    final dateText = _formatMonthDay(_firstNonNull([
+      item['time'],
+      gDate.isEmpty ? null : gDate,
+      item['recordDate'],
+      item['publishTime'],
+      item['createdTime'],
+      item['updateTime'],
+    ]));
+
+    return VipTimelineItem(
+      type: type,
+      id: _pickText([item['id']]),
+      title: title,
+      desc: desc,
+      timeText: timeText,
+      dateText: dateText,
+      flow: _normalizeFlowItem(item),
+      rankItems: _normalizeRankItems(_unwrapList(item)),
+    );
+  }
+
+  /// normalizeFlowItem：inflow/outflow ?? 链 + 百分比 clamp(4, 96)，无数据 50/50
+  VipFlowData _normalizeFlowItem(Map<String, dynamic> item) {
+    final inflow = _toNumber(item['inflowCount'] ??
+        item['inCount'] ??
+        item['inflowPeople'] ??
+        item['inflowUsers'] ??
+        item['inflow']);
+    final outflow = _toNumber(item['outflowCount'] ??
+        item['outCount'] ??
+        item['outflowPeople'] ??
+        item['outflowUsers'] ??
+        item['outflow']);
+    final total = inflow + outflow;
+    final risePercent =
+        total > 0 ? (inflow / total * 100).clamp(4.0, 96.0) : 50.0;
+    return VipFlowData(
+      inflowText: inflow.round().toString(),
+      outflowText: outflow.round().toString(),
+      risePercent: risePercent,
+      fallPercent: 100 - risePercent,
+    );
+  }
+
+  /// normalizeRankItems：slice(0, 3)
+  List<VipRankRow> _normalizeRankItems(List<dynamic> raw) {
+    final out = <VipRankRow>[];
+    for (var i = 0; i < raw.length && i < 3; i++) {
+      final item = raw[i] is Map
+          ? Map<String, dynamic>.from(raw[i] as Map)
+          : <String, dynamic>{};
+      final rateText = _pickText(
+          [item['riseText'], item['rateText'], item['valueText']]);
+      out.add(VipRankRow(
+        rankText: _pickText([item['rankNo'], item['rank']], fallback: '${i + 1}')
+            .padLeft(2, '0'),
+        name: _pickText(
+            [item['shortName'], item['symbolName'], item['name'], item['fundName'], item['title']],
+            fallback: '--'),
+        code: _pickText(
+            [item['symbolCode'], item['code'], item['displayCode'], item['fundCode'], item['symbol']],
+            fallback: '--'),
+        rateText: rateText.isNotEmpty
+            ? rateText
+            : '${_toNumber(item['riseRate'] ?? item['riseRatio'] ?? item['changeRate'] ?? item['changeRatio'] ?? item['attentionRiseRate'] ?? item['rate'] ?? item['percent'] ?? item['value'] ?? 0).toStringAsFixed(2)}%',
+      ));
+    }
+    return out;
+  }
+
+  /// unwrapList：在对象内寻找第一个数组字段
+  List<dynamic> _unwrapList(dynamic value) {
+    if (value is List) return value;
+    if (value is! Map) return const [];
+    final data = value['data'];
+    return _pickFirstArray([
+      value['items'],
+      value['records'],
+      value['list'],
+      value['rows'],
+      value['ranks'],
+      value['details'],
+      value['rankItems'],
+      value['recentItems'],
+      data is Map ? data['items'] : null,
+      data is Map ? data['records'] : null,
+      data is Map ? data['list'] : null,
+      data is Map ? data['ranks'] : null,
+      data is Map ? data['details'] : null,
+    ]);
+  }
+
+  // ===================== 跳转（对齐 hendleNavto/openHomeItem） =====================
+
+  void _openHomeItem(VipTimelineItem item) {
+    switch (item.type) {
+      case 'morning_report':
+        // uni-app: ./details?type=morning&id= —— Flutter 暂无 /member/details 路由，
+        // 暂落到 morning-news stub（对应 morningnews.vue），详见报告 SHARED CHANGES
+        context.push('/member/morning-news');
+        break;
+      case 'closing_report':
+        // uni-app: ./details?type=closing&id= —— 无对应路由/stub，暂不跳转
+        break;
+      case 'attention_rise_rank':
+        context.push(item.id.isNotEmpty
+            ? '/member/rising-chart?id=${Uri.encodeComponent(item.id)}'
+            : '/member/rising-chart');
+        break;
+      case 'flow_data':
+        context.push('/member/contrast');
+        break;
+    }
+  }
+
+  // ===================== 格式化工具（逐项对齐 uni-app helpers） =====================
+
+  /// pickFirstText：第一个非空字符串
+  static String _pickText(List<dynamic> values, {String fallback = ''}) {
+    for (final v in values) {
+      if (v == null) continue;
+      final s = v.toString().trim();
+      if (s.isNotEmpty) return s;
+    }
+    return fallback;
+  }
+
+  static dynamic _firstNonNull(List<dynamic> values) {
+    for (final v in values) {
+      if (v == null) continue;
+      if (v is String && v.trim().isEmpty) continue;
+      return v;
+    }
+    return null;
+  }
+
+  static List<dynamic> _pickFirstArray(List<dynamic> values) {
+    for (final v in values) {
+      if (v is List) return v;
+    }
+    return const [];
+  }
+
+  static double _toNumber(dynamic v) {
+    if (v is num) return v.toDouble();
+    return double.tryParse(v?.toString() ?? '') ?? 0;
+  }
+
+  static DateTime? _parseDate(dynamic value) {
+    if (value == null) return null;
+    final s = value.toString().trim();
+    if (s.isEmpty) return null;
+    return DateTime.tryParse(s.replaceAll('/', '-'));
+  }
+
+  /// formatChineseDate: 'MM月DD日 星期X'，解析失败回退当天
+  static String _formatChineseDate(dynamic value) {
+    final date = _parseDate(value) ?? DateTime.now();
+    const weeks = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
+    final m = date.month.toString().padLeft(2, '0');
+    final d = date.day.toString().padLeft(2, '0');
+    return '$m月$d日 ${weeks[date.weekday % 7]}';
+  }
+
+  /// formatMonthDay: 'MM月DD日'，解析失败返回 ''
+  static String _formatMonthDay(dynamic value) {
+    final date = _parseDate(value);
+    if (date == null) return '';
+    final m = date.month.toString().padLeft(2, '0');
+    final d = date.day.toString().padLeft(2, '0');
+    return '$m月$d日';
+  }
+
+  /// formatTimeOnly: 从 'T'/空格后的 HH:mm 提取，fallback '14:40'
+  static String _formatTimeOnly(dynamic value) {
+    final raw = _pickText([value]);
+    final match = RegExp(r'(?:T|\s)(\d{1,2}):(\d{2})').firstMatch(raw);
+    if (match == null) return '14:40';
+    return '${match.group(1)!.padLeft(2, '0')}:${match.group(2)!}';
+  }
+
+  // ===================== Build =====================
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    // .bg: #F1F1F3 / .theme-dark #111315
     final bg = isDark ? AppColors.darkBg : const Color(0xFFF1F1F3);
 
     return Scaffold(
       backgroundColor: bg,
       body: SafeArea(
         child: Column(children: [
-          // 固定标题，不随下拉刷新滚动，对齐源码 z-paging :fixed="false"
+          // .title 固定头部（z-paging :fixed="false"，不随滚动）：
+          // height 44 + 状态栏（SafeArea 承担），32rpx→16
           Container(
             height: 44,
             color: bg,
             alignment: Alignment.center,
-            child: Text('VIP专区', style: AppTextStyles.cn(16, weight: FontWeight.w600, color: isDark ? AppColors.darkText : const Color(0xFF333333))),
+            child: Text('VIP专区',
+                style: AppTextStyles.cn(16,
+                    weight: FontWeight.w600,
+                    color: isDark
+                        ? AppColors.darkText
+                        : const Color(0xFF333333))),
           ),
           Expanded(
             child: ZPagingRefresh(
               isDark: isDark,
-              onRefresh: () async { _loadUser(); },
+              // handleMemberPagingQuery → loadVipHome；onShow 行为由刷新兜底
+              onRefresh: () async {
+                _loadUser();
+                await _loadVipHome();
+              },
               child: Column(children: [
-            // ===== User VIP Card + VIP Menu Overlap =====
-            // Stack 精确复刻 uni-app 负 margin 叠加: 12+139-65+121-37 = 170
-            SizedBox(
-              height: 170,
-              child: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  // User card — top:12 matches uni-app margin-top:24rpx
-                  Positioned(
-                    top: 12, left: 16, right: 16,
-                    child: Container(
-                      height: 139,
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(begin: Alignment(-0.7, -1.0), end: Alignment(0.7, 1.0), colors: [Color(0xFFFFF2D6), Color(0xFFFFDED5)]),
-                        borderRadius: BorderRadius.circular(7),
-                      ),
-                      padding: const EdgeInsets.fromLTRB(17, 20, 17, 0),
-                      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        // Avatar — 对齐 wxapp-yjzs defaultAvatar: photo.png
-                        ClipOval(child: _avatar.isNotEmpty
-                            ? CachedNetworkImage(
-                                imageUrl: _avatar, width: 50, height: 50, fit: BoxFit.cover,
-                                placeholder: (_, _) => Container(width: 50, height: 50, color: Colors.grey.shade300),
-                                errorWidget: (_, _, _) => Image.asset('assets/images/img/photo.png', width: 50, height: 50, fit: BoxFit.cover),
-                              )
-                            : Image.asset('assets/images/img/photo.png', width: 50, height: 50, fit: BoxFit.cover)),
-                        const SizedBox(width: 12),
-                        // Name + VIP badge
-                        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          const SizedBox(height: 4),
-                          Row(children: [
-                            Text(_nickname, style: AppTextStyles.cn(16, color: const Color(0xFF333333))),
-                            const SizedBox(width: 14),
-                            Image.asset('assets/images/img/vipico1.png', width: 14, height: 12.5),
-                          ]),
-                          const SizedBox(height: 6),
-                          Row(children: [
-                            Text(_vipExpiry, style: AppTextStyles.cn(13, color: const Color(0xFF717171))),
-                            const SizedBox(width: 2),
-                            Text('到期', style: AppTextStyles.cn(13, color: const Color(0xFF717171))),
-                          ]),
-                        ]),
-                      ]),
-                    ),
-                  ),
-                  // VIP menu — top:86 = 12+139-65, overlaps user card bottom
-                  Positioned(
-                    top: 86, left: 0, right: 0,
-                    child: Container(
-                      height: 121,
-                      decoration: BoxDecoration(
-                        // 深色模式切换背景图 (对齐 zdj vipMenuBg: vipbg.png / vipbg-b.png)
-                        image: DecorationImage(
-                          image: AssetImage(isDark
-                              ? 'assets/images/img/vipbg-b.png'
-                              : 'assets/images/img/vipbg.png'),
-                          fit: BoxFit.fill),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          _vipMenuItem('assets/images/img/vipzb.png', 'VIP早报', () => context.push('/member/morning-news')),
-                          _vipMenuItem('assets/images/img/viplc.png', '流入流出', () => context.push('/member/contrast')),
-                          _vipMenuItem('assets/images/img/vipbs.png', '关注度飙升', () => context.push('/member/rising-chart')),
-                          _vipMenuItem('assets/images/img/vipwp.png', '尾盘参考', () {}),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // ===== Timeline Content =====
-            // uni-app: massag padding-top(3px) + massag-date margin-top(50px) = 53px
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                const SizedBox(height: 53),
-                // Date
-                Text('04月20日 星期一', style: AppTextStyles.cn(16, color: isDark ? AppColors.darkText : const Color(0xFF333333), weight: FontWeight.w600)),
-                const SizedBox(height: 9),
-                // Timeline dot + time
-                _timelineDot('14:40', isDark),
-                const SizedBox(height: 13),
-                // Card 1: Simple
-                _simpleCard('指数集体翻红，哪些是机会?', '赶紧点击查看尾盘参考吧～', isDark),
-                const SizedBox(height: 18),
-                _timelineDot('14:40', isDark),
-                const SizedBox(height: 13),
-                // Card 2: Inflow/Outflow
-                _flowCard(isDark),
-                const SizedBox(height: 18),
-                _timelineDot('14:40', isDark),
-                const SizedBox(height: 13),
-                // Card 3: Ranking
-                _rankCard(isDark),
-              ]),
-            ),
-
-            const SizedBox(height: 50), // uni-app: padding-bottom 100rpx
+                MemberVipHeader(
+                  avatar: _avatar,
+                  nickname: _nickname,
+                  isDark: isDark,
+                  onMorningNews: () => context.push('/member/morning-news'),
+                  onContrast: () => context.push('/member/contrast'),
+                  onRisingChart: () => context.push('/member/rising-chart'),
+                  // uni-app ./closingnews —— 无对应路由/stub，暂不跳转
+                  onClosingNews: () {},
+                ),
+                MemberTimeline(
+                  isDark: isDark,
+                  loaded: _vipHomeLoaded,
+                  groups: _groups,
+                  onItemTap: _openHomeItem,
+                ),
               ]),
             ),
           ),
@@ -181,96 +436,4 @@ class _MemberPageState extends ConsumerState<MemberPage> {
       ),
     );
   }
-
-  Widget _vipMenuItem(String asset, String label, VoidCallback onTap) => GestureDetector(
-    onTap: onTap,
-    child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-      Image.asset(asset, width: 39, height: 39),
-      const SizedBox(height: 4),
-      Text(label, style: AppTextStyles.cn(13)),
-    ]));
-
-  Widget _timelineDot(String time, bool isDark) => Row(children: [
-    Container(width: 5, height: 5, decoration: const BoxDecoration(color: Color(0xFFcab279), shape: BoxShape.circle)),
-    const SizedBox(width: 5),
-    Text(time, style: AppTextStyles.cn(15, color: const Color(0xFFBCA778))),
-  ]);
-
-  Widget _simpleCard(String title, String desc, bool isDark) => Container(
-    padding: const EdgeInsets.fromLTRB(12, 14, 12, 12),
-    decoration: BoxDecoration(color: isDark ? AppColors.darkSurface : Colors.white, borderRadius: BorderRadius.circular(6)),
-    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      GestureDetector(
-        onTap: () => context.push('/member/morning-news'),
-        child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Expanded(child: Text(title, style: AppTextStyles.cn(15, color: isDark ? AppColors.darkText : const Color(0xFF333333), weight: FontWeight.w600))),
-          Icon(Icons.chevron_right, size: 16, color: isDark ? AppColors.darkText : const Color(0xFF333333)),
-        ]),
-      ),
-      Container(height: 0.5, margin: const EdgeInsets.symmetric(vertical: 9), color: const Color(0xFFefefef)),
-      Text(desc, style: AppTextStyles.cn(14, color: isDark ? AppColors.darkText : const Color(0xFF333333))),
-    ]));
-
-  Widget _flowCard(bool isDark) => Container(
-    height: 109,
-    padding: const EdgeInsets.fromLTRB(12, 13, 12, 11),
-    decoration: BoxDecoration(color: isDark ? AppColors.darkSurface : Colors.white, borderRadius: BorderRadius.circular(6)),
-    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text('今日流入流出人数', style: AppTextStyles.cn(15, color: isDark ? AppColors.darkText : const Color(0xFF333333), weight: FontWeight.w600)),
-      const SizedBox(height: 22),
-      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-        Row(children: [
-          Text('流入人数', style: AppTextStyles.cn(14, color: isDark ? AppColors.darkText : const Color(0xFF333333))),
-          const SizedBox(width: 5),
-          Text('49128371', style: AppTextStyles.num(15, color: const Color(0xFFef7283), weight: FontWeight.w500)),
-        ]),
-        Row(children: [
-          Text('49128371', style: AppTextStyles.num(15, color: const Color(0xFF1ab8ad), weight: FontWeight.w500)),
-          const SizedBox(width: 5),
-          Text('流出人数', style: AppTextStyles.cn(14, color: isDark ? AppColors.darkText : const Color(0xFF333333))),
-        ]),
-      ]),
-      const SizedBox(height: 11),
-      ClipRRect(borderRadius: BorderRadius.circular(999), child: SizedBox(height: 11, child: Row(children: [
-        Flexible(flex: 675, child: Container(decoration: const BoxDecoration(gradient: LinearGradient(colors: [Color(0xFFec7e8d), Color(0xFFea6d80)])))),
-        Flexible(flex: 325, child: Container(decoration: const BoxDecoration(gradient: LinearGradient(colors: [Color(0xFF1cc1ae), Color(0xFF97ddd6)])))),
-      ]))),
-    ]));
-
-  Widget _rankCard(bool isDark) => Container(
-    padding: const EdgeInsets.all(0),
-    decoration: BoxDecoration(color: isDark ? AppColors.darkSurface : Colors.white, borderRadius: BorderRadius.circular(6)),
-    child: Column(children: [
-      Container(
-        height: 43,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        decoration: BoxDecoration(border: Border(bottom: BorderSide(color: isDark ? const Color(0xFF2B2D33) : const Color(0xFFefefef)))),
-        child: GestureDetector(
-          onTap: () => context.push('/member/rising-chart'),
-          child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-            Text('今日关注度飙升榜', style: AppTextStyles.cn(15, color: isDark ? AppColors.darkText : const Color(0xFF333333), weight: FontWeight.w600)),
-            Icon(Icons.chevron_right, size: 16, color: isDark ? AppColors.darkText : const Color(0xFF333333)),
-          ]),
-        ),
-      ),
-      for (var i = 1; i <= 3; i++)
-        Container(
-          height: 49,
-          padding: const EdgeInsets.symmetric(horizontal: 1),
-          decoration: BoxDecoration(border: i < 3 ? Border(bottom: BorderSide(color: isDark ? const Color(0xFF2B2D33) : const Color(0xFFefefef))) : null),
-          child: Row(children: [
-            const SizedBox(width: 10),
-            SizedBox(width: 23, child: Text('0$i', style: AppTextStyles.num(15.5, color: const Color(0xFFf0a33c)))),
-            Expanded(child: Text('广发远见智选混合C', style: AppTextStyles.cn(14.5, color: isDark ? AppColors.darkText : const Color(0xFF333333)), maxLines: 1, overflow: TextOverflow.ellipsis)),
-            SizedBox(width: 54, child: Text('029177', style: AppTextStyles.num(14, color: const Color(0xFF666666)), textAlign: TextAlign.right)),
-            SizedBox(width: 68, child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-              Text('48.23%', style: AppTextStyles.cn(14, color: const Color(0xFF666666))),
-              const SizedBox(width: 3),
-              Image.asset('assets/images/img/upico.png', width: 8, height: 9),
-            ])),
-            const SizedBox(width: 10),
-          ]),
-        ),
-      const SizedBox(height: 6),
-    ]));
 }

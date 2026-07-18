@@ -120,12 +120,12 @@ class _MetalRateBadgeState extends State<MetalRateBadge>
         children: [
           Text(
             widget.changeText,
-            style: AppTextStyles.cn(12, color: widget.textColor, weight: FontWeight.w600),
+            style: AppTextStyles.num(12, color: widget.textColor, weight: FontWeight.w600),
           ),
           const SizedBox(width: 4),
           Text(
             widget.rateText,
-            style: AppTextStyles.cn(12, color: widget.textColor, weight: FontWeight.w600),
+            style: AppTextStyles.num(12, color: widget.textColor, weight: FontWeight.w600),
           ),
           const SizedBox(width: 4), // gap 8rpx
           Image.asset(

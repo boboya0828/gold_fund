@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../features/home/providers/home_provider.dart';
+import '../../features/home/home_format.dart';
 import '../../core/models/symbol.dart';
 import '../../core/enums/enums.dart';
+import '../../core/network/api_endpoints.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/text_styles.dart';
@@ -12,6 +14,7 @@ import '../../shared/widgets/z_paging_refresh.dart';
 import '../../features/home/widgets/fund_group_notice.dart';
 import '../../features/home/widgets/price_flash.dart';
 import '../../features/auth/providers/auth_provider.dart';
+import 'widgets/market_roll_item.dart';
 
 /// 首页 - 1:1 复刻 uni-app pages/index/index.vue
 /// 布局结构严格对齐: 标题在卡片外部, 公告和标题互斥
@@ -30,8 +33,8 @@ class _HomePageState extends ConsumerState<HomePage> {
   static const _upColor = Color(0xFFEA5D70);
   // zdj .downtext_color: #10B4A1 (light & dark)
   static const _downColor = Color(0xFF10B4A1);
-  // zdj .cardtop-rate--down: #00ad90 (贵金属卡片跌)
-  static const _metalDownColor = Color(0xFF00AD90);
+  // zdj .cardtop-rate--down 浅色文字色: #00ad90 (深色为 #10B4A1)
+  static const _metalDownTextLight = Color(0xFF00AD90);
 
   @override
   Widget build(BuildContext context) {
@@ -73,18 +76,22 @@ class _HomePageState extends ConsumerState<HomePage> {
                 const SizedBox(height: 10),
                 _buildHeader(textColor, isDark),
                 const SizedBox(height: 12.5),
-                _buildBanner(isDark),
+                _buildBanner(homeState, isDark),
                 const SizedBox(height: 15),
                 // ---- 可滚动内容区 (对齐 z-paging home-refresh-body) ----
                 Expanded(
                   // 下拉刷新 — z-paging 风格 (对齐 uni-app home-refresh)
                   child: ZPagingRefresh(
                     isDark: isDark,
+                    // refresher-title-style: 浅 #555555 / 深 #A7ADB8
+                    titleColor: isDark
+                        ? const Color(0xFFA7ADB8)
+                        : const Color(0xFF555555),
                     onRefresh: () => ref.read(homeProvider.notifier).refresh(),
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       _buildGoldSilverCards(homeState.topSymbols, isDark),
                       const SizedBox(height: 15),
-                      _buildMarketScroll(homeState.marketList, isDark),
+                      _buildMarketScroll(homeState, isDark),
                       const SizedBox(height: 15),
                       // ---- "我的资产" 区域 (标题在卡片外部上方) ----
                       Padding(
@@ -131,17 +138,48 @@ class _HomePageState extends ConsumerState<HomePage> {
   }
 
   // ===== Banner =====
-  Widget _buildBanner(bool isDark) {
+  // 对齐 uni-app homeBannerSrc: 优先接口 banner (themeType '0'浅/'1'深 且 imageUrl 含 'banner'),
+  // 否则本地默认图; 源码无圆角
+  Widget _buildBanner(HomeState state, bool isDark) {
+    final themeType = isDark ? '1' : '0';
+    String? url;
+    for (final b in state.banners) {
+      if (b.themeType == themeType &&
+          b.imageUrl.toLowerCase().contains('banner')) {
+        url = _fullImageUrl(b.imageUrl);
+        break;
+      }
+    }
+    final fallback = Image.asset(
+      isDark
+          ? 'assets/images/img/banner1-text-white.png'
+          : 'assets/images/img/banner1.png',
+      width: double.infinity, height: 65, fit: BoxFit.cover, // 130rpx
+    );
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(10),
-        child: Image.asset(
-          isDark ? 'assets/images/img/banner1-text-white.png' : 'assets/images/img/banner1.png',
-          width: double.infinity, height: 65, fit: BoxFit.cover,
-        ),
-      ),
+      child: url == null
+          ? fallback
+          : Image.network(
+              url,
+              width: double.infinity, height: 65, fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) => fallback,
+            ),
     );
+  }
+
+  // getFullImageUrl
+  String _fullImageUrl(String raw) {
+    final r = raw.trim();
+    if (r.isEmpty) return r;
+    if (r.startsWith('http://') ||
+        r.startsWith('https://') ||
+        r.startsWith('//') ||
+        r.startsWith('data:') ||
+        r.startsWith('/static/')) {
+      return r;
+    }
+    return r.startsWith('/') ? '${ApiEndpoints.baseUrl}$r' : r;
   }
 
   // ===== Gold/Silver Cards =====
@@ -174,111 +212,129 @@ class _HomePageState extends ConsumerState<HomePage> {
   }
 
   Widget _buildMetalCard(SymbolInfo data, bool isDark) {
-    final isUp = data.isUp;
-    // zdj .cardtop-rate--up bg:#EA5D70 / .cardtop-rate--down bg:#00ad90
-    final priceColor = isUp ? _upColor : _metalDownColor;
-    final rateColor = priceColor;
+    // getRealtimeTrendValue: increaseRaw ≠ 0 ? raw : (ratioRaw ≠ 0 ? ratio : 0)
+    final change = data.change;
+    final trend = (change != null && change != 0) ? change : (data.changeRate ?? 0);
+    // getGoldTrendClass: >0 涨 / <0 跌 / ==0 基础色 #111111 (源码深色未覆盖, 保持一致)
+    final priceColor =
+        trend > 0 ? _upColor : (trend < 0 ? _downColor : AppColors.metalPrice);
+    // 徽章: >0 up, 否则 down (flat 归 down, 对齐源码三元表达式)
+    final badgeUp = trend > 0;
+    final badgeTextColor =
+        badgeUp ? _upColor : (isDark ? _downColor : _metalDownTextLight);
+    final price = data.latestPrice;
 
-    return GestureDetector(
-      onTap: () => _goMetalDetails(data),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 14),
-        child: Column(children: [
-          Text(data.name, style: AppTextStyles.cn(13, color: isDark ? AppColors.darkText : AppColors.metalName, height: 1.2)),
-          const SizedBox(height: 12),
-          Row(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
-            Text(data.latestPrice?.toStringAsFixed(2) ?? '--', style: AppTextStyles.num(19, color: priceColor, weight: FontWeight.w700)),
-            const SizedBox(width: 6),
-            Padding(padding: const EdgeInsets.only(bottom: 1), child: Text('元/克', style: AppTextStyles.cn(12, color: isDark ? AppColors.darkText : AppColors.lightText, height: 1.2))),
-          ]),
-          const SizedBox(height: 12),
-          // 涨跌幅徽章 (价格变动时闪烁, 1:1 uni-app .cardtop-rate)
-          MetalRateBadge(
-            isUp: isUp,
-            isDark: isDark,
-            price: data.latestPrice ?? 0,
-            changeText: data.changeFormatted,
-            rateText: data.changeRateFormatted,
-            textColor: rateColor,
-          ),
+    // uni-app goMetalPositionDetails 已禁用跳转 (源码 return;), 点击不导航
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 14),
+      child: Column(children: [
+        Text(data.name, style: AppTextStyles.cn(13, color: isDark ? AppColors.darkText : AppColors.metalName, height: 1.2)),
+        const SizedBox(height: 12),
+        Row(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
+          // getPriceDigits: <100 保留3位, 其他2位
+          Text(homeFmtDecimal(price, homePriceDigits(price), '0.00'),
+              style: AppTextStyles.num(19, color: priceColor, weight: FontWeight.w700)),
+          const SizedBox(width: 6),
+          Padding(padding: const EdgeInsets.only(bottom: 1), child: Text('元/克', style: AppTextStyles.cn(12, color: isDark ? AppColors.darkText : AppColors.lightText, height: 1.2))),
         ]),
-      ),
+        const SizedBox(height: 12),
+        // 涨跌幅徽章 (价格变动时闪烁, 1:1 uni-app .cardtop-rate)
+        MetalRateBadge(
+          isUp: badgeUp,
+          isDark: isDark,
+          price: price ?? 0,
+          changeText: homeFmtSignedAmount(change, 2),
+          rateText: homeFmtSignedPercent(data.changeRate, 2),
+          textColor: badgeTextColor,
+        ),
+      ]),
     );
   }
 
   // ===== Market Indices Scroll =====
-  Widget _buildMarketScroll(List<SymbolInfo> marketList, bool isDark) {
+  Widget _buildMarketScroll(HomeState state, bool isDark) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: SizedBox(height: 90, child: ListView.builder(
         scrollDirection: Axis.horizontal,
         // 无左侧padding, 指数项宽度已包含间距
-        itemCount: marketList.length,
-        itemBuilder: (_, i) => _buildMarketItem(marketList[i], isDark),
+        itemCount: state.marketList.length,
+        itemBuilder: (_, i) {
+          final item = state.marketList[i];
+          return MarketRollItem(
+            item: item,
+            isDark: isDark,
+            flashUp: state.marketFlashes[item.id],
+            onTap: () => _goMarketDetails(item),
+          );
+        },
       )),
-    );
-  }
-
-  Widget _buildMarketItem(SymbolInfo item, bool isDark) {
-    final isUp = item.isUp;
-    final color = isUp ? _upColor : _downColor;
-    final bgColor = isUp
-        ? (isDark ? AppColors.darkSurface : AppColors.lightRollUpBg)
-        : (isDark ? AppColors.darkSurface : AppColors.lightRollDownBg);
-    final screenWidth = MediaQuery.of(context).size.width;
-    final itemWidth = (screenWidth - 32) / 3; // uni-app: calc((100vw - 2rem) / 3)
-
-    return GestureDetector(
-      onTap: () => _goMarketDetails(item),
-      child: Container(
-        width: itemWidth,
-        decoration: BoxDecoration(color: bgColor),
-        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Text(item.name, style: AppTextStyles.cn(12, color: isDark ? AppColors.darkText : AppColors.lightText), textAlign: TextAlign.center),
-          const SizedBox(height: 10),
-          Text(item.latestPrice?.toStringAsFixed(2) ?? '--', style: AppTextStyles.num(18, color: color, weight: FontWeight.w700)),
-          const SizedBox(height: 5),
-          Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-            Text(item.changeFormatted, style: AppTextStyles.cn(12, color: color, weight: FontWeight.w500)),
-            const SizedBox(width: 4),
-            Text(item.changeRateFormatted, style: AppTextStyles.cn(12, color: color, weight: FontWeight.w500)),
-            const SizedBox(width: 3),
-            Image.asset(isUp ? 'assets/images/img/upico.png' : 'assets/images/img/down.png', width: 8.5, height: 8.5),
-          ]),
-        ]),
-      ),
     );
   }
 
   // ===== 5. 资产区域 (标题在上, 卡片在下) =====
   Widget _buildAssetSection(HomeState state, bool isDark) {
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      // 公告和标题互斥 (v-if/v-else)
-      if (state.hasFundGroupNotice && state.fundGroupNoticeText != null)
-        FundGroupNotice(
-          isDark: isDark,
-          text: state.fundGroupNoticeText!,
-          onClose: () => ref.read(homeProvider.notifier).dismissNotice(),
-        )
-      else
-        Text('我的资产', style: AppTextStyles.cn(14, color: isDark ? AppColors.darkText : AppColors.lightText)),
-      const SizedBox(height: 11), // 22rpx margin-top between title and card
-      // 资产卡片 (不含标题)
-      _buildAssetCard(state, isDark),
-    ]);
+    // hendleiSlogin: 整个 box-card2 可点; 未登录 → 登录页, 已登录 → 持仓 tab
+    // (内部 账本切换/眼睛/收益标签/公告 均有点击拦截, 对齐 @click.stop)
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () {
+        if (!state.isLoggedIn) {
+          context.push('/login');
+        } else {
+          context.go('/position');
+        }
+      },
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        // 公告和标题互斥 (v-if/v-else)
+        if (state.hasFundGroupNotice)
+          FundGroupNotice(
+            isDark: isDark,
+            text: state.fundGroupNoticeText,
+            // uni-app 点击打开微信基金群小程序 (平台能力, 不实现); 仅拦截避免触发整卡跳转
+            onTap: () {},
+            onClose: () => ref.read(homeProvider.notifier).dismissNotice(),
+          )
+        else
+          Text('我的资产', style: AppTextStyles.cn(14, color: isDark ? AppColors.darkText : AppColors.lightText)),
+        const SizedBox(height: 11), // 22rpx margin-top between title and card
+        // 资产卡片 (不含标题); 空状态仅未登录展示 (对齐 v-if="userInfo")
+        state.isLoggedIn
+            ? _buildAssetCard(state, isDark)
+            : _buildAssetEmptyState(isDark),
+      ]),
+    );
   }
 
   Widget _buildAssetCard(HomeState state, bool isDark) {
-    final overview = state.assetOverview;
+    final summary = state.assetSummary;
     final visible = state.visibleState;
 
-    // 未登录/无资产空状态
-    if (!state.hasAsset) return _buildAssetEmptyState(isDark);
+    // showAssetMoney / showAssetRatio
     final showMoney = visible == AssetVisibleState.showAll;
     final showRatio = visible != AssetVisibleState.hideRatio;
-    final isUp = (overview?.totalProfitRate ?? 0) >= 0;
-    final profitTagColor = !showRatio ? AppColors.profitTagHidden : isUp ? AppColors.profitTagUp : AppColors.profitTagDown;
-    final profitIcon = isUp ? 'assets/images/img/upindex.png' : 'assets/images/img/downindex.png';
+    // showAssetProfitTag = amount 模式 ? showMoney : showRatio
+    final amountMode = state.profitDisplayMode == 'amount';
+    final showTag = amountMode ? showMoney : showRatio;
+    final amountValue = homeParseProfit(summary.totalProfit);
+    final ratioValue = homeParseProfit(summary.totalProfitRatio) ?? 0;
+    final displayValue = amountMode ? amountValue : ratioValue;
+    // assetProfitTagClass: 不可见或值无效 → hidden 灰
+    final tagHidden = !showTag || displayValue == null;
+    final displayNum = displayValue ?? 0;
+    final tagColor = tagHidden
+        ? AppColors.profitTagHidden
+        : (displayNum < 0 ? AppColors.profitTagDown : AppColors.profitTagUp);
+    final showTagIcon = showTag && displayValue != null;
+    final tagIcon = displayNum < 0
+        ? 'assets/images/img/downindex.png'
+        : 'assets/images/img/upindex.png';
+    // assetProfitDisplayText
+    final tagText = !showTag
+        ? '***'
+        : (amountMode
+            ? (amountValue == null ? '--' : homeFmtSignedAmount(amountValue))
+            : summary.totalProfitRatio);
 
     return Stack(
       clipBehavior: Clip.none,
@@ -287,7 +343,8 @@ class _HomePageState extends ConsumerState<HomePage> {
           height: 140, // 280rpx 固定高度
           decoration: BoxDecoration(
             gradient: isDark ? null : const LinearGradient(
-              begin: Alignment.topLeft, end: Alignment(0.3, 0.9),
+              // 133deg ≈ 方向向量 (sin133°, -cos133°)
+              begin: Alignment(-0.731, -0.682), end: Alignment(0.731, 0.682),
               colors: [AppColors.assetGradientStart, AppColors.assetGradientEnd],
             ),
             color: isDark ? AppColors.darkSurface : null,
@@ -302,12 +359,17 @@ class _HomePageState extends ConsumerState<HomePage> {
                 Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                   Row(children: [
                     // topheader-t: 深色 #A7ADB8 / 浅色 #A59085
-                    Text('总资产 - ', style: AppTextStyles.cn(12, color: isDark ? AppColors.darkTextSecondary : AppColors.lightGoldText, height: 1.0)),
+                    Text('总资产 -', style: AppTextStyles.cn(12, color: isDark ? AppColors.darkTextSecondary : AppColors.lightGoldText, height: 1.0)),
+                    const SizedBox(width: 2), // topheader-main gap 4rpx
                     GestureDetector(
                       onTap: () => setState(() => _showBookMenu = !_showBookMenu),
                       child: Row(children: [
                         // 账本名/箭头始终 #A59085 (源码硬编码, 不随主题切换)
-                        Text(state.selectedBookName ?? '全部', style: AppTextStyles.cn(12, color: AppColors.lightGoldText, height: 1.0)),
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 64), // max-width 128rpx
+                          child: Text(state.currentBookName, maxLines: 1, overflow: TextOverflow.ellipsis,
+                              style: AppTextStyles.cn(12, color: AppColors.lightGoldText, height: 1.0)),
+                        ),
                         const SizedBox(width: 1),
                         Icon(_showBookMenu ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down, size: 12, color: AppColors.lightGoldText),
                       ]),
@@ -319,28 +381,32 @@ class _HomePageState extends ConsumerState<HomePage> {
                   ),
                 ]),
                 const SizedBox(height: 5), // 10rpx margin-top
-                // ¥金额 + profit-tag (amount-num flex:1 / profit-tag-wrapper flex:1)
+                // ￥金额 + profit-tag (amount-num flex:1 / profit-tag-wrapper flex:1)
                 Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
                   Expanded(child: Text(
-                    showMoney ? '¥${overview?.totalAssets.toStringAsFixed(2) ?? "--"}' : '***',
-                    style: AppTextStyles.num(23, color: isDark ? AppColors.darkText : const Color(0xFF333333)),
+                    showMoney ? '￥${summary.totalMarketValue}' : '***',
+                    style: AppTextStyles.num(23, color: isDark ? AppColors.darkText : const Color(0xFF333333), weight: FontWeight.w600),
                   )),
                   Expanded(child: Padding(
                     padding: const EdgeInsets.only(left: 15), // profit-tag margin-left:30rpx
                     child: Align(
                       alignment: Alignment.centerLeft,
-                      child: Container(
-                        width: 98, height: 25,
-                        decoration: BoxDecoration(color: profitTagColor, borderRadius: BorderRadius.circular(999)),
-                        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                          if (showRatio) ...[
-                            Image.asset(profitIcon, width: 16.5, height: 9.5),
-                            const SizedBox(width: 4),
-                            Text('${isUp ? "+" : ""}${overview?.totalProfitRate.toStringAsFixed(2) ?? "--"}%',
-                              style: AppTextStyles.num(15, color: AppColors.white, weight: FontWeight.w100)),
-                          ] else
-                            Text('***', style: AppTextStyles.num(15, color: AppColors.white)),
-                        ]),
+                      // 收益标签可点: 比例/金额切换 (toggleAssetProfitDisplay)
+                      child: GestureDetector(
+                        onTap: () => ref.read(homeProvider.notifier).toggleProfitDisplayMode(),
+                        child: Container(
+                          constraints: const BoxConstraints(minWidth: 98), // min-width 196rpx
+                          height: 25,
+                          padding: const EdgeInsets.symmetric(horizontal: 9), // 0 18rpx
+                          decoration: BoxDecoration(color: tagColor, borderRadius: BorderRadius.circular(999)),
+                          child: Row(mainAxisSize: MainAxisSize.min, mainAxisAlignment: MainAxisAlignment.center, children: [
+                            if (showTagIcon) ...[
+                              Image.asset(tagIcon, width: 16.5, height: 9.5),
+                              const SizedBox(width: 4),
+                            ],
+                            Text(tagText, style: AppTextStyles.num(15, color: AppColors.white, weight: FontWeight.w100)),
+                          ]),
+                        ),
                       ),
                     ),
                   )),
@@ -354,45 +420,86 @@ class _HomePageState extends ConsumerState<HomePage> {
               child: Container(height: 1, color: isDark ? AppColors.assetDividerDark : AppColors.assetDivider),
             ),
             // ---- bottom section ----
-            _buildAssetBottom(state, isDark),
+            _buildAssetBottom(state, isDark, showTag, amountMode),
           ]),
         ),
-        // 账本下拉菜单
+        // 账本下拉菜单 (相对 topheader-main: left 0 / top 38rpx → 卡片内 15 / 31.5)
         if (_showBookMenu)
-          Positioned(left: 0, top: 19, child: BookSelectorMenu(
-            isDark: isDark, books: state.bookNames,
-            selectedBook: state.selectedBookName ?? '全部',
-            onSelected: (book) { setState(() => _showBookMenu = false); ref.read(homeProvider.notifier).selectBook(book); },
+          Positioned(left: 15, top: 31.5, child: BookSelectorMenu(
+            isDark: isDark,
+            options: state.bookOptions,
+            selectedValue: state.selectedBookValue,
+            onSelected: (value) {
+              setState(() => _showBookMenu = false);
+              ref.read(homeProvider.notifier).selectBook(value);
+            },
             onDismiss: () => setState(() => _showBookMenu = false),
           )),
       ],
     );
   }
 
-  Widget _buildAssetBottom(HomeState state, bool isDark) {
-    final overview = state.assetOverview;
+  Widget _buildAssetBottom(HomeState state, bool isDark, bool showTag, bool amountMode) {
+    final summary = state.assetSummary;
     final showMoney = state.visibleState == AssetVisibleState.showAll;
-    final showRatio = state.visibleState != AssetVisibleState.hideRatio;
-    final metalIsUp = (overview?.metalProfit ?? 0) >= 0;
-    final fundIsUp = (overview?.fundProfit ?? 0) >= 0;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(15, 10, 15, 0), // padding-top:20rpx (分割线下方留白)
       child: Row(children: [
         Expanded(child: Padding(
           padding: const EdgeInsets.only(right: 12),
-          child: _buildAssetSubItem('贵金属资产', showMoney ? '¥${(overview?.metalAssets ?? 0).toStringAsFixed(2)}' : '***', showRatio ? '--' : '***', metalIsUp, isDark),
+          child: _buildAssetSubItem(
+            '贵金属资产',
+            showMoney ? '￥${summary.metalMarketValue}' : '***',
+            summary.metalProfit, summary.metalProfitRatio,
+            showTag, amountMode, isDark,
+          ),
         )),
         Expanded(child: Container(
           padding: const EdgeInsets.only(left: 14),
-          decoration: BoxDecoration(border: Border(left: BorderSide(color: isDark ? AppColors.assetDividerDark : AppColors.assetDivider, width: 2))),
-          child: _buildAssetSubItem('基金资产', showMoney ? '¥${(overview?.fundAssets ?? 0).toStringAsFixed(2)}' : '***', showRatio ? '${fundIsUp ? "+" : ""}${(overview?.fundProfit ?? 0).toStringAsFixed(2)}%' : '***', fundIsUp, isDark),
+          decoration: BoxDecoration(border: Border(left: BorderSide(color: isDark ? AppColors.assetDividerDark : AppColors.assetDivider, width: 1))), // 2rpx
+          child: _buildAssetSubItem(
+            '基金资产',
+            showMoney ? '￥${summary.fundMarketValue}' : '***',
+            summary.fundProfit, summary.fundProfitRatio,
+            showTag, amountMode, isDark,
+          ),
         )),
       ]),
     );
   }
 
-  /// 资产卡空状态 — 1:1 复刻 uni-app .asset-card--empty
+  // uni-app: asset-card__item-row = flex justify-between (金额和百分比左右排列)
+  Widget _buildAssetSubItem(String label, String value, String profitAmount,
+      String profitRatio, bool showTag, bool amountMode, bool isDark) {
+    // getAssetItemProfitText
+    final String rateText;
+    if (!showTag) {
+      rateText = '***';
+    } else if (amountMode) {
+      final profitNum = homeParseProfit(profitAmount);
+      rateText = profitNum == null ? '--' : homeFmtSignedAmount(profitNum);
+    } else {
+      rateText = profitRatio;
+    }
+    // getAssetItemRateClass: 无 class 时为基础色 #EA5D70; 仅 <0 显示跌色
+    final rateNum = homeParseProfit(amountMode ? profitAmount : profitRatio);
+    final rateColor =
+        (showTag && rateNum != null && rateNum < 0) ? _downColor : _upColor;
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      // item-label: 深色 #A7ADB8 / 浅色 #A08F82
+      Text(label, style: AppTextStyles.cn(12, color: isDark ? AppColors.darkTextSecondary : const Color(0xFFA08F82), height: 1.0)),
+      const SizedBox(height: 10), // 20rpx margin-top
+      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+        // item-value: 深色 #D7DAE0 / 浅色 #3D3D3D
+        Text(value, style: AppTextStyles.num(11, color: isDark ? AppColors.darkText : const Color(0xFF3D3D3D), weight: FontWeight.w600)),
+        Text(rateText, style: AppTextStyles.num(11, color: rateColor, weight: FontWeight.w500)),
+      ]),
+    ]);
+  }
+
+  /// 资产卡空状态 — 1:1 复刻 uni-app .asset-card--empty (仅未登录展示)
   Widget _buildAssetEmptyState(bool isDark) {
     return Container(
       height: 140,
@@ -403,23 +510,21 @@ class _HomePageState extends ConsumerState<HomePage> {
         ),
         color: isDark ? AppColors.darkSurface : null,
         borderRadius: BorderRadius.circular(11.5),
-        border: isDark ? null : Border.all(color: const Color(0x1AE05665), width: 0.5),
+        // 源码深色未覆盖空卡边框, 明暗都保留
+        border: Border.all(color: const Color(0x1AE05665), width: 0.5),
         boxShadow: isDark ? null : [BoxShadow(color: const Color(0x14E05665), blurRadius: 12, offset: const Offset(0, 5))],
       ),
       padding: const EdgeInsets.fromLTRB(12, 11, 12, 10), // 22rpx 24rpx 20rpx
       child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-        // "导入你的持有基金" 按钮 (未登录点击跳转登录页)
-        GestureDetector(
-          onTap: () => context.push('/login'),
-          child: Container(
-            width: double.infinity, height: 35,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: AppColors.assetEmptyBtn,
-              borderRadius: BorderRadius.circular(5),
-            ),
-            child: Text('导入你的持有基金', style: AppTextStyles.cn(13, color: Colors.white, weight: FontWeight.w600)),
+        // "导入你的持有基金" 按钮 (点击由父级 box-card2 统一处理 → 登录页)
+        Container(
+          width: double.infinity, height: 35,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: AppColors.assetEmptyBtn,
+            borderRadius: BorderRadius.circular(5),
           ),
+          child: Text('导入你的持有基金', style: AppTextStyles.cn(13, color: Colors.white, weight: FontWeight.w600)),
         ),
         const SizedBox(height: 10),
         Text('已支持支付宝、天天基金、腾讯理财通、雪球基金等平台的一键导入',
@@ -431,21 +536,6 @@ class _HomePageState extends ConsumerState<HomePage> {
     );
   }
 
-  // uni-app: asset-card__item-row = flex justify-between (金额和百分比左右排列)
-  Widget _buildAssetSubItem(String label, String value, String rate, bool isUp, bool isDark) {
-    final rateColor = isUp ? _upColor : _downColor;
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      // item-label: 深色 #A7ADB8 / 浅色 #A08F82
-      Text(label, style: AppTextStyles.cn(12, color: isDark ? AppColors.darkTextSecondary : const Color(0xFFA08F82), height: 1.0)),
-      const SizedBox(height: 10), // 20rpx margin-top
-      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-        // item-value: 深色 #D7DAE0 / 浅色 #3D3D3D
-        Text(value, style: AppTextStyles.num(11, color: isDark ? AppColors.darkText : const Color(0xFF3D3D3D), weight: FontWeight.w600)),
-        Text(rate, style: AppTextStyles.num(11, color: rateColor, weight: FontWeight.w500)),
-      ]),
-    ]);
-  }
-
   // ===== 6. Fund List =====
   Widget _buildFundList(HomeState state, bool isDark) {
     final funds = state.fundList;
@@ -454,7 +544,7 @@ class _HomePageState extends ConsumerState<HomePage> {
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text('基金列表', style: AppTextStyles.cn(14, color: isDark ? AppColors.darkText : AppColors.lightText)),
         const SizedBox(height: 11),
-        // 对齐 uni-app：未登录=热门基金榜(getFundHeatTop)，空列表只留标题、无占位卡
+        // 对齐 uni-app：未登录=热门基金榜(getFundHeatTop 取前10)，登录=全部持仓基金(不截断)
         if (funds.isNotEmpty)
           GridView.builder(
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -465,7 +555,8 @@ class _HomePageState extends ConsumerState<HomePage> {
             ),
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            itemCount: funds.length.clamp(0, 10),
+            padding: const EdgeInsets.only(bottom: 15), // .fundlist padding-bottom 30rpx
+            itemCount: funds.length,
             itemBuilder: (_, i) => _buildFundItemData(funds[i], isDark),
           ),
       ]),
@@ -482,17 +573,13 @@ class _HomePageState extends ConsumerState<HomePage> {
     context.push('/search');
   }
 
-  void _goMetalDetails(SymbolInfo item) {
-    if (item.symbolId == null) return;
-    context.push('/position-details?symbolId=${item.symbolId}&assetType=7');
-  }
-
   void _goMarketDetails(SymbolInfo item) {
     if (item.symbolId == null) return;
     context.push('/market-details?symbolId=${item.symbolId}&name=${Uri.encodeComponent(item.name)}');
   }
 
   void _goFundDetails(SymbolInfo item) {
+    if (item.symbolId == null) return;
     final auth = ref.read(authProvider);
     if (!auth.isAuthenticated) {
       context.push('/login');
@@ -502,16 +589,25 @@ class _HomePageState extends ConsumerState<HomePage> {
   }
 
   /// 基于 API 数据的基金项 (1:1 复刻 uni-app funditem)
-  /// 三行结构: head(标题+代码) / middle(基金类型+涨跌幅) / bottom(净值+涨跌额)
+  /// 三行结构: head(标题+代码) / middle(基金类型+涨跌幅) / bottom(净值+涨跌百分比)
   Widget _buildFundItemData(SymbolInfo item, bool isDark) {
-    final isUp = (item.changeRate ?? 0) >= 0;
-    final rateColor = isUp ? _upColor : _downColor;
-    final title = item.name;           // funditem__title (shortName)
-    final code = item.code;
-    final typeName = item.typeName ?? ''; // funditem__name (fundTypeName)
-    final price = item.latestPrice?.toStringAsFixed(4) ?? '--';
-    final rate = item.changeRate != null ? '${item.changeRate! >= 0 ? "+" : ""}${item.changeRate!.toStringAsFixed(2)}%' : '--';
-    final change = item.change != null ? '${item.change! >= 0 ? "+" : ""}${item.change!.toStringAsFixed(2)}' : '+0.00';
+    // rateValue: hot → lp.chgRate 原值; asst → dayChangeRatio ?? 0
+    final rateValue = item.changeRate;
+    // funditem--cool 仅当 rateValue < 0 (flat 归 warm)
+    final cool = (rateValue ?? 0) < 0;
+    // rate/change 颜色: >0 涨 / <0 跌 / ==0 或 null → 基础色 (rate #ff4b52, change #353535)
+    final rateColor = rateValue != null && rateValue > 0
+        ? _upColor
+        : (rateValue != null && rateValue < 0 ? _downColor : AppColors.fundRateDefault);
+    final changeColor = rateValue != null && rateValue > 0
+        ? _upColor
+        : (rateValue != null && rateValue < 0
+            ? _downColor
+            : (isDark ? AppColors.darkText : AppColors.fundItemPrice));
+    final priceText = homeFmtDecimal(item.latestPrice, 4, '--');
+    final rateText = homeFmtSignedPercent(rateValue, 2);
+    // uni-app: change 恒为百分比 (chgRate ?? changeRatio), 缺失 → '+0.00%'
+    final changeText = homeFmtSignedPercent(item.change, 2);
 
     return GestureDetector(
       onTap: () => _goFundDetails(item),
@@ -519,7 +615,7 @@ class _HomePageState extends ConsumerState<HomePage> {
         // height 由 GridView mainAxisExtent: 88.5 控制
         padding: const EdgeInsets.fromLTRB(9, 9, 9, 8),
         decoration: BoxDecoration(
-          gradient: isDark ? null : (isUp
+          gradient: isDark ? null : (!cool
               ? const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [AppColors.fundUpGradientStart, AppColors.fundUpGradientEnd])
               : const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [AppColors.fundDownGradientStart, AppColors.fundDownGradientEnd])),
           color: isDark ? AppColors.darkSurface : null,
@@ -528,27 +624,27 @@ class _HomePageState extends ConsumerState<HomePage> {
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
           // head: 标题 + 代码标签
           Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Expanded(child: Text(title, maxLines: 2, overflow: TextOverflow.ellipsis,
+            Expanded(child: Text(item.name, maxLines: 2, overflow: TextOverflow.ellipsis,
                 style: AppTextStyles.cn(12, color: isDark ? AppColors.darkText : AppColors.fundItemTitle, height: 1.2))),
             const SizedBox(width: 6),
             Container(
               width: 42.5, height: 15.5, alignment: Alignment.center,
               decoration: BoxDecoration(color: isDark ? AppColors.fundCodeBgDark : AppColors.fundCodeBg, borderRadius: BorderRadius.circular(6)),
-              child: Text(code, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppTextStyles.cn(9, color: isDark ? AppColors.fundCodeTextDark : AppColors.fundCodeText)),
+              child: Text(item.code, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppTextStyles.cn(9, color: isDark ? AppColors.fundCodeTextDark : AppColors.fundCodeText)),
             ),
           ]),
           // middle: 基金类型 + 涨跌幅
           Row(crossAxisAlignment: CrossAxisAlignment.baseline, textBaseline: TextBaseline.alphabetic, children: [
-            Flexible(child: Text(typeName, maxLines: 1, overflow: TextOverflow.ellipsis,
+            Flexible(child: Text(item.typeName ?? '', maxLines: 1, overflow: TextOverflow.ellipsis,
                 style: AppTextStyles.cn(13, color: isDark ? AppColors.darkText : AppColors.fundItemName, height: 1.0))),
             const SizedBox(width: 5),
-            Text(rate, style: AppTextStyles.num(14, color: rateColor, weight: FontWeight.w700)),
+            Text(rateText, style: AppTextStyles.num(14, color: rateColor, weight: FontWeight.w700)),
           ]),
-          // bottom: 净值 + 涨跌额 (涨跌额随涨跌着色)
+          // bottom: 净值 + 涨跌百分比
           Row(crossAxisAlignment: CrossAxisAlignment.baseline, textBaseline: TextBaseline.alphabetic, children: [
-            Text(price, style: AppTextStyles.num(9.5, color: isDark ? AppColors.darkText : AppColors.fundItemPrice, height: 1.0)),
+            Text(priceText, style: AppTextStyles.num(9.5, color: isDark ? AppColors.darkText : AppColors.fundItemPrice, height: 1.0)),
             const SizedBox(width: 7),
-            Text(change, style: AppTextStyles.num(9.5, color: rateColor, height: 1.0)),
+            Text(changeText, style: AppTextStyles.num(9.5, color: changeColor, height: 1.0)),
           ]),
         ]),
       ),

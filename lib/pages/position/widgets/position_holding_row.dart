@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/text_styles.dart';
-import '../position_provider_types.dart' show PositionItem;
+import '../position_provider_types.dart' show PositionItem, PositionState;
 import 'position_profit_color.dart';
 
 /// 持仓单行 — 1:1 复刻 .holding-card-list / .holding-card__body
@@ -19,8 +19,13 @@ class PositionHoldingRow extends StatelessWidget {
   final double gapW;
   final bool isLast;
   final bool isSelected;
-  final bool showMoney;
-  final bool showProfit;
+
+  /// 隐私级别派生标志 (1:1 uni-app hideHoldAmount/hideIncomeAmount/hideIncomeRate/hideFundName)
+  final bool hideHoldAmount;
+  final bool hideIncomeAmount;
+  final bool hideIncomeRate;
+  final bool hideFundName;
+
   final VoidCallback onTap;
   // 长按回传被按行的全局左上角 + 行高，供操作弹框跟随定位
   final void Function(Offset globalTopLeft, double height) onLongPress;
@@ -40,11 +45,23 @@ class PositionHoldingRow extends StatelessWidget {
     required this.gapW,
     required this.isLast,
     required this.isSelected,
-    required this.showMoney,
-    required this.showProfit,
+    required this.hideHoldAmount,
+    required this.hideIncomeAmount,
+    required this.hideIncomeRate,
+    required this.hideFundName,
     required this.onTap,
     required this.onLongPress,
   });
+
+  /// 从 PositionState 派生隐私标志的便捷构造参数组
+  static ({bool hold, bool income, bool rate, bool name}) hideFlagsOf(
+    PositionState state,
+  ) => (
+    hold: state.hideHoldAmount,
+    income: state.hideIncomeAmount,
+    rate: state.hideIncomeRate,
+    name: state.hideFundName,
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -115,7 +132,7 @@ class PositionHoldingRow extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Text(
-          item.shortName,
+          hideFundName ? '******' : item.shortName,
           style: AppTextStyles.cn(
             14,
             color: isDark ? const Color(0xFFD7DAE0) : const Color(0xFF23283C),
@@ -130,7 +147,8 @@ class PositionHoldingRow extends StatelessWidget {
           const SizedBox(height: 6),
           Row(
             children: [
-              if (item.isUpdated)
+              // 1:1 uni-app: v-if="item.isLatestNav"（直接用接口字段）
+              if (item.isLatestNav)
                 Container(
                   margin: const EdgeInsets.only(right: 4),
                   padding: const EdgeInsets.symmetric(
@@ -157,7 +175,7 @@ class PositionHoldingRow extends StatelessWidget {
                   ),
                 ),
               Text(
-                '￥${showMoney ? item.marketValue.toStringAsFixed(2) : '******'}',
+                '￥${hideHoldAmount ? '******' : item.marketValue.toStringAsFixed(2)}',
                 style: AppTextStyles.cn(
                   10.5, // 21rpx，源码 .holding-name__sub 恒定字号
                   color: isDark
@@ -192,7 +210,7 @@ class PositionHoldingRow extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Text(
-          showProfit ? _formatSigned(item.dayProfit) : '******',
+          hideIncomeAmount ? '******' : _formatSigned(item.dayProfit),
           style: AppTextStyles.num(
             15,
             color: profitColor(item.dayProfit, isDark),
@@ -203,8 +221,8 @@ class PositionHoldingRow extends StatelessWidget {
         if (isNormal) ...[
           const SizedBox(height: 6),
           Text(
-            showProfit ? '${_formatSigned(item.dayChangeRatio)}%' : '******',
-            style: AppTextStyles.cn(
+            hideIncomeRate ? '******' : '${_formatSigned(item.dayChangeRatio)}%',
+            style: AppTextStyles.num(
               11,
               color: profitColor(item.dayChangeRatio, isDark),
               height: 1,
@@ -289,12 +307,13 @@ class PositionHoldingRow extends StatelessWidget {
   }
 
   Widget _buildHoldProfitColumn() {
+    // 仅在 normal/minimal 模式渲染（compact 无此列，对齐 uni-app listMunActive==1 只有 3 列）
     return Column(
       crossAxisAlignment: CrossAxisAlignment.end,
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Text(
-          showProfit ? _formatSigned(item.holdProfit) : '******',
+          hideIncomeAmount ? '******' : _formatSigned(item.holdProfit),
           style: AppTextStyles.num(
             15,
             color: profitColor(item.holdProfit, isDark),
@@ -305,21 +324,12 @@ class PositionHoldingRow extends StatelessWidget {
         if (isNormal) ...[
           const SizedBox(height: 6),
           Text(
-            showProfit ? '${_formatSigned(item.holdChangeRatio)}%' : '******',
-            style: AppTextStyles.cn(
+            hideIncomeRate
+                ? '******'
+                : '${_formatSigned(item.holdChangeRatio)}%',
+            style: AppTextStyles.num(
               11,
               color: profitColor(item.holdChangeRatio, isDark),
-              height: 1,
-            ),
-          ),
-        ],
-        if (isCompact) ...[
-          const SizedBox(height: 6),
-          Text(
-            showProfit ? '${_formatSigned(item.latestChgRate)}%' : '******',
-            style: AppTextStyles.cn(
-              11,
-              color: profitColor(item.latestChgRate, isDark),
               height: 1,
             ),
           ),

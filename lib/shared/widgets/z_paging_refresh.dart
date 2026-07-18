@@ -24,6 +24,9 @@ class ZPagingRefresh extends StatelessWidget {
 
   final ScrollController? controller;
 
+  /// 刷新头文字颜色 (z-paging refresher-title-style); 不传则用内置默认
+  final Color? titleColor;
+
   const ZPagingRefresh({
     super.key,
     required this.onRefresh,
@@ -31,6 +34,7 @@ class ZPagingRefresh extends StatelessWidget {
     this.child,
     this.slivers,
     this.controller,
+    this.titleColor,
   }) : assert(child != null || slivers != null,
             'ZPagingRefresh 需要 child 或 slivers 之一');
 
@@ -49,7 +53,7 @@ class ZPagingRefresh extends StatelessWidget {
           refreshIndicatorExtent: _threshold,
           onRefresh: onRefresh,
           builder: (context, mode, pulled, trigger, extent) =>
-              _ZpRefreshHeader(mode: mode, isDark: isDark),
+              _ZpRefreshHeader(mode: mode, isDark: isDark, titleColor: titleColor),
         ),
         if (slivers != null)
           ...slivers!
@@ -63,8 +67,9 @@ class ZPagingRefresh extends StatelessWidget {
 class _ZpRefreshHeader extends StatefulWidget {
   final RefreshIndicatorMode mode;
   final bool isDark;
+  final Color? titleColor;
 
-  const _ZpRefreshHeader({required this.mode, required this.isDark});
+  const _ZpRefreshHeader({required this.mode, required this.isDark, this.titleColor});
 
   @override
   State<_ZpRefreshHeader> createState() => _ZpRefreshHeaderState();
@@ -96,8 +101,8 @@ class _ZpRefreshHeaderState extends State<_ZpRefreshHeader> {
       return const SizedBox.shrink();
     }
 
-    final titleColor =
-        isDark ? const Color(0xFFEFEFEF) : const Color(0xFF555555);
+    final titleColor = widget.titleColor ??
+        (isDark ? const Color(0xFFEFEFEF) : const Color(0xFF555555));
     final indicatorColor =
         isDark ? const Color(0xFFEEEEEE) : const Color(0xFF777777);
 

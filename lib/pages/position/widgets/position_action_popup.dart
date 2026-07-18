@@ -12,6 +12,7 @@ class PositionActionPopup extends StatelessWidget {
   final VoidCallback onClose;
   final VoidCallback onEdit;
   final VoidCallback onBatchEdit;
+  final VoidCallback onBatchAdjust; // 批量加减仓 (1:1 openBatchAdjust)
   final VoidCallback onPinTop;
   final ValueChanged<String> onDelete;  // 传入资产名
 
@@ -25,11 +26,12 @@ class PositionActionPopup extends StatelessWidget {
     required this.onClose,
     required this.onEdit,
     required this.onBatchEdit,
+    required this.onBatchAdjust,
     required this.onPinTop,
     required this.onDelete,
   });
 
-  static const double _popupWidth = 260;
+  static const double _popupWidth = 300; // 源码 width/min-width 600rpx
   static const double _popupMaxHeight = 83; // 33 + 50
   static const double _popupGap = 8; // 源码 popupGap
   static const double _tabbarReserve = 60; // 源码 uni.upx2px(120)
@@ -84,7 +86,7 @@ class PositionActionPopup extends StatelessWidget {
             style: AppTextStyles.cn(12, color: Colors.white, weight: FontWeight.w700),
             maxLines: 1, overflow: TextOverflow.ellipsis),
         ),
-        // popup-actions
+        // popup-actions — 1:1 uni-app popupActionList: 置顶/修改持仓/批量编辑/批量加减仓/删除
         SizedBox(
           height: 50,
           child: Row(children: [
@@ -95,6 +97,8 @@ class PositionActionPopup extends StatelessWidget {
             }),
             _divider(),
             _action('批量编辑', Icons.settings, onBatchEdit),
+            _divider(),
+            _action('批量加减仓', Icons.add, onBatchAdjust),
             _divider(),
             _action('删除', Icons.delete_outline, () {
               final items = state.sortedItems;

@@ -9,8 +9,9 @@ import 'widgets/position_quick_menu.dart';
 import 'widgets/position_table_mode_menu.dart';
 import 'widgets/position_action_popup.dart';
 import 'widgets/position_delete_dialog.dart';
+import 'widgets/position_asset_visible_dialog.dart';
 
-/// 持仓页面 — 1:1 复刻 uni-app pages/positionv1/index.uvue
+/// 持仓页面 — 1:1 复刻 uni-app pages/positionv1/index.vue
 /// 主文件只负责编排和状态管理，各 UI 区块拆入 widgets/ 目录
 class PositionPage extends ConsumerStatefulWidget {
   const PositionPage({super.key});
@@ -73,7 +74,11 @@ class _PositionPageState extends ConsumerState<PositionPage> {
                 _showQuickMenu = !_showQuickMenu;
               }),
             ),
-            PositionAssetCard(state: state, isDark: isDark),
+            PositionAssetCard(
+              state: state,
+              isDark: isDark,
+              onEyeTap: () => _openAssetVisibleDialog(state),
+            ),
             Expanded(
               child: PositionHoldingTable(
                 state: state,
@@ -95,6 +100,8 @@ class _PositionPageState extends ConsumerState<PositionPage> {
                   _showPopup = false;
                 }),
                 onSortToggle: _toggleTableModeMenu,
+                onSortManage: _goSortManage,
+                onSyncTap: _syncHoldings,
               ),
             ),
           ]),
@@ -111,10 +118,11 @@ class _PositionPageState extends ConsumerState<PositionPage> {
             top: topPadding + 44,
             child: PositionQuickMenu(
               isDark: isDark,
-              onSync: () => _goOptionalSearch(),
-              onBatchSync: () => _showDevelopingSnackBar(),
-              onAnalysis: () => _goCurve(),
-              onLedger: () => _goLedger(),
+              onSync: _syncHoldings,
+              onBatchSync: () => _showToast('批量同步开发中'),
+              onTradeRecord: _goTradeRecord,
+              onAnalysis: _goCurve,
+              onLedger: _goLedger,
             ),
           ),
         ],
@@ -159,19 +167,23 @@ class _PositionPageState extends ConsumerState<PositionPage> {
               final target = _getSelectedItem(state);
               setState(() { _showPopup = false; _selectedIndex = -1; });
               if (target != null) {
+                // TODO(对齐): uni-app 修改持仓跳 mass-upload-maddzx / gjs-holding-edit 编辑页，
+                // Flutter 端该页面尚未迁移，暂跳持仓详情（见迁移报告 REMAINING）
                 context.push('/position-details?symbolId=${target.symbolId}&assetType=${target.assetType}');
               }
             },
             onBatchEdit: () {
               setState(() { _showPopup = false; _selectedIndex = -1; });
-              context.push('/optional-search');
+              _goSortManage();
+            },
+            onBatchAdjust: () {
+              setState(() { _showPopup = false; _selectedIndex = -1; });
+              _openBatchAdjust(state);
             },
             onPinTop: () {
               final target = _getSelectedItem(state);
-              if (target != null) {
-                ref.read(positionProvider.notifier).pinToTop(target.assetId);
-              }
               setState(() { _showPopup = false; _selectedIndex = -1; });
+              if (target != null) _pinToTop(target.assetId);
             },
             onDelete: (assetName) {
               final target = _getSelectedItem(state);
@@ -210,9 +222,64 @@ class _PositionPageState extends ConsumerState<PositionPage> {
     });
   }
 
-  void _goOptionalSearch() {
+  /// 闭眼模式选择弹窗 (1:1 uni-app openAssetVisibleModePopup)
+  Future<void> _openAssetVisibleDialog(PositionState state) async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final level = await PositionAssetVisibleDialog.show(
+      context,
+      currentLevel: state.assetVisible,
+      isDark: isDark,
+    );
+    if (level != null) {
+      ref.read(positionProvider.notifier).setAssetVisible(level);
+    }
+  }
+
+  /// 同步持仓 (1:1 uni-app hendleSynchronization)
+  /// 源码: 有具体账本 → mass-upload?bookId=；全部账本 → add-accounting-records。
+  /// Flutter 端导入页尚未迁移，暂用 /optional-search 承接（见迁移报告 REMAINING）。
+  void _syncHoldings() {
     _closeMenus();
-    context.push('/optional-search');
+    final bookId = ref.read(positionProvider).currentBookId;
+    context.push(bookId != null ? '/optional-search?bookId=$bookId' : '/optional-search');
+  }
+
+  /// 排序管理 (1:1 uni-app hendleSort → ./sort?bookId=)。页面未迁移，先占位提示。
+  void _goSortManage() {
+    _closeMenus();
+    _showToast('排序管理页面建设中');
+  }
+
+  /// 交易记录 (1:1 uni-app → ./trading-record?bookId=)。页面未迁移，先占位提示。
+  void _goTradeRecord() {
+    _closeMenus();
+    _showToast('交易记录页面建设中');
+  }
+
+  /// 批量加减仓 (1:1 uni-app openBatchAdjust)：需具体账本；页面未迁移，先占位提示。
+  void _openBatchAdjust(PositionState state) {
+    final bookId = state.currentBookId;
+    if (bookId == null || bookId == -1) {
+      _showToast('请选择具体账本后操作');
+      return;
+    }
+    _showToast('批量加减仓页面建设中');
+  }
+
+  Future<void> _pinToTop(int assetId) async {
+    final result =
+        await ref.read(positionProvider.notifier).pinToTop(assetId);
+    if (!mounted) return;
+    switch (result) {
+      case 'notFound':
+        _showToast('未找到当前持仓');
+      case 'alreadyTop':
+        _showToast('已在顶部');
+      case 'pinned':
+        _showToast('已置顶');
+      case 'failed':
+        _showToast('置顶保存失败');
+    }
   }
 
   void _goCurve() {
@@ -225,10 +292,10 @@ class _PositionPageState extends ConsumerState<PositionPage> {
     context.push('/ledger');
   }
 
-  void _showDevelopingSnackBar() {
+  void _showToast(String message) {
     _closeMenus();
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('批量调仓开发中'), duration: Duration(seconds: 2)),
+      SnackBar(content: Text(message), duration: const Duration(seconds: 2)),
     );
   }
 
@@ -241,7 +308,11 @@ class _PositionPageState extends ConsumerState<PositionPage> {
     );
     if (confirmed == true) {
       final ok = await ref.read(positionProvider.notifier).deleteAsset(item.assetId);
-      if (ok) ref.read(positionProvider.notifier).loadData();
+      if (!mounted) return;
+      if (ok) {
+        _showToast('删除成功'); // 1:1 uni-app toast
+        ref.read(positionProvider.notifier).loadData();
+      }
     }
   }
 }

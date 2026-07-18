@@ -18,6 +18,8 @@ class PositionHoldingTable extends ConsumerWidget {
       onLongSelect; // 触发长按选中并回传行位置
   final VoidCallback onRowTap; // 普通 tap
   final VoidCallback onSortToggle; // 模式菜单切换触发
+  final VoidCallback onSortManage; // 表头设置图标 → 排序管理页 (1:1 hendleSort)
+  final VoidCallback onSyncTap; // 同步持仓/批量加减仓/空态按钮 (1:1 hendleSynchronization)
   final GlobalKey? modeIconKey; // 模式图标锚点（菜单定位用）
 
   const PositionHoldingTable({
@@ -29,6 +31,8 @@ class PositionHoldingTable extends ConsumerWidget {
     this.onLongSelect,
     required this.onRowTap,
     required this.onSortToggle,
+    required this.onSortManage,
+    required this.onSyncTap,
     this.modeIconKey,
   });
 
@@ -40,8 +44,7 @@ class PositionHoldingTable extends ConsumerWidget {
     final isNormal = state.tableMode == TableShowMode.normal;
     final isCompact = state.tableMode == TableShowMode.compact;
     final isMinimal = state.tableMode == TableShowMode.minimal;
-    final showMoney = state.visibleMode == AssetVisibleMode.showAll;
-    final showProfit = state.visibleMode != AssetVisibleMode.hideProfit;
+    final hideFlags = PositionHoldingRow.hideFlagsOf(state);
     final mutedIconColor = isDark
         ? const Color(0xFFA7ADB8)
         : const Color(0xFF8E857E);
@@ -55,9 +58,8 @@ class PositionHoldingTable extends ConsumerWidget {
         ? const Color(0xFFA7ADB8)
         : const Color(0xFFC0BAB3);
 
-    final now = DateTime.now();
-    final dateLabel =
-        '${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+    // 1:1 uni-app headerDateLabel: 接口 curTradeDate，缺省回退最近交易日
+    final dateLabel = state.headerDateLabel;
 
     final screenW = MediaQuery.of(context).size.width;
     final contentW = screenW - 32; // 减去左右 1rem padding
@@ -141,13 +143,21 @@ class PositionHoldingTable extends ConsumerWidget {
                               gapW: gapW,
                               isLast: i == items.length - 1,
                               isSelected: selectedIndex == i,
-                              showMoney: showMoney,
-                              showProfit: showProfit,
+                              hideHoldAmount: hideFlags.hold,
+                              hideIncomeAmount: hideFlags.income,
+                              hideIncomeRate: hideFlags.rate,
+                              hideFundName: hideFlags.name,
                               onTap: () {
                                 onSelect(-1);
                                 onRowTap();
+                                // 1:1 uni-app hendlGoMetalInfo: 全部账本tab下的基金传 assetId=-1
+                                final isAllFund =
+                                    state.tabIndex == 0 && item.assetType == 3;
+                                final assetId =
+                                    isAllFund ? -1 : item.assetId;
                                 context.push(
-                                  '/position-details?symbolId=${item.symbolId}&assetType=${item.assetType}',
+                                  '/position-details?symbolId=${item.symbolId}'
+                                  '&assetType=${item.assetType}&assetId=$assetId',
                                 );
                               },
                               onLongPress: (offset, height) {
@@ -161,36 +171,34 @@ class PositionHoldingTable extends ConsumerWidget {
                           },
                         ),
                       ),
-                      // 底部同步按钮 (随列表滚动, 对齐 uni-app .addbox 在 z-paging 内)
+                      // 底部操作行 (随列表滚动, 对齐 uni-app .addbox 在 z-paging 内)
+                      // 1:1 源码: 左「同步持仓」(icon-tianjia) 右「批量加减仓」(icon-fuzhiyemian)，
+                      // 两者都触发 hendleSynchronization
                       Padding(
-                        padding:
-                            const EdgeInsets.only(left: 16, top: 10, bottom: 100),
-                        child: Align(
-                          alignment: Alignment.centerLeft,
-                          child: GestureDetector(
-                            onTap: () => context.push('/optional-search'),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  AppIcons.add,
-                                  size: 12,
-                                  color:
-                                      mutedIconColor, // 源码 .addbox 图标用 mutedIconColor
-                                ),
-                                const SizedBox(width: 2),
-                                Text(
-                                  '同步持仓',
-                                  style: AppTextStyles.cn(
-                                    11,
-                                    color: isDark
-                                        ? const Color(0xFF8F949D)
-                                        : const Color(0xFF7A7A82),
-                                  ),
-                                ),
-                              ],
+                        padding: const EdgeInsets.only(
+                          left: 16,
+                          right: 16,
+                          top: 10, // margin-top 20rpx
+                          bottom: 100, // padding-bottom 200rpx
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            _addboxEntry(
+                              icon: AppIcons.add,
+                              label: '同步持仓',
+                              isDark: isDark,
+                              iconColor: mutedIconColor,
+                              onTap: onSyncTap,
                             ),
-                          ),
+                            _addboxEntry(
+                              icon: AppIcons.copyPage,
+                              label: '批量加减仓',
+                              isDark: isDark,
+                              iconColor: mutedIconColor,
+                              onTap: onSyncTap,
+                            ),
+                          ],
                         ),
                       ),
                     ],
@@ -246,7 +254,7 @@ class PositionHoldingTable extends ConsumerWidget {
               child: Row(
                 children: [
                   GestureDetector(
-                    onTap: () => context.push('/optional-search'),
+                    onTap: onSortManage, // 1:1 uni-app hendleSort → 排序管理页
                     child: Icon(
                       AppIcons.settings,
                       size: 20,
@@ -358,6 +366,33 @@ class PositionHoldingTable extends ConsumerWidget {
     }
   }
 
+  /// .addbox 单个入口: 图标(12px) + 文字(22rpx #7A7A82 / 暗 #8F949D)
+  Widget _addboxEntry({
+    required IconData icon,
+    required String label,
+    required bool isDark,
+    required Color iconColor,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: iconColor), // 源码 mutedIconColor
+          const SizedBox(width: 2), // .addbox view margin-left 4rpx
+          Text(
+            label,
+            style: AppTextStyles.cn(
+              11, // 22rpx
+              color: isDark ? const Color(0xFF8F949D) : const Color(0xFF7A7A82),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildEmptyState(BuildContext context, bool isDark) {
     return Center(
       child: Padding(
@@ -365,7 +400,8 @@ class PositionHoldingTable extends ConsumerWidget {
         child: Column(
           children: [
             GestureDetector(
-              onTap: () => context.push('/login'),
+              // 1:1 uni-app .ndata-action → hendleSynchronization (导入持仓, 非登录页)
+              onTap: onSyncTap,
               child: Container(
                 width: 270,
                 height: 43,
