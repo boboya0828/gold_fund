@@ -570,7 +570,7 @@ class _HomePageState extends ConsumerState<HomePage> {
       context.push('/login');
       return;
     }
-    context.push('/search');
+    context.push('/position-search');
   }
 
   void _goMarketDetails(SymbolInfo item) {

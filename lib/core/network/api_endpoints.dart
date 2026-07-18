@@ -69,7 +69,9 @@ class ApiEndpoints {
 
   // ===================== Asset V2 =====================
   // Main
-  static const assetBooks = '/asset/api/Asset/books';                  // GET
+  static const assetBooks = '/asset/api/Asset/books';                  // GET(list) POST(?bookName= create) PUT(rename) DELETE /{bookId}
+  static const assetBooksOrder = '/asset/api/Asset/books/order';       // PUT 账本排序 {bookOrders:{bookId:sort}}
+  static const assetBookClear = '/asset/api/Asset/clear';              // DELETE /{bookId} 清空账本持仓
   static const assetBuy = '/asset/api/Asset/buy';                      // POST
   static const assetSell = '/asset/api/Asset/sell';                    // POST
   static const assetListV2 = '/asset/api/Asset';                       // GET ?bookId=
@@ -78,6 +80,8 @@ class ApiEndpoints {
   static const assetBatchInput = '/asset/api/Asset/batchinput';        // POST
   static const assetBatchCorrect = '/asset/api/Asset/batchcorrect';    // POST
   static const assetOcr = '/asset/api/Asset/ocrSource';               // POST
+  static const assetOcrPic = '/asset/api/Asset/ocr';                  // POST — ocrResult.vue ocrAssetPic 图片识别
+  static const assetBySymbol = '/asset/api/Asset/symbol';            // GET /{symbolId} 需拼接
   static const assetDeleteV2 = '/asset/api/Asset';                     // DELETE /{assetId} 需拼接
 
   // Profit
@@ -94,17 +98,37 @@ class ApiEndpoints {
   static const favoriteByBook = '/asset/api/Favorite';                  // GET /{bookId} 需拼接
   static const favorite = '/asset/api/Favorite';                       // POST(add) DELETE(remove/{id})
   static const favoriteBatchInput = '/asset/api/Favorite/batchinput';  // POST
-  static const favoriteClear = '/asset/api/Favorite/clear';            // DELETE
+  static const favoriteClear = '/asset/api/Favorite/clear';            // DELETE /{bookId} 需拼接
+  static const favoriteBook = '/asset/api/Favorite/book';              // PUT 重命名自选账本 {bookId,newName}
+  static const favoriteBookName = '/asset/api/Favorite/bookName';      // PUT ?bookName= 创建自选账本
+  static const favoriteBookDelete = '/asset/api/Favorite/delete';      // DELETE /{bookId} 需拼接
+  static const favoriteBySymbol = '/asset/api/Favorite/symbol';        // GET /{symbolId} 需拼接
+  static const favoriteRemoveBySymbol = '/asset/api/Favorite/remove';  // DELETE /{symbolId} 需拼接
 
   // Symbol
   static const assetSymbolSearch = '/asset/api/Symbol/search';         // GET ?keyword=&assetType=
   static const assetSymbolSearchInfo = '/asset/api/Symbol/searchInfo'; // GET ?assetType= — 热搜/历史
+  static const assetSymbolSearchOperate = '/asset/api/Symbol/searchOperate'; // POST ?symbolId= 记录搜索历史
+  static const assetSymbolSearchHistory = '/asset/api/Symbol/searchHistory'; // DELETE 清空搜索历史
   static const assetSymbolHotIndex = '/asset/api/Symbol/hotIndex';     // GET
   static const assetSymbolIndicators = '/asset/api/Symbol/indicators'; // GET
   static const assetSymbolMinuteKline = '/asset/api/Symbol/minuteKline'; // GET /{symbolId}
   static const assetSymbolDailyLine = '/asset/api/Symbol/dailyLine';   // GET /{symbolId}
   static const assetSymbolDailyLines = '/asset/api/Symbol/dailyLines'; // POST
-  static const assetSymbolDailyLinesRange = '/asset/api/Symbol/dailyLines/range'; // POST
+  static const assetSymbolDailyLinesRange = '/asset/api/Symbol/dailyLines/range'; // GET ?symbolId=&startDate=&endDate=
+  static const assetSymbolDailyLinesAfter = '/asset/api/Symbol/dailyLines/after'; // GET ?symbolId=&afterDate=&count=
+  static const assetSymbolInfo = '/asset/api/Symbol';                  // GET /{symbolId} 需拼接
+  static const assetSymbolBatchInfo = '/asset/api/Symbol/symbolIds';   // POST body=[symbolId...]
+  static const assetSymbolFundHoldings = '/asset/api/Symbol/fundHoldings'; // GET /{symbolId} 十大重仓股
+
+  // FundDca 定投
+  static const fundDcaFeeEstimate = '/asset/api/FundDca/fee-estimate'; // POST
+  static const fundDcaPlans = '/asset/api/FundDca/plans';              // GET(list) POST(create) PUT /{id} POST /{id}/pause POST /{id}/cancel
+
+  // AssetTrades 交易流水
+  static const assetTrades = '/asset/api/Asset';                       // GET /{assetId}/trades 需拼接
+  static const assetTradesQuery = '/asset/api/Asset/trades/query';     // POST 分页查询
+  static const assetTradesBatchAmount = '/asset/api/Asset/trades/batch-amount'; // POST 批量加减仓
 
   // Market
   static const marketHotIndex = '/asset/api/Market/hotIndex';          // GET
@@ -123,6 +147,10 @@ class ApiEndpoints {
 
   // Vip
   static const vipHome = '/asset/api/Vip/home';                        // GET
+  static const vipMorningReports = '/asset/api/Vip/morning-reports';   // GET ?pageNum=&pageSize= 或 GET /{id}
+  static const vipClosingReports = '/asset/api/Vip/closing-reports';   // GET 或 GET /{id}
+  static const vipFlowDataLatestSummary = '/asset/api/Vip/flow-data/latest-summary'; // GET
+  static const vipAttentionRiseRanks = '/asset/api/Vip/attention-rise-ranks'; // GET /{period} 或 /{id}
 
   // Barrage
   static const barrage = '/asset/api/Barrage';                         // POST(send) GET /{fundId}

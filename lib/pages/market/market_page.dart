@@ -235,9 +235,8 @@ class _MarketPageState extends ConsumerState<MarketPage> {
                   FundRankPanel(
                     isDark: isDark,
                     items: _fundRanks,
-                    // TODO: 源码跳 ./selectedlist（基金榜单页），Flutter 端尚无对应路由/页面，
-                    // 暂跳到搜索占位页，见报告 SHARED CHANGES NEEDED。
-                    onMore: () => context.push('/search'),
+                    // 1:1 源码跳 ./selectedlist（基金榜单页）
+                    onMore: () => context.push('/selected-list'),
                     onItemTap: _goFundDetails,
                   ),
                   const SizedBox(height: 69), // page-scroll padding-bottom 138rpx

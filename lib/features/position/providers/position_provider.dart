@@ -18,6 +18,11 @@ class PositionItem {
   final List<IndicatorItem>? indicatorList;
   final LatestPriceInfo? latestPrice;
   final int? bookId;
+  // 修改持仓编辑页预填字段（uni-app 行原始字段）
+  final String uniqueSymbol;
+  final String holdQuantity;
+  final String holdCostAmount;
+  final String comment;
 
   const PositionItem({
     required this.assetId,
@@ -33,6 +38,10 @@ class PositionItem {
     this.indicatorList,
     this.latestPrice,
     this.bookId,
+    this.uniqueSymbol = '',
+    this.holdQuantity = '',
+    this.holdCostAmount = '',
+    this.comment = '',
   });
 
   factory PositionItem.fromJson(Map<String, dynamic> json) {
@@ -54,6 +63,11 @@ class PositionItem {
           .toList(),
       latestPrice: lp != null ? LatestPriceInfo.fromJson(lp) : null,
       bookId: json['bookId'] as int?,
+      uniqueSymbol: (json['uniqueSymbol'] ?? json['code'] ?? '').toString(),
+      holdQuantity: (json['holdQuantity'] ?? json['quantity'] ?? '').toString(),
+      holdCostAmount:
+          (json['holdCostAmount'] ?? json['costAmount'] ?? '').toString(),
+      comment: (json['comment'] ?? '').toString(),
     );
   }
 

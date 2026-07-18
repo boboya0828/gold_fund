@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../core/network/api_client.dart';
+import '../../core/network/api_endpoints.dart';
 import '../../features/position/providers/position_provider.dart';
 import 'widgets/position_nav_header.dart';
 import 'widgets/position_asset_card.dart';
@@ -68,7 +70,7 @@ class _PositionPageState extends ConsumerState<PositionPage> {
               state: state,
               isDark: isDark,
               topPadding: topPadding,
-              onSearchTap: () => context.push('/search'),
+              onSearchTap: () => context.push('/position-search'),
               onMenuTap: () => setState(() {
                 _showTableModeMenu = false;
                 _showQuickMenu = !_showQuickMenu;
@@ -119,7 +121,7 @@ class _PositionPageState extends ConsumerState<PositionPage> {
             child: PositionQuickMenu(
               isDark: isDark,
               onSync: _syncHoldings,
-              onBatchSync: () => _showToast('批量同步开发中'),
+              onBatchSync: () => _openBatchAdjust(ref.read(positionProvider)),
               onTradeRecord: _goTradeRecord,
               onAnalysis: _goCurve,
               onLedger: _goLedger,
@@ -166,11 +168,7 @@ class _PositionPageState extends ConsumerState<PositionPage> {
             onEdit: () {
               final target = _getSelectedItem(state);
               setState(() { _showPopup = false; _selectedIndex = -1; });
-              if (target != null) {
-                // TODO(对齐): uni-app 修改持仓跳 mass-upload-maddzx / gjs-holding-edit 编辑页，
-                // Flutter 端该页面尚未迁移，暂跳持仓详情（见迁移报告 REMAINING）
-                context.push('/position-details?symbolId=${target.symbolId}&assetType=${target.assetType}');
-              }
+              if (target != null) _goEditHolding(target);
             },
             onBatchEdit: () {
               setState(() { _showPopup = false; _selectedIndex = -1; });
@@ -237,33 +235,168 @@ class _PositionPageState extends ConsumerState<PositionPage> {
 
   /// 同步持仓 (1:1 uni-app hendleSynchronization)
   /// 源码: 有具体账本 → mass-upload?bookId=；全部账本 → add-accounting-records。
-  /// Flutter 端导入页尚未迁移，暂用 /optional-search 承接（见迁移报告 REMAINING）。
+  /// 同步持仓 (1:1 uni-app hendleSynchronization)：
+  /// 有当前账本 → mass-upload?bookId=；无 → add-accounting-records
   void _syncHoldings() {
     _closeMenus();
     final bookId = ref.read(positionProvider).currentBookId;
-    context.push(bookId != null ? '/optional-search?bookId=$bookId' : '/optional-search');
+    context.push(bookId != null
+        ? '/fund/upload/mass-upload?bookId=$bookId'
+        : '/fund/upload/add-records');
   }
 
-  /// 排序管理 (1:1 uni-app hendleSort → ./sort?bookId=)。页面未迁移，先占位提示。
+  /// 排序管理 (1:1 uni-app hendleSort → ./sort?bookId=)
   void _goSortManage() {
     _closeMenus();
-    _showToast('排序管理页面建设中');
+    final bookId = ref.read(positionProvider).currentBookId;
+    context.push(bookId != null ? '/position-sort?bookId=$bookId' : '/position-sort');
   }
 
-  /// 交易记录 (1:1 uni-app → ./trading-record?bookId=)。页面未迁移，先占位提示。
+  /// 交易记录 (1:1 uni-app → ./trading-record?bookId=)
   void _goTradeRecord() {
     _closeMenus();
-    _showToast('交易记录页面建设中');
+    final bookId = ref.read(positionProvider).currentBookId;
+    context.push(bookId != null ? '/trading-record?bookId=$bookId' : '/trading-record');
   }
 
-  /// 批量加减仓 (1:1 uni-app openBatchAdjust)：需具体账本；页面未迁移，先占位提示。
+  /// 批量加减仓 (1:1 uni-app openBatchAdjust)：需具体账本
   void _openBatchAdjust(PositionState state) {
     final bookId = state.currentBookId;
     if (bookId == null || bookId == -1) {
       _showToast('请选择具体账本后操作');
       return;
     }
-    _showToast('批量加减仓页面建设中');
+    context.push('/batch-adjust?bookId=$bookId');
+  }
+
+  /// 修改持仓 (1:1 uni-app goEditFundHolding / goEditMetalHolding)
+  /// 基金：全部账本多账本 → add-records 选账本；单账本 → maddzx 编辑
+  /// 贵金属 → gjs-holding-edit
+  Future<void> _goEditHolding(PositionItem item) async {
+    final state = ref.read(positionProvider);
+    if (item.assetType != 3) {
+      // 贵金属
+      if (item.assetId == 0) {
+        _showToast('当前贵金属缺少资产ID');
+        return;
+      }
+      final currentBookId = item.bookId ?? state.currentBookId;
+      context.push(Uri(path: '/fund/gjs-holding-edit', queryParameters: {
+        'assetId': '${item.assetId}',
+        'bookId': '${currentBookId ?? ''}',
+        'symbolId': '${item.symbolId}',
+        'uniqueSymbol': item.uniqueSymbol,
+        'shortName': item.shortName,
+        'holdQuantity': item.holdQuantity,
+        'holdCostAmount': item.holdCostAmount.isNotEmpty
+            ? item.holdCostAmount
+            : item.marketValue.toStringAsFixed(2),
+        'comment': item.comment,
+      }).toString());
+      return;
+    }
+    // 基金：全部账本 tab 需要先确认账本
+    if (state.tabIndex == 0) {
+      if (item.symbolId == 0) {
+        _showToast('当前基金缺少标的ID');
+        return;
+      }
+      try {
+        // uni-app getRealFundBookHoldings：按 symbol 拉取并筛出真实账本行
+        final res = await ApiClient().get('${ApiEndpoints.assetBySymbol}/${item.symbolId}');
+        final rows = _unwrapAssetList(res.data);
+        final bookMap = <int, Map<String, dynamic>>{};
+        for (final row in rows) {
+          final rowBookId = _asInt(row['bookId']);
+          final rowAssetId = _asInt(row['assetId']);
+          final rowSymbolId = _asInt(row['symbolId']);
+          if (rowBookId == null || rowBookId == -1) continue;
+          if (rowAssetId != null && rowAssetId == -1) continue;
+          if (rowSymbolId != null && rowSymbolId != item.symbolId) continue;
+          bookMap.putIfAbsent(rowBookId, () => row);
+        }
+        final bookHoldings = bookMap.values.toList();
+        if (bookHoldings.length > 1) {
+          if (!mounted) return;
+          context.push(Uri(path: '/fund/upload/add-records', queryParameters: {
+            'uniqueSymbol': item.uniqueSymbol,
+            'shortName': item.shortName,
+            'symbolId': '${item.symbolId}',
+            'fromDetails': '1',
+          }).toString());
+          return;
+        }
+        if (bookHoldings.length == 1) {
+          final target = bookHoldings.first;
+          final targetBookId = _asInt(target['bookId'])!;
+          // uni-app resolveBookFundHolding：拉该账本持仓取 marketValue/holdProfit
+          Map<String, dynamic>? holding;
+          try {
+            final bookRes = await ApiClient()
+                .get(ApiEndpoints.assetListV2, queryParameters: {'bookId': targetBookId});
+            holding = _findHoldingInList(
+                _unwrapAssetList(bookRes.data), item.symbolId, targetBookId);
+          } catch (_) {}
+          if (!mounted) return;
+          final mv = holding?['marketValue'] ?? target['marketValue'] ?? '';
+          final hp = holding?['holdProfit'] ?? target['holdProfit'] ?? '';
+          context.push(Uri(path: '/fund/upload/maddzx', queryParameters: {
+            'bookId': '$targetBookId',
+            'symbolId': '${item.symbolId}',
+            'shortName': item.shortName,
+            'marketValue': '$mv',
+            'holdProfit': '$hp',
+            'mode': 'edit',
+          }).toString());
+          return;
+        }
+      } catch (_) {
+        _showToast('获取账本持仓失败，请重试');
+        return;
+      }
+    }
+    if (!mounted) return;
+    // 具体账本直接编辑 (uni-app navigateToFundHoldingEdit)
+    final currentBookId = item.bookId ?? state.currentBookId;
+    if (currentBookId == null || currentBookId == -1) {
+      _showToast('请选择具体账本后修改');
+      return;
+    }
+    context.push(Uri(path: '/fund/upload/maddzx', queryParameters: {
+      'bookId': '$currentBookId',
+      'symbolId': '${item.symbolId}',
+      'shortName': item.shortName,
+      'marketValue': '${item.marketValue}',
+      'holdProfit': '${item.holdProfit}',
+      'mode': 'edit',
+    }).toString());
+  }
+
+  int? _asInt(dynamic v) {
+    if (v is num) return v.toInt();
+    return int.tryParse('$v');
+  }
+
+  /// uni-app unwrapAssetList
+  List<Map<String, dynamic>> _unwrapAssetList(dynamic data) {
+    final d = (data is Map && data['data'] != null) ? data['data'] : data;
+    final list = d is Map ? d['list'] : d;
+    if (list is List) return list.whereType<Map<String, dynamic>>().toList();
+    return const [];
+  }
+
+  /// uni-app findFundHoldingInList
+  Map<String, dynamic>? _findHoldingInList(
+      List<Map<String, dynamic>> list, int symbolId, int bookId) {
+    for (final row in list) {
+      if (_asInt(row['symbolId']) == symbolId && _asInt(row['bookId']) == bookId) {
+        return row;
+      }
+    }
+    for (final row in list) {
+      if (_asInt(row['symbolId']) == symbolId) return row;
+    }
+    return null;
   }
 
   Future<void> _pinToTop(int assetId) async {
@@ -289,7 +422,7 @@ class _PositionPageState extends ConsumerState<PositionPage> {
 
   void _goLedger() {
     _closeMenus();
-    context.push('/ledger');
+    context.push('/ledger?type=asset');
   }
 
   void _showToast(String message) {

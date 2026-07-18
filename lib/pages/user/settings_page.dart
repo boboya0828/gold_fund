@@ -52,9 +52,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   label: '手机绑定',
                   value: (phone == null || phone.isEmpty) ? '暂未绑定' : phone,
                   valueColor: valueColor, textColor: textColor, dividerColor: dividerColor,
-                  onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('功能开发中'), duration: Duration(seconds: 1)),
-                  ),
+                  onTap: () => context.push('/user/bound-phone'),
                 ),
                 _listItem(
                   label: '当前版本', value: _versionText,

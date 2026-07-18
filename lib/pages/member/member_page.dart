@@ -295,12 +295,16 @@ class _MemberPageState extends ConsumerState<MemberPage> {
   void _openHomeItem(VipTimelineItem item) {
     switch (item.type) {
       case 'morning_report':
-        // uni-app: ./details?type=morning&id= —— Flutter 暂无 /member/details 路由，
-        // 暂落到 morning-news stub（对应 morningnews.vue），详见报告 SHARED CHANGES
-        context.push('/member/morning-news');
+        // uni-app: ./details?type=morning&id=
+        context.push(item.id.isNotEmpty
+            ? '/member/details?type=morning&id=${Uri.encodeComponent(item.id)}'
+            : '/member/morning-news');
         break;
       case 'closing_report':
-        // uni-app: ./details?type=closing&id= —— 无对应路由/stub，暂不跳转
+        // uni-app: ./details?type=closing&id=
+        context.push(item.id.isNotEmpty
+            ? '/member/details?type=closing&id=${Uri.encodeComponent(item.id)}'
+            : '/member/closing-news');
         break;
       case 'attention_rise_rank':
         context.push(item.id.isNotEmpty
@@ -420,8 +424,8 @@ class _MemberPageState extends ConsumerState<MemberPage> {
                   onMorningNews: () => context.push('/member/morning-news'),
                   onContrast: () => context.push('/member/contrast'),
                   onRisingChart: () => context.push('/member/rising-chart'),
-                  // uni-app ./closingnews —— 无对应路由/stub，暂不跳转
-                  onClosingNews: () {},
+                  // uni-app ./closingnews
+                  onClosingNews: () => context.push('/member/closing-news'),
                 ),
                 MemberTimeline(
                   isDark: isDark,

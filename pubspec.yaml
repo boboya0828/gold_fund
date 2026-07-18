@@ -143,6 +143,23 @@ flutter:
     - assets/images/img/uico7-b.png
     - assets/images/img/right-ico.png
     - assets/images/img/right-ico1.png
+    - assets/images/img/u-logo.png
+    - assets/images/img/selectlist.png
+    - assets/images/img/dayico.png
+    - assets/images/img/share.png
+    - assets/images/img/rwmcode.png
+    - assets/images/img/shareico1.png
+    - assets/images/img/shareico2.png
+    # 批量上传示意 banner (1:1 uni-app static/image/banner)
+    - assets/images/banner/cbanner1.png
+    - assets/images/banner/cbanner2.png
+    - assets/images/banner/cbanner3.png
+    - assets/images/banner/cbanner4.png
+    - assets/images/banner/cbanner5.png
+    - assets/images/banner/cbanner6.png
+    - assets/images/banner/cbanner7.png
+    # 引导页图片 (1:1 uni-app static/image/guide)
+    - assets/images/guide/
 
   fonts:
     - family: siyuanheitiCNRegular
