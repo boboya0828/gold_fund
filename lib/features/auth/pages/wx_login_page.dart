@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -30,19 +31,25 @@ class _WxLoginPageState extends ConsumerState<WxLoginPage> {
             child: SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 15),
               child: Column(children: [
-                // 标题
+                // 标题（uni-app .title 左对齐，margin-top:140rpx）
                 Padding(
                   padding: const EdgeInsets.only(top: 70),
-                  child: Column(children: [
-                    Text('登录 养基助手', style: AppTextStyles.cn(24, color: const Color(0xFF333333), weight: FontWeight.bold)),
-                    const SizedBox(height: 6),
-                    Text('首次登录成功后将自动完成注册', style: AppTextStyles.cn(13, color: const Color(0xFF969696))),
-                  ]),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text('登录 养基助手', style: AppTextStyles.cn(24, color: const Color(0xFF333333), weight: FontWeight.bold)),
+                      const SizedBox(height: 6),
+                      Text('首次登录成功后将自动完成注册', style: AppTextStyles.cn(13, color: const Color(0xFF969696))),
+                    ]),
+                  ),
                 ),
-                const SizedBox(height: 50),
 
-                // 微信登录按钮
-                _buildWechatButton(authState.isLoading),
+                // 微信登录按钮（uni-app showWechatLogin=isWechatInstalled：H5/WEB 恒为 false 不渲染）
+                if (!kIsWeb) ...[
+                  const SizedBox(height: 50),
+                  _buildWechatButton(authState.isLoading),
+                ],
+                // other-login-btn margin-top:36rpx
                 const SizedBox(height: 18),
 
                 // 手机号登录 (outline)
@@ -61,10 +68,12 @@ class _WxLoginPageState extends ConsumerState<WxLoginPage> {
                     child: const Text('手机号登录', style: TextStyle(fontSize: 15)),
                   ),
                 ),
+                // ysbox margin-top:30rpx
                 const SizedBox(height: 15),
 
-                // 协议复选框
-                _buildAgreement(),
+                // 协议复选框（uni-app .ysbox 左对齐）
+                SizedBox(width: double.infinity, child: _buildAgreement()),
+                // more-login margin-top:84rpx
                 const SizedBox(height: 42),
 
                 // 其他方式登录
@@ -112,7 +121,7 @@ class _WxLoginPageState extends ConsumerState<WxLoginPage> {
   Widget _buildAgreement() {
     return GestureDetector(
       onTap: () => setState(() => _agreed = !_agreed),
-      child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+      child: Row(mainAxisAlignment: MainAxisAlignment.start, children: [
         Container(
           width: 21, height: 21,
           decoration: BoxDecoration(

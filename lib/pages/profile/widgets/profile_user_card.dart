@@ -9,7 +9,7 @@ import 'dark_mode_icon.dart';
 ///
 /// 头像 104rpx=52 圆形（深色：2rpx=1 边框 #2B2D33 + 底色 #282828），无 avatarUrl 回退 photo.png；
 /// 昵称 32rpx=16 加粗（昵称为空回退 username）；手机号 24rpx=12；
-/// 未登录显示 38rpx=19「登录/注册」；右箭头 11x20rpx=5.5x10。
+/// 未登录显示 38rpx=19「登陆/注册」；右箭头 11x20rpx=5.5x10。
 class ProfileUserCard extends StatelessWidget {
   final UserInfo? user;
   final bool isAuthenticated;
@@ -69,7 +69,7 @@ class ProfileUserCard extends StatelessWidget {
                     style: AppTextStyles.cn(12, color: isDark ? AppColors.darkTextSecondary : const Color(0xFF868686))),
               ],
             ] else
-              Text('登录/注册', style: AppTextStyles.cn(19, color: isDark ? AppColors.darkText : Colors.black)),
+              Text('登陆/注册', style: AppTextStyles.cn(19, color: isDark ? AppColors.darkText : Colors.black)),
           ]),
         ),
         DarkModeIconFilter(

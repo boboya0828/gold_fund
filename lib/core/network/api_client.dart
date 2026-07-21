@@ -7,6 +7,10 @@ class ApiClient {
   static final ApiClient _instance = ApiClient._internal();
   factory ApiClient() => _instance;
 
+  /// 401 未授权全局回调（由 app 层注入跳转登录页）。
+  /// 对齐 uni-app req.js：任何接口返回 401 → 跳登录页（源码不清 token）。
+  static void Function()? onUnauthorized;
+
   late final Dio dio;
 
   ApiClient._internal() {
@@ -85,12 +89,9 @@ class ErrorInterceptor extends Interceptor {
     final data = response.data;
 
     if (code == 401) {
-      // 401 未授权 → 清除 token 并触发登录重定向
-      SharedPreferences.getInstance().then((prefs) {
-        prefs.remove('token');
-      });
-      // 通过事件总线通知 UI 层跳转登录
+      // 401 未授权 → 全局跳转登录（uni-app req.js 行为，源码不清 token）
       print('[API] 401 Unauthorized - redirect to login');
+      ApiClient.onUnauthorized?.call();
     }
 
     if (data is Map && data['code'] != null) {
@@ -109,6 +110,12 @@ class ErrorInterceptor extends Interceptor {
 
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) {
+    // Dio 默认 validateStatus 会把 401 抛到这里，与 onResponse 同等处理
+    if (err.response?.statusCode == 401) {
+      print('[API] 401 Unauthorized - redirect to login');
+      ApiClient.onUnauthorized?.call();
+    }
+
     final message = err.message ?? '';
 
     // 检测网络不可用

@@ -1,6 +1,7 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'core/network/api_client.dart';
 import 'router.dart';
 import 'theme/app_theme.dart';
 import 'features/auth/providers/theme_provider.dart';
@@ -35,12 +36,24 @@ class _YangJiAppState extends ConsumerState<YangJiApp> with WidgetsBindingObserv
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _updateSystemChrome();
+    // uni-app req.js：任何接口 401 → 跳登录页
+    ApiClient.onUnauthorized = _onUnauthorized;
   }
 
   @override
   void dispose() {
+    if (ApiClient.onUnauthorized == _onUnauthorized) {
+      ApiClient.onUnauthorized = null;
+    }
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  void _onUnauthorized() {
+    final router = AppRouter.router;
+    // 已在登录页时避免重复跳转（多接口并发 401）
+    if (router.routeInformationProvider.value.uri.path == '/login') return;
+    router.go('/login');
   }
 
   @override

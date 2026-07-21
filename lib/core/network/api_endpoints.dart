@@ -2,7 +2,8 @@
 class ApiEndpoints {
   ApiEndpoints._();
 
-  static const baseUrl = 'https://api.huangjinetf.com';
+  // 对齐 zdj-v1 api/req.js API_BASE_URL（api2 为当前启用环境，api 已被源码注释弃用）
+  static const baseUrl = 'https://api2.huangjinetf.com';
 
   // ===================== UserCenter - Auth =====================
   static const login = '/usercenter/api/Auth/login';                    // POST

@@ -72,9 +72,8 @@ class _FundGroupNoticeState extends State<FundGroupNotice>
           borderRadius: BorderRadius.circular(6), // 12rpx
         ),
         child: Row(children: [
-          // 喇叭图标 (uni-icons sound 的本地替代图, 32×32rpx)
-          Image.asset('assets/images/img/tongzhi.png',
-              width: 16, height: 16),
+          // 喇叭图标 (uni-icons sound, size=18, #b78255)
+          Icon(Icons.volume_up, size: 18, color: AppColors.noticeIcon),
           const SizedBox(width: 4), // 8rpx
           // 滚动文字
           Expanded(

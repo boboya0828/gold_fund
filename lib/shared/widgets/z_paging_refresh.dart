@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import '../../theme/text_styles.dart';
@@ -12,7 +14,7 @@ import '../../theme/text_styles.dart';
 ///
 /// 用 CupertinoSliverRefreshControl 实现（drag/armed/refresh/done 四态 1:1 对应 z-paging）。
 /// 强制 BouncingScrollPhysics，保证 Android/Web 也能下拉（否则 Clamping 不产生 overscroll）。
-class ZPagingRefresh extends StatelessWidget {
+class ZPagingRefresh extends StatefulWidget {
   final Future<void> Function() onRefresh;
   final bool isDark;
 
@@ -41,24 +43,64 @@ class ZPagingRefresh extends StatelessWidget {
   static const double _threshold = 50; // 100rpx
 
   @override
+  State<ZPagingRefresh> createState() => _ZPagingRefreshState();
+}
+
+class _ZPagingRefreshState extends State<ZPagingRefresh> {
+  // 外部没传 controller 时用内部的：刷新完成后的收敛兜底需要拿到滚动位置。
+  ScrollController? _internalController;
+  ScrollController get _controller =>
+      widget.controller ?? (_internalController ??= ScrollController());
+
+  @override
+  void dispose() {
+    _internalController?.dispose();
+    super.dispose();
+  }
+
+  Future<void> _handleRefresh() async {
+    await widget.onRefresh();
+    // z-paging：「刷新成功」短暂停留后刷新头应完全收起（被表头方向遮没）。
+    // CupertinoSliverRefreshControl 的 done → inactive 依赖滚动活动驱动：
+    // 部分机型/Web 上回弹会停在残余 overscroll（位置卡在 -x 像素不再动弹），
+    // 刷新头就露出半截一直"没有被遮住"。这里兜底：done 停留 0.8s 后，
+    // 若仍停在顶部负偏移且用户没有触碰，把位置平滑归零，强制收起。
+    // 注意：必须用 unawaited 挂在返回的 Future 之外，否则这 1s 会被框架
+    // 计入 refreshTask，刷新头会一直停在「正在刷新...」不收起。
+    unawaited(Future<void>.delayed(const Duration(milliseconds: 800), () async {
+      if (!mounted) return;
+      final controller = _controller;
+      if (!controller.hasClients) return;
+      final position = controller.position;
+      if (position.pixels < -0.5 && !position.isScrollingNotifier.value) {
+        await controller.animateTo(
+          0,
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+        );
+      }
+    }));
+  }
+
+  @override
   Widget build(BuildContext context) {
     return CustomScrollView(
-      controller: controller,
+      controller: _controller,
       physics: const BouncingScrollPhysics(
         parent: AlwaysScrollableScrollPhysics(),
       ),
       slivers: [
         CupertinoSliverRefreshControl(
-          refreshTriggerPullDistance: _threshold,
-          refreshIndicatorExtent: _threshold,
-          onRefresh: onRefresh,
+          refreshTriggerPullDistance: ZPagingRefresh._threshold,
+          refreshIndicatorExtent: ZPagingRefresh._threshold,
+          onRefresh: _handleRefresh,
           builder: (context, mode, pulled, trigger, extent) =>
-              _ZpRefreshHeader(mode: mode, isDark: isDark, titleColor: titleColor),
+              _ZpRefreshHeader(mode: mode, isDark: widget.isDark, titleColor: widget.titleColor),
         ),
-        if (slivers != null)
-          ...slivers!
+        if (widget.slivers != null)
+          ...widget.slivers!
         else
-          SliverToBoxAdapter(child: child),
+          SliverToBoxAdapter(child: widget.child),
       ],
     );
   }
