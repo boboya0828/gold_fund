@@ -153,7 +153,7 @@ class _PhoneCodePageState extends ConsumerState<PhoneCodePage> {
         const SnackBar(content: Text('登录成功'), duration: Duration(milliseconds: 1500)),
       );
       await Future.delayed(const Duration(milliseconds: 800));
-      if (mounted) context.go('/home');
+      if (mounted) context.go('/position'); // uni: switchTab /pages/positionv1/index
     } else {
       setState(() => _loading = false);
       ScaffoldMessenger.of(context).showSnackBar(

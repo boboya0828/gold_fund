@@ -6,7 +6,9 @@ import '../../core/network/api_endpoints.dart';
 import '../../features/position/providers/position_provider.dart';
 import 'widgets/position_nav_header.dart';
 import 'widgets/position_asset_card.dart';
+import 'widgets/position_feed_notice.dart';
 import 'widgets/position_holding_table.dart';
+import 'widgets/position_overview_content.dart';
 import 'widgets/position_quick_menu.dart';
 import 'widgets/position_table_mode_menu.dart';
 import 'widgets/position_action_popup.dart';
@@ -75,37 +77,68 @@ class _PositionPageState extends ConsumerState<PositionPage> {
                 _showTableModeMenu = false;
                 _showQuickMenu = !_showQuickMenu;
               }),
+              // 「+」→ 账本管理 (1:1 uni-app goLedgerPage → /pages/position/ledger)
+              onAddTap: () => context.push('/ledger?type=asset'),
             ),
-            PositionAssetCard(
-              state: state,
-              isDark: isDark,
-              onEyeTap: () => _openAssetVisibleDialog(state),
-            ),
-            Expanded(
-              child: PositionHoldingTable(
+            // TODO(signalr): 资金流通知条 .position-notice（SignalR SubscribeSectorFundFlow
+            // 驱动 + 公告 position=2 开关 + positionNoticeDismissedId 记忆）本次不实现
+            if (state.isOverviewTab) ...[
+              // ===== 账户汇总 tab：资产卡(汇总口径) + 汇总卡片列表 =====
+              PositionAssetCard(
                 state: state,
                 isDark: isDark,
-                selectedIndex: _selectedIndex,
-                modeIconKey: _modeIconKey,
-                onSelect: (idx) => setState(() {
-                  _selectedIndex = idx;
-                  _showPopup = idx >= 0;
-                }),
-                onLongSelect: (idx, rowOffset, rowHeight) => setState(() {
-                  _selectedIndex = idx;
-                  _showPopup = idx >= 0;
-                  _rowOffset = rowOffset;
-                  _rowHeight = rowHeight;
-                }),
-                onRowTap: () => setState(() {
-                  _selectedIndex = -1;
-                  _showPopup = false;
-                }),
-                onSortToggle: _toggleTableModeMenu,
-                onSortManage: _goSortManage,
-                onSyncTap: _syncHoldings,
+                onEyeTap: () => _openAssetVisibleDialog(state),
+                overviewMode: true,
               ),
-            ),
+              Expanded(
+                child: PositionOverviewContent(
+                  state: state,
+                  isDark: isDark,
+                  onSyncTap: _syncHoldings,
+                ),
+              ),
+            ] else ...[
+              // ===== 普通账本 tab：资产卡 + 滚动通知条 + 横滑持仓表格 =====
+              PositionAssetCard(
+                state: state,
+                isDark: isDark,
+                onEyeTap: () => _openAssetVisibleDialog(state),
+              ),
+              if (state.feedNotice != null)
+                PositionFeedNotice(
+                  item: state.feedNotice!,
+                  isDark: isDark,
+                  onClose: () =>
+                      ref.read(positionProvider.notifier).dismissFeedNotice(),
+                  onTap: () => _openFeedNotice(state.feedNotice!),
+                ),
+              Expanded(
+                child: PositionHoldingTable(
+                  state: state,
+                  isDark: isDark,
+                  selectedIndex: _selectedIndex,
+                  modeIconKey: _modeIconKey,
+                  onSelect: (idx) => setState(() {
+                    _selectedIndex = idx;
+                    _showPopup = idx >= 0;
+                  }),
+                  onLongSelect: (idx, rowOffset, rowHeight) => setState(() {
+                    _selectedIndex = idx;
+                    _showPopup = idx >= 0;
+                    _rowOffset = rowOffset;
+                    _rowHeight = rowHeight;
+                  }),
+                  onRowTap: () => setState(() {
+                    _selectedIndex = -1;
+                    _showPopup = false;
+                  }),
+                  onSortToggle: _toggleTableModeMenu,
+                  onSortManage: _goSortManage,
+                  onSyncTap: _syncHoldings,
+                  onBatchTap: _openBatchAdjustFromAddbox,
+                ),
+              ),
+            ],
           ]),
         ),
 
@@ -257,6 +290,27 @@ class _PositionPageState extends ConsumerState<PositionPage> {
     _closeMenus();
     final bookId = ref.read(positionProvider).currentBookId;
     context.push(bookId != null ? '/trading-record?bookId=$bookId' : '/trading-record');
+  }
+
+  /// 批量加减仓 (1:1 uni-app openBatchSyncPage)：无具体账本 → add-records?target=batchAdjust
+  void _openBatchAdjustFromAddbox() {
+    final bookId = ref.read(positionProvider).currentBookId;
+    if (bookId == null || bookId == -1) {
+      context.push('/fund/upload/add-records?target=batchAdjust');
+      return;
+    }
+    context.push('/batch-adjust?bookId=$bookId');
+  }
+
+  /// 滚动通知条点击 (1:1 uni-app onFeedNoticeTap)：linkType 1=内页 2=公众号链接
+  void _openFeedNotice(FeedNoticeItem item) {
+    if (item.linkType.isEmpty || item.linkUrl.isEmpty) return;
+    if (item.linkType == '1') {
+      final url = item.linkUrl.startsWith('/') ? item.linkUrl : '/${item.linkUrl}';
+      context.push(url);
+      return;
+    }
+    // linkType=2 外部链接：源码走微信打开，Flutter 端暂不处理
   }
 
   /// 批量加减仓 (1:1 uni-app openBatchAdjust)：需具体账本

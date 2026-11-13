@@ -2,4 +2,5 @@
 library;
 export '../../features/position/providers/position_provider.dart' show
   TableShowMode, AssetVisibleLevel,
-  PositionItem, PositionState, IndicatorItem, LatestPriceInfo, BookItem;
+  PositionItem, PositionState, IndicatorItem, LatestPriceInfo, BookItem,
+  OverviewCard, OverviewTrendPoint, FeedNoticeItem;

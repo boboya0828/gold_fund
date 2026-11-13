@@ -94,7 +94,7 @@ class _PrivacyAuthPageState extends State<PrivacyAuthPage>
     if (!hasSeenGuide) {
       context.go('/guide'); // uni.reLaunch → /pages/guide/index
     } else {
-      context.go('/home'); // uni.switchTab → /pages/index/index
+      context.go('/position'); // uni goHome() → switchTab /pages/positionv1/index
     }
   }
 

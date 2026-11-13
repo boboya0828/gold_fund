@@ -100,6 +100,9 @@ flutter:
     - assets/tab_icons/marketTrends.png
     - assets/tab_icons/marketTrends-a.png
     - assets/tab_icons/marketTrends-black.png
+    - assets/tab_icons/noblemetal.png
+    - assets/tab_icons/noblemetal-a.png
+    - assets/tab_icons/noblemetal-black.png
     - assets/tab_icons/vip.png
     - assets/tab_icons/vip-a.png
     - assets/tab_icons/vip-black.png

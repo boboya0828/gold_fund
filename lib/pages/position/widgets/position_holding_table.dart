@@ -8,8 +8,15 @@ import '../../../features/position/providers/position_provider.dart';
 import '../../../shared/widgets/z_paging_refresh.dart';
 import 'position_holding_row.dart';
 
-/// 持仓表格容器 — 1:1 复刻 .holding-card (含 header + 列表)
-class PositionHoldingTable extends ConsumerWidget {
+/// 持仓表格容器 — 1:1 复刻 .demo-table-header + .active-box（左固定列 + 右侧横滑 16 列）
+///
+/// 布局参数（index.vue:2542-2557 + CSS）：
+/// - 左固定列 300rpx = 150px（CSS calc(284rpx + 16rpx)）
+/// - 右侧每列 144rpx = 72px，表头 78rpx = 39px，行高 110rpx = 55px
+/// - 分隔线 1rpx #f4f1ec（深 #2B2D33）；表头上+下线，行仅底线，末行无线
+/// - 裁剪区右内边距：可横滑 32rpx / 不溢出 24rpx
+/// - 横滑中固定列右缘投影；scrollLeft=0 时表头右端显示右箭头提示
+class PositionHoldingTable extends ConsumerStatefulWidget {
   final PositionState state;
   final bool isDark;
   final int selectedIndex;
@@ -19,7 +26,9 @@ class PositionHoldingTable extends ConsumerWidget {
   final VoidCallback onRowTap; // 普通 tap
   final VoidCallback onSortToggle; // 模式菜单切换触发
   final VoidCallback onSortManage; // 表头设置图标 → 排序管理页 (1:1 hendleSort)
-  final VoidCallback onSyncTap; // 同步持仓/批量加减仓/空态按钮 (1:1 hendleSynchronization)
+  final VoidCallback onSyncTap; // 同步持仓/空态按钮 (1:1 hendleSynchronization)
+  final VoidCallback onBatchTap; // 批量加减仓 (1:1 openBatchSyncPage)
+  final VoidCallback? onDataSourceTap; // 估值数据源弹框（未移植时可为 null）
   final GlobalKey? modeIconKey; // 模式图标锚点（菜单定位用）
 
   const PositionHoldingTable({
@@ -33,337 +42,435 @@ class PositionHoldingTable extends ConsumerWidget {
     required this.onSortToggle,
     required this.onSortManage,
     required this.onSyncTap,
+    required this.onBatchTap,
+    this.onDataSourceTap,
     this.modeIconKey,
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    if (!state.isLoggedIn) return _buildEmptyState(context, isDark);
+  ConsumerState<PositionHoldingTable> createState() =>
+      _PositionHoldingTableState();
+}
 
+class _PositionHoldingTableState extends ConsumerState<PositionHoldingTable> {
+  static const double fixedWidth = 150; // 300rpx
+  static const double cellWidth = 72; // 144rpx
+  static const double headerHeight = 39; // 78rpx
+  static const double rowHeight = PositionHoldingFixedCell.rowHeight; // 110rpx
+
+  final ScrollController _headCtrl = ScrollController();
+  final ScrollController _bodyCtrl = ScrollController();
+  bool _syncing = false;
+  bool _scrolled = false; // scrollLeft > 0：隐藏提示箭头 + 显示交界投影
+
+  @override
+  void initState() {
+    super.initState();
+    _bodyCtrl.addListener(_onBodyScroll);
+    _headCtrl.addListener(_onHeadScroll);
+  }
+
+  @override
+  void dispose() {
+    _headCtrl.dispose();
+    _bodyCtrl.dispose();
+    super.dispose();
+  }
+
+  void _onBodyScroll() {
+    _syncFrom(_bodyCtrl, _headCtrl);
+    final scrolled = _bodyCtrl.offset > 0.5;
+    if (scrolled != _scrolled) setState(() => _scrolled = scrolled);
+  }
+
+  void _onHeadScroll() {
+    _syncFrom(_headCtrl, _bodyCtrl);
+  }
+
+  /// 表头/行区横滑双向同步（防回环）
+  void _syncFrom(ScrollController from, ScrollController to) {
+    if (_syncing || !to.hasClients) return;
+    _syncing = true;
+    final target = from.offset.clamp(0.0, to.position.maxScrollExtent);
+    if ((to.offset - target).abs() > 0.5) to.jumpTo(target);
+    _syncing = false;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final state = widget.state;
+    final isDark = widget.isDark;
     final items = state.sortedItems;
-    final isNormal = state.tableMode == TableShowMode.normal;
-    final isCompact = state.tableMode == TableShowMode.compact;
+    final allColumns = visiblePositionColumns(state);
     final isMinimal = state.tableMode == TableShowMode.minimal;
-    final hideFlags = PositionHoldingRow.hideFlagsOf(state);
-    final mutedIconColor = isDark
-        ? const Color(0xFFA7ADB8)
-        : const Color(0xFF8E857E);
-    final sortInactiveColor = isDark
-        ? const Color(0xFFA7ADB8)
-        : const Color(0xFFdddddd);
-    final headerLabelColor = isDark
-        ? const Color(0xFFA7ADB8)
-        : const Color(0xFF8D8B87);
-    final headerDateColor = isDark
-        ? const Color(0xFFA7ADB8)
-        : const Color(0xFFC0BAB3);
+    final columns = isMinimal
+        ? allColumns
+            .where((c) => kPositionMiniColumnKeys.contains(c.key))
+            .toList()
+        : allColumns;
+    final singleLine = state.tableMode != TableShowMode.normal;
 
-    // 1:1 uni-app headerDateLabel: 接口 curTradeDate，缺省回退最近交易日
-    final dateLabel = state.headerDateLabel;
+    final cardBg = isDark ? const Color(0xFF202125) : Colors.white;
+    final sepColor = isDark ? const Color(0xFF2B2D33) : const Color(0xFFF4F1EC);
+    final activeBoxBg =
+        isDark ? const Color(0xFF111315) : const Color(0xFFF5F5F5);
 
+    // 内容溢出可横滑时右内边距 32rpx，不溢出 24rpx
+    final rightWidth = columns.length * cellWidth;
     final screenW = MediaQuery.of(context).size.width;
-    final contentW = screenW - 32; // 减去左右 1rem padding
+    final overflows = rightWidth > screenW - fixedWidth;
+    final rightPad = overflows ? 16.0 : 12.0;
 
-    // Column widths matching CSS grid fractions exactly
-    final double nameW, dayProfitW, indicatorW, holdProfitW, gapW;
-    if (isCompact) {
-      gapW = 4; // 8rpx
-      final availW = contentW - 2 * gapW;
-      nameW = availW * 2 / 3.84;
-      dayProfitW = availW * 0.92 / 3.84;
-      indicatorW = availW * 0.92 / 3.84;
-      holdProfitW = availW * 0.92 / 3.84;
-    } else {
-      gapW = 8; // 16rpx
-      final availW = contentW - 3 * gapW;
-      nameW = availW * 1.40 / 4.1;
-      dayProfitW = availW * 0.9 / 4.1;
-      indicatorW = availW * 0.9 / 4.1;
-      holdProfitW = availW * 0.9 / 4.1;
+    // 模式切换后横滑偏移归零（1:1 uni-app watch(listMunActive)）
+    final modeKey = state.tableMode;
+    if (_lastModeKey != modeKey) {
+      _lastModeKey = modeKey;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_bodyCtrl.hasClients) _bodyCtrl.jumpTo(0);
+        if (_headCtrl.hasClients) _headCtrl.jumpTo(0);
+      });
     }
 
-    // 表头固定；下拉刷新 + 列表滚动区在下方 (对齐 uni-app: 列头在 z-paging 外, 刷新头在列头下方)
     return Column(
       children: [
-        // 固定表头
-        _buildHeader(
-          isDark,
-          isNormal,
-          isCompact,
-          isMinimal,
-          nameW,
-          dayProfitW,
-          indicatorW,
-          holdProfitW,
-          gapW,
-          mutedIconColor,
-          sortInactiveColor,
-          headerLabelColor,
-          headerDateColor,
-          dateLabel,
-          state,
-          context,
-          ref,
-        ),
-        // 列表区 (仅此处可下拉刷新)；整块灰底 = uni-app .active-box #f5f5f5/#111315
+        // ===== 固定表头 .demo-table-header =====
+        _buildHeader(columns, cardBg, sepColor, rightPad, overflows),
+        // ===== 列表区 .active-box =====
         Expanded(
           child: ColoredBox(
-            color: isDark ? const Color(0xFF111315) : const Color(0xFFF5F5F5),
+            color: activeBoxBg,
             child: items.isEmpty
-              ? _buildEmptyState(context, isDark)
-              : ZPagingRefresh(
-                  isDark: isDark,
-                  onRefresh: () =>
-                      ref.read(positionProvider.notifier).refresh(),
-                  child: Column(
-                    children: [
-                      Container(
-                        // 列表行容器白底 = uni-app .holding-card #ffffff/#202125
-                        color: isDark
-                            ? const Color(0xFF202125)
-                            : Colors.white,
-                        // 性能优化：使用 ListView.builder 替代 Column+map
-                        child: ListView.builder(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          itemCount: items.length,
-                          itemBuilder: (ctx, i) {
-                            final item = items[i];
-                            return PositionHoldingRow(
-                              item: item,
-                              index: i,
-                              isDark: isDark,
-                              nameW: nameW,
-                              dayProfitW: dayProfitW,
-                              indicatorW: indicatorW,
-                              holdProfitW: holdProfitW,
-                              isNormal: isNormal,
-                              isCompact: isCompact,
-                              isMinimal: isMinimal,
-                              gapW: gapW,
-                              isLast: i == items.length - 1,
-                              isSelected: selectedIndex == i,
-                              hideHoldAmount: hideFlags.hold,
-                              hideIncomeAmount: hideFlags.income,
-                              hideIncomeRate: hideFlags.rate,
-                              hideFundName: hideFlags.name,
-                              onTap: () {
-                                onSelect(-1);
-                                onRowTap();
-                                // 1:1 uni-app hendlGoMetalInfo: 全部账本tab下的基金传 assetId=-1
-                                final isAllFund =
-                                    state.tabIndex == 0 && item.assetType == 3;
-                                final assetId =
-                                    isAllFund ? -1 : item.assetId;
-                                context.push(
-                                  '/position-details?symbolId=${item.symbolId}'
-                                  '&assetType=${item.assetType}&assetId=$assetId',
-                                );
-                              },
-                              onLongPress: (offset, height) {
-                                if (onLongSelect != null) {
-                                  onLongSelect!(i, offset, height);
-                                } else {
-                                  onSelect(i);
-                                }
-                              },
-                            );
-                          },
+                ? _buildEmptyArea(context, isDark)
+                : ZPagingRefresh(
+                    isDark: isDark,
+                    onRefresh: () =>
+                        ref.read(positionProvider.notifier).refresh(),
+                    child: Column(
+                      children: [
+                        SizedBox(
+                          height: rowHeight * items.length,
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              // 左固定列 .demo-fixed-list
+                              Container(
+                                width: fixedWidth,
+                                decoration: BoxDecoration(
+                                  boxShadow: _scrolled
+                                      ? const [
+                                          // 8rpx 0 10rpx -6rpx rgba(31,36,48,0.08)
+                                          BoxShadow(
+                                            color: Color(0x141F2430),
+                                            blurRadius: 5,
+                                            spreadRadius: -3,
+                                            offset: Offset(4, 0),
+                                          ),
+                                        ]
+                                      : null,
+                                ),
+                                child: Column(
+                                  children: [
+                                    for (var i = 0; i < items.length; i++)
+                                      PositionHoldingFixedCell(
+                                        item: items[i],
+                                        index: i,
+                                        isDark: isDark,
+                                        isMinimal: isMinimal,
+                                        isLast: i == items.length - 1,
+                                        isSelected:
+                                            widget.selectedIndex == i,
+                                        hideHoldAmount: state.hideHoldAmount,
+                                        hideFundName: state.hideFundName,
+                                        showFundCode: state.showFundCode,
+                                        showHoldingAmount:
+                                            state.showHoldingAmount,
+                                        onTap: () =>
+                                            _handleRowTap(context, i, items[i]),
+                                        onLongPress: (offset, height) {
+                                          final cb = widget.onLongSelect;
+                                          if (cb != null) {
+                                            cb(i, offset, height);
+                                          } else {
+                                            widget.onSelect(i);
+                                          }
+                                        },
+                                      ),
+                                  ],
+                                ),
+                              ),
+                              // 右侧横滑区 .demo-right-mask
+                              Expanded(
+                                child: SingleChildScrollView(
+                                  scrollDirection: Axis.horizontal,
+                                  controller: _bodyCtrl,
+                                  physics: const ClampingScrollPhysics(),
+                                  child: SizedBox(
+                                    width: rightWidth + rightPad,
+                                    child: Column(
+                                      children: [
+                                        for (var i = 0; i < items.length; i++)
+                                          _buildRightRow(
+                                            items[i],
+                                            i,
+                                            columns,
+                                            singleLine,
+                                            cardBg,
+                                            sepColor,
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                      // 底部操作行 (随列表滚动, 对齐 uni-app .addbox 在 z-paging 内)
-                      // 1:1 源码: 左「同步持仓」(icon-tianjia) 右「批量加减仓」(icon-fuzhiyemian)，
-                      // 两者都触发 hendleSynchronization
-                      Padding(
-                        padding: const EdgeInsets.only(
-                          left: 16,
-                          right: 16,
-                          top: 10, // margin-top 20rpx
-                          bottom: 100, // padding-bottom 200rpx
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            _addboxEntry(
-                              icon: AppIcons.add,
-                              label: '同步持仓',
-                              isDark: isDark,
-                              iconColor: mutedIconColor,
-                              onTap: onSyncTap,
-                            ),
-                            _addboxEntry(
-                              icon: AppIcons.copyPage,
-                              label: '批量加减仓',
-                              isDark: isDark,
-                              iconColor: mutedIconColor,
-                              onTap: onSyncTap,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+                        // 底部操作行 .addbox（随列表滚动）
+                        _buildAddbox(isDark),
+                      ],
+                    ),
                   ),
-                ),
-              ),
+          ),
         ),
       ],
     );
   }
 
+  TableShowMode? _lastModeKey;
+
+  // ===== 表头 =====
   Widget _buildHeader(
-    bool isDark,
-    bool isNormal,
-    bool isCompact,
-    bool isMinimal,
-    double nameW,
-    double dayProfitW,
-    double indicatorW,
-    double holdProfitW,
-    double gapW,
-    Color mutedIconColor,
-    Color sortInactiveColor,
-    Color headerLabelColor,
-    Color headerDateColor,
-    String dateLabel,
-    PositionState state,
-    BuildContext context,
-    WidgetRef ref,
+    List<PositionColumnDef> columns,
+    Color cardBg,
+    Color sepColor,
+    double rightPad,
+    bool overflows,
   ) {
+    final isDark = widget.isDark;
+    final state = widget.state;
+    final mutedIconColor =
+        isDark ? const Color(0xFFA7ADB8) : const Color(0xFF8E857E);
+    final headerLabelColor =
+        isDark ? const Color(0xFFA7ADB8) : const Color(0xFF8D8B87);
+    final headerDateColor =
+        isDark ? const Color(0xFFA7ADB8) : const Color(0xFFC0BAB3);
+    final sortInactiveColor =
+        isDark ? const Color(0xFFA7ADB8) : const Color(0xFFDDDDDD);
+
     return Container(
       key: const Key('position-table-header'),
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 7),
+      height: headerHeight,
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF202125) : Colors.white,
+        color: cardBg,
         border: Border(
-          top: BorderSide(
-            color: isDark ? const Color(0xFF2B2D33) : const Color(0xFFF4F1EC),
-            width: 0.5,
-          ),
-          bottom: BorderSide(
-            color: isDark ? const Color(0xFF2B2D33) : const Color(0xFFF4F1EC),
-            width: 0.5,
-          ),
+          top: BorderSide(color: sepColor, width: 0.5),
+          bottom: BorderSide(color: sepColor, width: 0.5),
         ),
       ),
-      child: SizedBox(
-        height: 28,
+      child: Row(
+        children: [
+          // 左固定图标区 .demo-fixed-head
+          Container(
+            width: fixedWidth,
+            padding: const EdgeInsets.only(left: 16), // padding-left 32rpx
+            child: Row(
+              children: [
+                GestureDetector(
+                  onTap: widget.onSortManage, // 1:1 hendleSort → 表头管理页
+                  child: Icon(AppIcons.settings, size: 20, color: mutedIconColor),
+                ),
+                const SizedBox(width: 12), // gap 24rpx
+                GestureDetector(
+                  key: widget.modeIconKey,
+                  onTap: widget.onSortToggle, // 1:1 toggleTableModeMenu
+                  child: Icon(
+                    _tableModeIcon(state.tableMode),
+                    key: const Key('position-header-mode-icon'),
+                    size: 20,
+                    color: mutedIconColor,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                GestureDetector(
+                  onTap: widget.onDataSourceTap, // 估值数据源弹框（未移植时禁用）
+                  child: Icon(
+                    AppIcons.dataSource,
+                    size: 20,
+                    color: mutedIconColor,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // 右侧列头 .demo-header-clip
+          Expanded(
+            child: Stack(
+              children: [
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  controller: _headCtrl,
+                  physics: const ClampingScrollPhysics(),
+                  child: SizedBox(
+                    width: columns.length * cellWidth + rightPad,
+                    child: Row(
+                      children: [
+                        for (final col in columns)
+                          _SortHeaderCell(
+                            key: Key('position-header-${col.keySlug}'),
+                            column: col,
+                            dateLabel: _columnDateLabel(col, state),
+                            state: state,
+                            labelColor: headerLabelColor,
+                            dateColor: headerDateColor,
+                            inactiveColor: sortInactiveColor,
+                            onTap: () => ref
+                                .read(positionProvider.notifier)
+                                .toggleSort(col.sortField),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+                // 右端横滑提示箭头（scrollLeft=0 时显示）
+                if (!_scrolled && overflows)
+                  const Positioned(
+                    right: 2, // right 4rpx
+                    top: 0,
+                    bottom: 0,
+                    child: Center(
+                      child: Icon(
+                        Icons.chevron_right,
+                        size: 12,
+                        color: Color(0xFFB3B0AA),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _columnDateLabel(PositionColumnDef col, PositionState state) {
+    switch (col.dateSource) {
+      case 'nav':
+        return state.latestNavDateLabel;
+      case 'ext':
+        return state.extendedDateLabel;
+      default:
+        return state.headerDateLabel;
+    }
+  }
+
+  // ===== 右侧数据行 =====
+  Widget _buildRightRow(
+    PositionItem item,
+    int index,
+    List<PositionColumnDef> columns,
+    bool singleLine,
+    Color cardBg,
+    Color sepColor,
+  ) {
+    final isDark = widget.isDark;
+    final isLast = index == widget.state.sortedItems.length - 1;
+    final isSelected = widget.selectedIndex == index;
+    final cells = buildHoldingCells(item, columns, widget.state, isDark);
+    return GestureDetector(
+      onTap: () => _handleRowTap(context, index, item),
+      onLongPressStart: (_) {
+        final box = context.findRenderObject() as RenderBox?;
+        if (box != null) {
+          final cb = widget.onLongSelect;
+          if (cb != null) {
+            cb(index, box.localToGlobal(Offset.zero), box.size.height);
+          } else {
+            widget.onSelect(index);
+          }
+        }
+      },
+      child: Container(
+        height: rowHeight,
+        decoration: BoxDecoration(
+          color: isSelected
+              ? (isDark ? const Color(0xFF2A2C31) : const Color(0xFFF1F1F1))
+              : cardBg,
+          border: isLast
+              ? null
+              : Border(bottom: BorderSide(color: sepColor, width: 0.5)),
+        ),
         child: Row(
           children: [
-            SizedBox(
-              width: nameW,
-              child: Row(
-                children: [
-                  GestureDetector(
-                    onTap: onSortManage, // 1:1 uni-app hendleSort → 排序管理页
-                    child: Icon(
-                      AppIcons.settings,
-                      size: 20,
-                      color: mutedIconColor,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  GestureDetector(
-                    key: modeIconKey,
-                    onTap: () => _toggleTableModeMenu(context),
-                    child: Icon(
-                      _tableModeIcon(state.tableMode),
-                      key: const Key('position-header-mode-icon'),
-                      size: 20,
-                      color: mutedIconColor,
-                    ),
-                  ),
-                ],
+            for (final cell in cells)
+              PositionHoldingCell(
+                cell: cell,
+                rowIndex: index,
+                isDark: isDark,
+                singleLine: singleLine,
               ),
-            ),
-            SizedBox(width: gapW),
-            SizedBox(
-              key: const Key('position-header-day-profit'),
-              width: dayProfitW,
-              child: _SortHeader(
-                title: '当日收益',
-                field: 'dayProfit',
-                dateLabel: dateLabel,
-                state: state,
-                labelColor: headerLabelColor,
-                dateColor: headerDateColor,
-                inactiveColor: sortInactiveColor,
-                onTap: () =>
-                    ref.read(positionProvider.notifier).toggleSort('dayProfit'),
-              ),
-            ),
-            SizedBox(width: gapW),
-            SizedBox(
-              key: const Key('position-header-indicator'),
-              width: indicatorW,
-              child: isNormal
-                  ? _SortHeader(
-                      title: '关联板块',
-                      field: 'increaseRatio',
-                      dateLabel: dateLabel,
-                      state: state,
-                      labelColor: headerLabelColor,
-                      dateColor: headerDateColor,
-                      inactiveColor: sortInactiveColor,
-                      onTap: () => ref
-                          .read(positionProvider.notifier)
-                          .toggleSort('increaseRatio'),
-                    )
-                  : _SortHeader(
-                      title: '最新涨幅',
-                      field: isMinimal
-                          ? 'increaseRatio'
-                          : 'latestPrice.chgRate',
-                      dateLabel: dateLabel,
-                      state: state,
-                      labelColor: headerLabelColor,
-                      dateColor: headerDateColor,
-                      inactiveColor: sortInactiveColor,
-                      onTap: () => ref
-                          .read(positionProvider.notifier)
-                          .toggleSort(
-                            isMinimal ? 'increaseRatio' : 'latestPrice.chgRate',
-                          ),
-                    ),
-            ),
-            if (isNormal || isMinimal) ...[
-              SizedBox(width: gapW),
-              SizedBox(
-                key: const Key('position-header-hold-profit'),
-                width: holdProfitW,
-                child: _SortHeader(
-                  title: '持有收益',
-                  field: 'holdProfit',
-                  dateLabel: dateLabel,
-                  state: state,
-                  labelColor: headerLabelColor,
-                  dateColor: headerDateColor,
-                  inactiveColor: sortInactiveColor,
-                  onTap: () => ref
-                      .read(positionProvider.notifier)
-                      .toggleSort('holdProfit'),
-                ),
-              ),
-            ],
           ],
         ),
       ),
     );
   }
 
-  void _toggleTableModeMenu(BuildContext context) {
-    // 委托回主页面层切换菜单显隐（onSortToggle 内部 toggle）
-    onSortToggle();
+  /// 行点击 → 持仓详情 (1:1 uni-app onMetalRowClick → hendlGoMetalInfo)
+  void _handleRowTap(BuildContext context, int index, PositionItem item) {
+    widget.onSelect(-1);
+    widget.onRowTap();
+    // 全部账本 tab 下的基金传 assetId=-1
+    final isAllFund =
+        widget.state.tabIndex == 0 && item.assetType == 3;
+    final assetId = isAllFund ? -1 : item.assetId;
+    context.push(
+      '/position-details?symbolId=${item.symbolId}'
+      '&assetType=${item.assetType}&assetId=$assetId',
+    );
   }
 
   IconData _tableModeIcon(TableShowMode mode) {
     switch (mode) {
       case TableShowMode.normal:
-        return Icons.menu;
+        return Icons.menu; // bars
       case TableShowMode.compact:
-        return Icons.format_list_bulleted;
+        return Icons.format_list_bulleted; // list
       case TableShowMode.minimal:
-        return Icons.more_horiz;
+        return Icons.more_horiz; // more-filled
     }
+  }
+
+  // ===== 底部操作 .addbox =====
+  Widget _buildAddbox(bool isDark) {
+    final mutedIconColor =
+        isDark ? const Color(0xFFA7ADB8) : const Color(0xFF8E857E);
+    return Padding(
+      padding: const EdgeInsets.only(
+        left: 16,
+        right: 16,
+        top: 10, // margin-top 20rpx
+        bottom: 100, // padding-bottom 200rpx
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          _addboxEntry(
+            icon: AppIcons.add,
+            label: '同步持仓',
+            isDark: isDark,
+            iconColor: mutedIconColor,
+            onTap: widget.onSyncTap,
+          ),
+          _addboxEntry(
+            icon: AppIcons.copyPage,
+            label: '批量加减仓',
+            isDark: isDark,
+            iconColor: mutedIconColor,
+            onTap: widget.onBatchTap,
+          ),
+        ],
+      ),
+    );
   }
 
   /// .addbox 单个入口: 图标(12px) + 文字(22rpx #7A7A82 / 暗 #8F949D)
@@ -379,7 +486,7 @@ class PositionHoldingTable extends ConsumerWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 12, color: iconColor), // 源码 mutedIconColor
+          Icon(icon, size: 12, color: iconColor),
           const SizedBox(width: 2), // .addbox view margin-left 4rpx
           Text(
             label,
@@ -393,66 +500,133 @@ class PositionHoldingTable extends ConsumerWidget {
     );
   }
 
-  Widget _buildEmptyState(BuildContext context, bool isDark) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(30, 60, 30, 0),
-        child: Column(
-          children: [
-            GestureDetector(
-              // 1:1 uni-app .ndata-action → hendleSynchronization (导入持仓, 非登录页)
-              onTap: onSyncTap,
-              child: Container(
-                width: 270,
-                height: 43,
-                decoration: BoxDecoration(
-                  color: AppColors.primary,
-                  borderRadius: BorderRadius.circular(5),
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  '导入我的持有基金',
-                  style: AppTextStyles.cn(
-                    15,
-                    color: Colors.white,
-                    weight: FontWeight.w500,
+  // ===== 空态（含游客）：addbox 仍显示在顶部 + .ndata 覆盖层 =====
+  Widget _buildEmptyArea(BuildContext context, bool isDark) {
+    return Stack(
+      children: [
+        // addbox 在 z-paging 内顶部（空列表时也渲染）
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 0),
+            child: SizedBox(
+              height: 26, // margin-top 20rpx + 行高，占位避免与 ndata 重叠
+              child: Stack(
+                children: [
+                  Positioned(
+                    top: 10,
+                    left: 16,
+                    right: 16,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        _addboxEntry(
+                          icon: AppIcons.add,
+                          label: '同步持仓',
+                          isDark: isDark,
+                          iconColor: isDark
+                              ? const Color(0xFFA7ADB8)
+                              : const Color(0xFF8E857E),
+                          onTap: widget.onSyncTap,
+                        ),
+                        _addboxEntry(
+                          icon: AppIcons.copyPage,
+                          label: '批量加减仓',
+                          isDark: isDark,
+                          iconColor: isDark
+                              ? const Color(0xFFA7ADB8)
+                              : const Color(0xFF8E857E),
+                          onTap: widget.onBatchTap,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        // .ndata：absolute 铺满，padding 120rpx 60rpx 0，内容垂直居中（justify-center）
+        Positioned.fill(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(30, 60, 30, 0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                GestureDetector(
+                  // 游客 → /login；登录态 → hendleSynchronization 导入流程
+                  onTap: () {
+                    if (!widget.state.isLoggedIn) {
+                      context.push('/login');
+                    } else {
+                      widget.onSyncTap();
+                    }
+                  },
+                  child: Container(
+                    width: double.infinity,
+                    constraints: const BoxConstraints(maxWidth: 270), // 540rpx
+                    height: 43, // 86rpx
+                    decoration: BoxDecoration(
+                      color: AppColors.primary, // #E15665
+                      borderRadius: BorderRadius.circular(5), // 10rpx
+                      boxShadow: const [
+                        // 0 16rpx 36rpx rgba(82,122,248,0.16)
+                        BoxShadow(
+                          color: Color(0x29527AF8),
+                          blurRadius: 18,
+                          offset: Offset(0, 8),
+                        ),
+                      ],
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      '导入我的持有基金',
+                      style: AppTextStyles.cn(
+                        15, // 30rpx
+                        color: Colors.white,
+                        weight: FontWeight.w500,
+                      ),
+                    ),
                   ),
                 ),
-              ),
+                const SizedBox(height: 12), // margin-top 24rpx
+                Text(
+                  '已支持支付宝、天天基金、腾讯理财通、雪球基金等平台的一键导入',
+                  style: AppTextStyles.cn(
+                    12, // 24rpx
+                    color: isDark
+                        ? const Color(0xFF8F949D)
+                        : const Color(0xFF8D8B87),
+                    height: 1.5,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 11), // margin-top 22rpx
+                Text(
+                  '养基助手应用仅用于数据同步模拟，不涉及任何真实交易',
+                  style: AppTextStyles.num(
+                    10, // 20rpx
+                    color: isDark
+                        ? const Color(0xFF8F949D)
+                        : const Color(0xFF8D8B87),
+                    height: 1.5,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
             ),
-            const SizedBox(height: 12),
-            Text(
-              '已支持支付宝、天天基金、腾讯理财通、雪球基金等平台的一键导入',
-              style: AppTextStyles.cn(
-                12,
-                color: isDark
-                    ? const Color(0xFF8F949D)
-                    : const Color(0xFF8D8B87),
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 11),
-            Text(
-              '养基助手应用仅用于数据同步模拟，不涉及任何真实交易',
-              style: AppTextStyles.cn(
-                10,
-                color: isDark
-                    ? const Color(0xFF8F949D)
-                    : const Color(0xFF8D8B87),
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
+          ),
         ),
-      ),
+      ],
     );
   }
 }
 
-/// 排序表头 — 1:1 复刻 .holding-header-sort
-class _SortHeader extends StatelessWidget {
-  final String title;
-  final String field;
+/// 排序表头单元格 — 1:1 复刻 .demo-right-cell.holding-header-sort
+class _SortHeaderCell extends StatelessWidget {
+  final PositionColumnDef column;
   final String dateLabel;
   final PositionState state;
   final Color labelColor;
@@ -460,9 +634,9 @@ class _SortHeader extends StatelessWidget {
   final Color inactiveColor;
   final VoidCallback onTap;
 
-  const _SortHeader({
-    required this.title,
-    required this.field,
+  const _SortHeaderCell({
+    super.key,
+    required this.column,
     required this.dateLabel,
     required this.state,
     required this.labelColor,
@@ -473,57 +647,60 @@ class _SortHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isActive = state.sortField == field;
+    final isActive = state.sortField == column.sortField;
     const activeColor = Color(0xFFE05665); // 源码排序箭头激活色
 
     return GestureDetector(
-      onTap: onTap,
-      child: Stack(
-        children: [
-          // 标题/日期文字：右侧留 9px (对齐源码 padding-right:18rpx)，给排序箭头留空间
-          Padding(
-            padding: const EdgeInsets.only(right: 9),
-            child: Column(
+      onTap: onTap, // 1:1 toggleMetalSort: desc → asc → 取消
+      child: Container(
+        width: _PositionHoldingTableState.cellWidth,
+        height: _PositionHoldingTableState.headerHeight,
+        padding: const EdgeInsets.only(right: 4), // 8rpx
+        color: Colors.transparent,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            Column(
               crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  title,
-                  style: AppTextStyles.cn(11, color: labelColor, height: 1),
+                  column.title,
+                  style: AppTextStyles.cn(11, color: labelColor, height: 1.2),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 4), // margin-top 8rpx
                 Text(
                   dateLabel,
                   style: AppTextStyles.num(9, color: dateColor, height: 1),
                 ),
               ],
             ),
-          ),
-          // 排序箭头：贴列真实右边缘 (对齐源码 .navimag { position:absolute; right:0 },
-          // 不受父级 padding 影响，与下方数据列的右边缘对齐)
-          Positioned(
-            right: 0,
-            top: 0,
-            bottom: 0,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                _SortTriangle(
-                  pointsUp: true,
-                  color: isActive && state.sortOrder == 'asc'
-                      ? activeColor
-                      : inactiveColor,
-                ),
-                const SizedBox(height: 1),
-                _SortTriangle(
-                  pointsUp: false,
-                  color: isActive && state.sortOrder == 'desc'
-                      ? activeColor
-                      : inactiveColor,
-                ),
-              ],
+            const SizedBox(width: 3), // gap 6rpx
+            // .navimag：表头横滑列上内联布局（width 14rpx height 22rpx）
+            SizedBox(
+              width: 7,
+              height: 11,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _SortTriangle(
+                    pointsUp: true,
+                    color: isActive && state.sortOrder == 'asc'
+                        ? activeColor
+                        : inactiveColor,
+                  ),
+                  const SizedBox(height: 1),
+                  _SortTriangle(
+                    pointsUp: false,
+                    color: isActive && state.sortOrder == 'desc'
+                        ? activeColor
+                        : inactiveColor,
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

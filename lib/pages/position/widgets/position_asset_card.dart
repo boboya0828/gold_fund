@@ -11,6 +11,7 @@ import '../../../core/utils/number_format.dart'
 import 'position_profit_color.dart';
 
 /// 资产总览卡片 — 1:1 复刻 .asset-card
+/// 普通 tab 与账户汇总 tab 共用（数据源不同由调用方传入）
 class PositionAssetCard extends ConsumerWidget {
   final PositionState state;
   final bool isDark;
@@ -18,17 +19,21 @@ class PositionAssetCard extends ConsumerWidget {
   /// 点击眼睛图标 → 打开「闭眼模式选择」弹窗 (1:1 uni-app openAssetVisibleModePopup)
   final VoidCallback onEyeTap;
 
+  /// 汇总 tab 模式：数据源取 overviewStats，且收益数值受闭眼模式隐藏
+  /// (1:1 uni-app .overview-summary-card)
+  final bool overviewMode;
+
   const PositionAssetCard({
     super.key,
     required this.state,
     required this.isDark,
     required this.onEyeTap,
+    this.overviewMode = false,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    if (!state.isLoggedIn) return const SizedBox.shrink();
-
+    // 游客也显示（0.00 / +0.00），1:1 uni-app asset-card 无 hasToken 条件
     final cardBg = isDark ? const Color(0xFF202125) : Colors.white;
     final labelColor = isDark
         ? const Color(0xFFA7ADB8)
@@ -40,24 +45,39 @@ class PositionAssetCard extends ConsumerWidget {
         ? const Color(0xFF777E8B)
         : const Color(0xFFc9c2bb);
 
-    // 1:1 uni-app：主显 金额/收益率 由 showProfitRatio 决定；刷新后的 3 秒内
-    // (isShowRatio) 在旁边小号显示另一项。资产卡收益不受闭眼模式隐藏。
-    final mainValue = state.showProfitRatio
-        ? state.totalDayChangeRatio
-        : state.totalDayProfit;
-    final mainText = state.showProfitRatio
-        ? '${_formatSigned(state.totalDayChangeRatio)}%'
-        : _formatSignedMoney(state.totalDayProfit);
-    final subValue = state.showProfitRatio
-        ? state.totalDayProfit
+    final totalMarketAmount = overviewMode
+        ? state.overviewTotalMarketValue
+        : state.totalMarketValue;
+    final totalDayProfit =
+        overviewMode ? state.overviewTotalDayProfit : state.totalDayProfit;
+    final totalDayChangeRatio = overviewMode
+        ? state.overviewTotalDayChangeRatio
         : state.totalDayChangeRatio;
-    final subText = state.showProfitRatio
-        ? _formatSignedMoney(state.totalDayProfit)
-        : '${_formatSigned(state.totalDayChangeRatio)}%';
+
+    // 1:1 uni-app：主显 金额/收益率 由 showProfitRatio 决定；刷新后的 3 秒内
+    // (isShowRatio) 在旁边小号显示另一项。
+    // 普通 tab 收益不受闭眼模式隐藏；汇总 tab 收益归 hideIncomeAmount/hideIncomeRate。
+    final mainIsRatio = state.showProfitRatio;
+    final mainValue = mainIsRatio ? totalDayChangeRatio : totalDayProfit;
+    final subValue = mainIsRatio ? totalDayProfit : totalDayChangeRatio;
+    final mainHidden =
+        overviewMode && (mainIsRatio ? state.hideIncomeRate : state.hideIncomeAmount);
+    final subHidden =
+        overviewMode && (mainIsRatio ? state.hideIncomeAmount : state.hideIncomeRate);
+    final mainText = mainHidden
+        ? '******'
+        : mainIsRatio
+            ? '${_formatSigned(totalDayChangeRatio)}%'
+            : _formatSignedMoney(totalDayProfit);
+    final subText = subHidden
+        ? '******'
+        : mainIsRatio
+            ? _formatSignedMoney(totalDayProfit)
+            : '${_formatSigned(totalDayChangeRatio)}%';
 
     return Container(
       key: const Key('position-asset-card'),
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 16), // 页面级 pr-4 pl-4 (1rem)
       decoration: BoxDecoration(color: cardBg),
       child: SizedBox(
         height: 65, // 130rpx
@@ -86,15 +106,44 @@ class PositionAssetCard extends ConsumerWidget {
                         color: mutedIconColor,
                       ),
                     ),
+                    // 市场魔方胶囊（公告 position=3 开启，汇总 tab 不显示）
+                    if (state.marketCubeEnabled && !overviewMode) ...[
+                      const SizedBox(width: 4), // margin-left 8rpx
+                      GestureDetector(
+                        onTap: () {
+                          // 1:1 uni-app openPreMarketValuation → /pages/market/sub/cube
+                          // Flutter 端尚无市场魔方页面，待移植后接入
+                        },
+                        child: Container(
+                          key: const Key('position-market-cube-pill'),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8, // 16rpx
+                            vertical: 2, // 4rpx
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE15665), // dark-market-toggle--on
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Text(
+                            '市场魔方',
+                            style: AppTextStyles.cn(
+                              10, // 20rpx
+                              color: Colors.white,
+                              height: 1.4,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
                 const SizedBox(height: 8), // margin-top 16rpx
                 Text(
                   state.hideHoldAmount
                       ? '******'
-                      : formatThousands(state.totalMarketValue), // 千分位, 1:1 uni-app formatMoney
+                      : formatThousands(totalMarketAmount), // 千分位, 1:1 uni-app formatMoney
                   style: AppTextStyles.num(
-                    20,
+                    20, // 40rpx
                     color: isDark
                         ? const Color(0xFFA7ADB8)
                         : const Color(0xFF333333),
@@ -143,7 +192,7 @@ class PositionAssetCard extends ConsumerWidget {
                                         : const Color(0xFFE05665))
                                     : (isDark
                                         ? const Color(0xFFE05665)
-                                        : positionProfitUpColor()),
+                                        : const Color(0xFFFF4D5D)),
                                 weight: FontWeight.w500,
                                 height: 1,
                               ),
@@ -183,7 +232,7 @@ class PositionAssetCard extends ConsumerWidget {
                         Text(
                           mainText,
                           style: AppTextStyles.num(
-                            17, // 34rpx
+                            18, // 36rpx (FIX-20260917-005)
                             color: profitColor(mainValue, isDark),
                             height: 1,
                           ),
@@ -193,7 +242,7 @@ class PositionAssetCard extends ConsumerWidget {
                           Text(
                             subText,
                             style: AppTextStyles.num(
-                              11, // 22rpx
+                              12, // 24rpx (FIX-20260917-005)
                               color: profitColor(subValue, isDark),
                               height: 1,
                             ),
@@ -206,7 +255,12 @@ class PositionAssetCard extends ConsumerWidget {
                 const SizedBox(width: 4), // day-profit mr-2 (8rpx)
                 // 统计箭头 → 收益曲线页 (1:1 uni-app hendlestatistics, size 16)
                 GestureDetector(
-                  onTap: () => context.push('/user/curve'),
+                  onTap: () {
+                    final bookId = state.currentBookId;
+                    context.push(bookId != null
+                        ? '/user/curve?bookId=$bookId'
+                        : '/user/curve');
+                  },
                   child: Icon(
                     Icons.chevron_right,
                     size: 16,

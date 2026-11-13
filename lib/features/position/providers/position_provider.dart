@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/network/api_client.dart';
@@ -23,6 +26,23 @@ class PositionItem {
   final String holdQuantity;
   final String holdCostAmount;
   final String comment;
+  // 横滑表格新增字段（1:1 uni-app demoDisplayRows）
+  final String symbolCode;
+  final bool hasDcaPlan;
+  final bool hasNote;
+  final String fundTypeName;
+  final double? increaseRatio;
+  final double? holdingRatio;
+  final int? holdDay;
+  final double? breakEvenRate;
+  // 扩展列（GET /asset/api/Asset/extended-columns 合并）
+  final double? topHoldingsAvgChangeRate;
+  final double? weekProfit;
+  final double? weekProfitRate;
+  final double? monthProfit;
+  final double? monthProfitRate;
+  final double? yearProfit;
+  final double? yearProfitRate;
 
   const PositionItem({
     required this.assetId,
@@ -42,6 +62,21 @@ class PositionItem {
     this.holdQuantity = '',
     this.holdCostAmount = '',
     this.comment = '',
+    this.symbolCode = '',
+    this.hasDcaPlan = false,
+    this.hasNote = false,
+    this.fundTypeName = '',
+    this.increaseRatio,
+    this.holdingRatio,
+    this.holdDay,
+    this.breakEvenRate,
+    this.topHoldingsAvgChangeRate,
+    this.weekProfit,
+    this.weekProfitRate,
+    this.monthProfit,
+    this.monthProfitRate,
+    this.yearProfit,
+    this.yearProfitRate,
   });
 
   factory PositionItem.fromJson(Map<String, dynamic> json) {
@@ -57,7 +92,7 @@ class PositionItem {
       dayChangeRatio: _toNum(json['dayChangeRatio'] ?? lp?['chgRate']) ?? 0,
       holdProfit: _toNum(json['holdProfit']) ?? 0,
       holdChangeRatio: _toNum(json['holdChangeRatio']) ?? 0,
-      isLatestNav: json['isLatestNav'] == true,
+      isLatestNav: _toFlag(json['isLatestNav']),
       indicatorList: indicators
           ?.map((e) => IndicatorItem.fromJson(e as Map<String, dynamic>))
           .toList(),
@@ -68,16 +103,71 @@ class PositionItem {
       holdCostAmount:
           (json['holdCostAmount'] ?? json['costAmount'] ?? '').toString(),
       comment: (json['comment'] ?? '').toString(),
+      symbolCode: (json['symbolCode'] ?? json['code'] ?? '').toString(),
+      hasDcaPlan: _toFlag(json['hasDcaPlan']),
+      hasNote: _toFlag(json['hasNote']),
+      fundTypeName: (json['fundTypeName'] ?? '').toString(),
+      increaseRatio: _toNum(json['increaseRatio']),
+      holdingRatio: _toNum(json['holdingRatio']),
+      holdDay: _toNum(json['holdDay'])?.toInt(),
+      breakEvenRate: _toNum(json['breakEvenRate']),
+      topHoldingsAvgChangeRate: _toNum(json['topHoldingsAvgChangeRate']),
+      weekProfit: _toNum(json['weekProfit']),
+      weekProfitRate: _toNum(json['weekProfitRate']),
+      monthProfit: _toNum(json['monthProfit']),
+      monthProfitRate: _toNum(json['monthProfitRate']),
+      yearProfit: _toNum(json['yearProfit']),
+      yearProfitRate: _toNum(json['yearProfitRate']),
     );
   }
 
-  /// 最新涨跌幅 (来自 latestPrice.chgRate)
-  double get latestChgRate {
-    if (latestPrice?.chgRate != null) {
-      return latestPrice!.chgRate!;
-    }
-    return dayChangeRatio;
+  /// 合并扩展列字段（按 assetId / symbolId 对齐后生成新实例）
+  PositionItem mergeExtended(Map<String, dynamic> ext) {
+    return PositionItem(
+      assetId: assetId,
+      symbolId: symbolId,
+      assetType: assetType,
+      shortName: shortName,
+      marketValue: marketValue,
+      dayProfit: dayProfit,
+      dayChangeRatio: dayChangeRatio,
+      holdProfit: holdProfit,
+      holdChangeRatio: holdChangeRatio,
+      isLatestNav: isLatestNav,
+      indicatorList: indicatorList,
+      latestPrice: latestPrice,
+      bookId: bookId,
+      uniqueSymbol: uniqueSymbol,
+      holdQuantity: holdQuantity,
+      holdCostAmount: holdCostAmount,
+      comment: comment,
+      symbolCode: symbolCode,
+      hasDcaPlan: hasDcaPlan,
+      hasNote: hasNote,
+      fundTypeName: fundTypeName,
+      increaseRatio: increaseRatio,
+      holdingRatio: holdingRatio,
+      holdDay: holdDay,
+      breakEvenRate: breakEvenRate,
+      topHoldingsAvgChangeRate:
+          _toNum(ext['topHoldingsAvgChangeRate']) ?? topHoldingsAvgChangeRate,
+      weekProfit: _toNum(ext['weekProfit']) ?? weekProfit,
+      weekProfitRate: _toNum(ext['weekProfitRate']) ?? weekProfitRate,
+      monthProfit: _toNum(ext['monthProfit']) ?? monthProfit,
+      monthProfitRate: _toNum(ext['monthProfitRate']) ?? monthProfitRate,
+      yearProfit: _toNum(ext['yearProfit']) ?? yearProfit,
+      yearProfitRate: _toNum(ext['yearProfitRate']) ?? yearProfitRate,
+    );
   }
+
+  /// 最新涨跌幅 (1:1 uni-app getLatestChgRate: chgRate ?? changeRatio ?? increaseRatio)
+  double get latestChgRate => latestChgRateOrNull ?? dayChangeRatio;
+
+  double? get latestChgRateOrNull => latestPrice?.chgRate ?? increaseRatio;
+
+  /// 持有份额/成本数值（接口字段是数字，本地保留字符串供编辑页预填）
+  double? get holdQuantityNum => _toNum(holdQuantity);
+  double? get holdCostAmountNum => _toNum(holdCostAmount);
 
   /// 第一个关联指标
   IndicatorItem? get firstIndicator {
@@ -87,6 +177,13 @@ class PositionItem {
     return latestPrice?.indicatorList?.isNotEmpty == true
         ? latestPrice!.indicatorList![0]
         : null;
+  }
+
+  /// 关联板块名（取前 7 字，1:1 uni-app getFirstIndicatorName）
+  String get firstIndicatorName {
+    final name = firstIndicator?.name;
+    if (name == null || name.isEmpty) return '-';
+    return name.length > 7 ? name.substring(0, 7) : name;
   }
 
   /// 是否当日更新
@@ -126,6 +223,24 @@ class PositionItem {
     return '${parts[1]}-${parts[2]}';
   }
 
+  /// QDII 净值日期前缀（latestPrice.latestNavDate，MM-DD）
+  String get navDateLabel {
+    final raw = latestPrice?.latestNavDate ?? '';
+    final match = RegExp(r'\d{4}-\d{2}-\d{2}').firstMatch(raw);
+    if (match == null) return '';
+    return match.group(0)!.substring(5);
+  }
+
+  /// 是否 QDII（海外基金净值 T+1 滞后）
+  bool get isQdii => fundTypeName.toUpperCase().contains('QDII');
+
+  static bool _toFlag(dynamic v) {
+    if (v == true) return true;
+    if (v is num) return v == 1;
+    if (v is String) return v.toLowerCase() == 'true';
+    return false;
+  }
+
   static double? _toNum(dynamic v) {
     if (v == null) return null;
     if (v is num) return v.toDouble();
@@ -163,6 +278,7 @@ class LatestPriceInfo {
   final double? chgRate;
   final int? priceType;
   final String? latestTime;
+  final String? latestNavDate;
   final List<IndicatorItem>? indicatorList;
 
   const LatestPriceInfo({
@@ -171,6 +287,7 @@ class LatestPriceInfo {
     this.chgRate,
     this.priceType,
     this.latestTime,
+    this.latestNavDate,
     this.indicatorList,
   });
 
@@ -191,6 +308,7 @@ class LatestPriceInfo {
       chgRate: _toNum(json['chgRate'] ?? json['changeRatio']),
       priceType: json['priceType'] as int?,
       latestTime: json['latestTime'] as String?,
+      latestNavDate: json['latestNavDate'] as String?,
       indicatorList: indicators
           ?.map((e) => IndicatorItem.fromJson(e as Map<String, dynamic>))
           .toList(),
@@ -211,6 +329,114 @@ class BookItem {
   const BookItem({required this.bookId, required this.bookName});
 }
 
+/// 账户汇总卡片（GET /asset/api/Asset/overview/cards）
+class OverviewCard {
+  final int bookId;
+  final String bookName;
+  final String iconKey;
+  final double assetAmount;
+  final double holdingProfit;
+  final double holdingProfitRate;
+  final double dayProfit;
+  final double dayProfitRate;
+  final int riseCount;
+  final int fallCount;
+  final List<OverviewTrendPoint> trend;
+
+  const OverviewCard({
+    required this.bookId,
+    required this.bookName,
+    this.iconKey = '',
+    this.assetAmount = 0,
+    this.holdingProfit = 0,
+    this.holdingProfitRate = 0,
+    this.dayProfit = 0,
+    this.dayProfitRate = 0,
+    this.riseCount = 0,
+    this.fallCount = 0,
+    this.trend = const [],
+  });
+
+  factory OverviewCard.fromJson(Map<String, dynamic> json) {
+    final trendList = json['trend'] as List?;
+    return OverviewCard(
+      bookId: _toInt(json['bookId']) ?? 0,
+      bookName: (json['bookName'] ?? json['name'] ?? '').toString(),
+      iconKey: (json['iconKey'] ?? '').toString(),
+      assetAmount: _toNum(json['assetAmount'] ?? json['totalMarketValue']) ?? 0,
+      holdingProfit: _toNum(json['holdingProfit']) ?? 0,
+      holdingProfitRate: _toNum(json['holdingProfitRate']) ?? 0,
+      dayProfit: _toNum(json['dayProfit']) ?? 0,
+      dayProfitRate: _toNum(json['dayProfitRate']) ?? 0,
+      riseCount: _toInt(json['riseCount']) ?? 0,
+      fallCount: _toInt(json['fallCount']) ?? 0,
+      trend: trendList
+              ?.map((e) => OverviewTrendPoint.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          const [],
+    );
+  }
+
+  static double? _toNum(dynamic v) {
+    if (v == null) return null;
+    if (v is num) return v.toDouble();
+    return double.tryParse(v.toString());
+  }
+
+  static int? _toInt(dynamic v) {
+    if (v == null) return null;
+    if (v is num) return v.toInt();
+    return int.tryParse(v.toString());
+  }
+}
+
+/// 汇总卡片迷你走势点
+class OverviewTrendPoint {
+  final String time;
+  final int timestamp;
+  final double? dayProfitRate;
+  final double? assetAmount;
+
+  const OverviewTrendPoint({
+    this.time = '',
+    this.timestamp = 0,
+    this.dayProfitRate,
+    this.assetAmount,
+  });
+
+  factory OverviewTrendPoint.fromJson(Map<String, dynamic> json) {
+    double? numOf(dynamic v) {
+      if (v == null) return null;
+      if (v is num) return v.toDouble();
+      return double.tryParse(v.toString());
+    }
+
+    return OverviewTrendPoint(
+      time: (json['time'] ?? '').toString(),
+      timestamp: (json['timestamp'] is num)
+          ? (json['timestamp'] as num).toInt()
+          : int.tryParse('${json['timestamp']}') ?? 0,
+      dayProfitRate: numOf(json['dayProfitRate']),
+      assetAmount: numOf(json['assetAmount']),
+    );
+  }
+}
+
+/// 滚动通知条单条内容（GET /asset/api/ScrollContent/current items[]）
+class FeedNoticeItem {
+  final String content;
+  final int scrollType; // 1=上下滚动 2=左右滚动 3=静止
+  final String linkType; // 1=内页 2=公众号链接
+  final String linkUrl;
+
+  const FeedNoticeItem({
+    required this.content,
+    this.scrollType = 3,
+    this.linkType = '',
+    this.linkUrl = '',
+  });
+}
+
 /// 资产可见级别 — 1:1 复刻 uni-app assetVisible (0~4)
 /// 0=全部显示, 1=隐藏持有金额, 2=再隐藏收益金额, 3=再隐藏收益率, 4=再隐藏基金名称
 class AssetVisibleLevel {
@@ -228,7 +454,7 @@ enum TableShowMode { normal, compact, minimal }
 /// 持仓页状态
 class PositionState {
   final List<BookItem> books;
-  final int tabIndex; // 0=全部
+  final int tabIndex; // 账本 tab 统一索引：0..bookNames.length-1 为滚动区，overviewTabIndex 为账户汇总
   final List<PositionItem> items;
   final double totalMarketValue;
   final double totalDayProfit;
@@ -240,16 +466,32 @@ class PositionState {
   final bool showNotOpened; // 刷新时非交易日提示「尚未开盘」
   final bool showProfitRatio; // 当日总收益主显 金额/收益率 切换（持久化）
   final String curTradeDate; // 接口返回的当前交易日 (yyyy-MM-dd)
+  final String latestNavDate; // 最新净值列日期
+  final String extendedCurTradeDate; // 扩展列日期
   final TableShowMode tableMode;
   final String sortField;
   final String sortOrder; // 'asc' or 'desc'
   final bool isLoggedIn;
   final String? errorMessage;
+  // ===== 新版页面（positionv1 横滑表格 + 账户汇总）=====
+  final bool allBookVisible; // positionAllBookVisible：账本 tab 是否含「全部」
+  final List<OverviewCard> overviewCards;
+  final bool overviewLoading;
+  // 汇总 tab 资产卡统计（GET /asset/api/Asset 无 bookId）
+  final double overviewTotalMarketValue;
+  final double overviewTotalDayProfit;
+  final double overviewTotalDayChangeRatio;
+  final FeedNoticeItem? feedNotice; // 当前展示的滚动通知（null=不显示）
+  final String fundGroupCountText; // 基金群胶囊计数文字
+  final bool marketCubeEnabled; // 公告 position=3 控制「市场魔方」胶囊
+  // 表头管理配置（GET /usercenter/api/User/holding-columns）
+  final List<String>? columnKeys; // null=默认全列；否则按配置顺序的可见列 key
+  final bool showFundCode; // 名称副行显示基金代码（否则显示持有金额）
+  final bool showHoldingAmount;
 
   const PositionState({
     this.books = const [],
-    this.tabIndex = 1, // 1:1 uni-app taberIndex ref(1)：默认选第一个账本(非"全部")；无账本时 loadData 越界回退到 0
-
+    this.tabIndex = -1, // -1=未初始化：loadData 时按登录态确定（游客 0，登录 allBookVisible?1:0）
     this.items = const [],
     this.totalMarketValue = 0,
     this.totalDayProfit = 0,
@@ -261,11 +503,25 @@ class PositionState {
     this.showNotOpened = false,
     this.showProfitRatio = false,
     this.curTradeDate = '',
+    this.latestNavDate = '',
+    this.extendedCurTradeDate = '',
     this.tableMode = TableShowMode.normal,
-    this.sortField = 'sort',
+    this.sortField = '',
     this.sortOrder = 'desc',
     this.isLoggedIn = false,
     this.errorMessage,
+    this.allBookVisible = true,
+    this.overviewCards = const [],
+    this.overviewLoading = false,
+    this.overviewTotalMarketValue = 0,
+    this.overviewTotalDayProfit = 0,
+    this.overviewTotalDayChangeRatio = 0,
+    this.feedNotice,
+    this.fundGroupCountText = '已有--入群',
+    this.marketCubeEnabled = false,
+    this.columnKeys,
+    this.showFundCode = false,
+    this.showHoldingAmount = true,
   });
 
   PositionState copyWith({
@@ -282,11 +538,25 @@ class PositionState {
     bool? showNotOpened,
     bool? showProfitRatio,
     String? curTradeDate,
+    String? latestNavDate,
+    String? extendedCurTradeDate,
     TableShowMode? tableMode,
     String? sortField,
     String? sortOrder,
     bool? isLoggedIn,
     String? errorMessage,
+    bool? allBookVisible,
+    List<OverviewCard>? overviewCards,
+    bool? overviewLoading,
+    double? overviewTotalMarketValue,
+    double? overviewTotalDayProfit,
+    double? overviewTotalDayChangeRatio,
+    FeedNoticeItem? Function()? feedNotice,
+    String? fundGroupCountText,
+    bool? marketCubeEnabled,
+    List<String>? Function()? columnKeys,
+    bool? showFundCode,
+    bool? showHoldingAmount,
   }) => PositionState(
     books: books ?? this.books,
     tabIndex: tabIndex ?? this.tabIndex,
@@ -301,22 +571,47 @@ class PositionState {
     showNotOpened: showNotOpened ?? this.showNotOpened,
     showProfitRatio: showProfitRatio ?? this.showProfitRatio,
     curTradeDate: curTradeDate ?? this.curTradeDate,
+    latestNavDate: latestNavDate ?? this.latestNavDate,
+    extendedCurTradeDate: extendedCurTradeDate ?? this.extendedCurTradeDate,
     tableMode: tableMode ?? this.tableMode,
     sortField: sortField ?? this.sortField,
     sortOrder: sortOrder ?? this.sortOrder,
     isLoggedIn: isLoggedIn ?? this.isLoggedIn,
     errorMessage: errorMessage,
+    allBookVisible: allBookVisible ?? this.allBookVisible,
+    overviewCards: overviewCards ?? this.overviewCards,
+    overviewLoading: overviewLoading ?? this.overviewLoading,
+    overviewTotalMarketValue:
+        overviewTotalMarketValue ?? this.overviewTotalMarketValue,
+    overviewTotalDayProfit: overviewTotalDayProfit ?? this.overviewTotalDayProfit,
+    overviewTotalDayChangeRatio:
+        overviewTotalDayChangeRatio ?? this.overviewTotalDayChangeRatio,
+    feedNotice: feedNotice != null ? feedNotice() : this.feedNotice,
+    fundGroupCountText: fundGroupCountText ?? this.fundGroupCountText,
+    marketCubeEnabled: marketCubeEnabled ?? this.marketCubeEnabled,
+    columnKeys: columnKeys != null ? columnKeys() : this.columnKeys,
+    showFundCode: showFundCode ?? this.showFundCode,
+    showHoldingAmount: showHoldingAmount ?? this.showHoldingAmount,
   );
 
-  /// 账本名称列表
-  List<String> get bookNames => ['全部', ...books.map((b) => b.bookName)];
+  /// 账本名称列表（滚动区；受 positionAllBookVisible 控制是否含「全部」）
+  List<String> get bookNames =>
+      allBookVisible ? ['全部', ...books.map((b) => b.bookName)] : books.map((b) => b.bookName).toList();
 
-  /// 当前选中的 bookId (null=全部)
-  int? get currentBookId => tabIndex == 0
-      ? null
-      : books.isNotEmpty && tabIndex - 1 < books.length
-      ? books[tabIndex - 1].bookId
-      : null;
+  /// 账户汇总 tab 的索引（固定在滚动列表之后）
+  int get overviewTabIndex => bookNames.length;
+
+  bool get isOverviewTab => tabIndex == overviewTabIndex;
+
+  /// 当前选中的 bookId (null=全部/汇总)
+  int? get currentBookId {
+    if (isOverviewTab) return null;
+    final offset = allBookVisible ? 1 : 0;
+    if (allBookVisible && tabIndex == 0) return null;
+    final i = tabIndex - offset;
+    if (i < 0 || i >= books.length) return null;
+    return books[i].bookId;
+  }
 
   // ---- 隐私级别派生 (1:1 uni-app hideXxx computed) ----
   bool get hideHoldAmount => assetVisible >= AssetVisibleLevel.hideHoldAmount;
@@ -327,8 +622,19 @@ class PositionState {
 
   /// 表头日期标签 (MM-dd)：优先接口 curTradeDate，否则最近一个工作日
   /// (uni-app 用 chinese-days 跳过法定节假日，这里仅跳过周末 —— 见迁移报告)
-  String get headerDateLabel {
-    final d = _parseDate(curTradeDate) ?? _lastWeekday(DateTime.now());
+  String get headerDateLabel => _dateLabel(curTradeDate);
+
+  /// 最新净值列日期标签
+  String get latestNavDateLabel =>
+      latestNavDate.isNotEmpty ? _dateLabel(latestNavDate) : headerDateLabel;
+
+  /// 扩展列日期标签
+  String get extendedDateLabel => extendedCurTradeDate.isNotEmpty
+      ? _dateLabel(extendedCurTradeDate)
+      : headerDateLabel;
+
+  String _dateLabel(String value) {
+    final d = _parseDate(value) ?? _lastWeekday(DateTime.now());
     final m = '${d.month}'.padLeft(2, '0');
     final day = '${d.day}'.padLeft(2, '0');
     return '$m-$day';
@@ -358,32 +664,64 @@ class PositionState {
     return from;
   }
 
-  /// 排序后的列表
+  /// 排序后的列表 — 1:1 uni-app getSortedMergedList：
+  /// isLatestNav 项置顶，再按排序字段排，同值按原 index 稳定
   List<PositionItem> get sortedItems {
-    final result = List<PositionItem>.from(items);
-    if (sortField == 'sort' || sortField.isEmpty) return result;
-    result.sort((a, b) {
-      final av = _getSortValue(a, sortField);
-      final bv = _getSortValue(b, sortField);
-      return sortOrder == 'asc' ? av.compareTo(bv) : bv.compareTo(av);
+    final indexed = <int, PositionItem>{};
+    for (var i = 0; i < items.length; i++) {
+      indexed[i] = items[i];
+    }
+    final keys = indexed.keys.toList();
+    keys.sort((ia, ib) {
+      final a = indexed[ia]!;
+      final b = indexed[ib]!;
+      final updatedDiff = (b.isLatestNav ? 1 : 0) - (a.isLatestNav ? 1 : 0);
+      if (updatedDiff != 0) return updatedDiff;
+      if (sortField.isEmpty || sortField == 'sort') return ia - ib;
+      final va = _sortValue(a, sortField);
+      final vb = _sortValue(b, sortField);
+      final diff = sortOrder == 'asc' ? va - vb : vb - va;
+      if (diff != 0) return diff.sign.toInt();
+      return ia - ib;
     });
-    return result;
+    return keys.map((i) => indexed[i]!).toList();
   }
 
-  double _getSortValue(PositionItem item, String field) {
+  /// 1:1 uni-app getSortValue（increaseRatio=首个关联板块涨幅；latestPrice.chgRate 走回退链）
+  static double _sortValue(PositionItem item, String field) {
     switch (field) {
+      case 'increaseRatio':
+        return item.firstIndicator?.changeRatio ?? 0;
+      case 'latestPrice.chgRate':
+        return item.latestChgRateOrNull ?? 0;
+      case 'latestPrice.latestPrice':
+        return item.latestPrice?.latestPrice ?? 0;
       case 'dayProfit':
         return item.dayProfit;
-      case 'increaseRatio':
-        // 1:1 uni-app getSortValue: 普通模式按关联板块涨幅，简洁/极简按最新涨幅
-        if (tableMode == TableShowMode.normal) {
-          return item.firstIndicator?.changeRatio ?? 0;
-        }
-        return item.latestChgRate;
-      case 'latestPrice.chgRate':
-        return item.latestChgRate;
       case 'holdProfit':
         return item.holdProfit;
+      case 'dayChangeRatio':
+        return item.dayChangeRatio;
+      case 'topHoldingsAvgChangeRate':
+        return item.topHoldingsAvgChangeRate ?? 0;
+      case 'weekProfit':
+        return item.weekProfit ?? 0;
+      case 'monthProfit':
+        return item.monthProfit ?? 0;
+      case 'yearProfitRate':
+        return item.yearProfitRate ?? 0;
+      case 'marketValue':
+        return item.marketValue;
+      case 'holdingRatio':
+        return item.holdingRatio ?? 0;
+      case 'holdQuantity':
+        return item.holdQuantityNum ?? 0;
+      case 'holdCostAmount':
+        return item.holdCostAmountNum ?? 0;
+      case 'holdDay':
+        return (item.holdDay ?? 0).toDouble();
+      case 'breakEvenRate':
+        return item.breakEvenRate ?? 0;
       default:
         return 0;
     }
@@ -400,9 +738,17 @@ class PositionState {
   }
 }
 
-/// 持仓页 Provider — 1:1 复刻 uni-app pages/positionv1/index.uvue 数据流
+/// 持仓页 Provider — 1:1 复刻 uni-app pages/positionv1/index.vue 数据流
 class PositionNotifier extends StateNotifier<PositionState> {
   final ApiClient _api = ApiClient();
+
+  /// 匿名请求通道（不带拦截器）：基金群人数等匿名接口失败/401 时
+  /// 不能触发 ErrorInterceptor 的全局跳登录（对齐 uni-app 用裸 uni.request）
+  final Dio _anonDio = Dio(BaseOptions(
+    baseUrl: ApiEndpoints.baseUrl,
+    connectTimeout: const Duration(seconds: 8),
+    receiveTimeout: const Duration(seconds: 8),
+  ));
 
   PositionNotifier() : super(const PositionState()) {
     _restorePrefs();
@@ -413,9 +759,16 @@ class PositionNotifier extends StateNotifier<PositionState> {
     final mode = prefs.getInt('tableShowMode') ?? 0;
     // 1:1 uni-app positionShowProfitRatio 缓存
     final showRatio = prefs.getBool('positionShowProfitRatio') ?? false;
+    final allBookVisible = prefs.getBool('positionAllBookVisible') ?? true;
+    // 1:1 uni-app positionHoldingSort {field, order} 持久化
+    final sortField = prefs.getString('positionHoldingSortField') ?? '';
+    final sortOrder = prefs.getString('positionHoldingSortOrder') ?? 'desc';
     state = state.copyWith(
       tableMode: TableShowMode.values[mode.clamp(0, 2)],
       showProfitRatio: showRatio,
+      allBookVisible: allBookVisible,
+      sortField: sortField,
+      sortOrder: sortOrder == 'asc' ? 'asc' : 'desc',
     );
   }
 
@@ -452,7 +805,7 @@ class PositionNotifier extends StateNotifier<PositionState> {
     }
   }
 
-  /// 获取资产列表
+  /// 获取资产列表（含扩展列合并）
   Future<void> _fetchAssets(int? bookId) async {
     try {
       final res = await _api.get(
@@ -476,6 +829,7 @@ class PositionNotifier extends StateNotifier<PositionState> {
       // 1:1 uni-app：接口已返回百分比数值，前端直接展示，不再 ×100
       final totalDayChangeRatio = _toNum(payload['totalDayChangeRatio']) ?? 0;
       final curTradeDate = payload['curTradeDate'] as String? ?? '';
+      final latestNavDate = payload['latestNavDate'] as String? ?? '';
 
       state = state.copyWith(
         items: items,
@@ -483,33 +837,263 @@ class PositionNotifier extends StateNotifier<PositionState> {
         totalDayProfit: totalDayProfit,
         totalDayChangeRatio: totalDayChangeRatio,
         curTradeDate: curTradeDate,
+        latestNavDate: latestNavDate,
+      );
+      // 扩展列合并（重仓均涨幅/本周/本月/今年）
+      unawaited(_fetchExtendedColumns(bookId));
+    } catch (_) {}
+  }
+
+  /// 获取扩展列并按 assetId（有 bookId）或 symbolId 对齐合并
+  Future<void> _fetchExtendedColumns(int? bookId) async {
+    try {
+      final res = await _api.get(
+        ApiEndpoints.assetExtendedColumns,
+        queryParameters: bookId != null ? {'bookId': bookId} : null,
+      );
+      final data = res.data;
+      final payload = (data is Map && data['data'] is Map)
+          ? data['data'] as Map<String, dynamic>
+          : (data as Map<String, dynamic>? ?? {});
+      final list =
+          (payload['list'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+      final extDate = payload['curTradeDate'] as String? ?? '';
+      if (!mounted) return;
+      final current = List<PositionItem>.from(state.items);
+      final merged = current.map((item) {
+        Map<String, dynamic>? ext;
+        for (final e in list) {
+          final matched = bookId != null
+              ? e['assetId'] == item.assetId
+              : e['symbolId'] == item.symbolId;
+          if (matched) {
+            ext = e;
+            break;
+          }
+        }
+        return ext == null ? item : item.mergeExtended(ext);
+      }).toList();
+      state = state.copyWith(items: merged, extendedCurTradeDate: extDate);
+    } catch (_) {}
+  }
+
+  /// 表头管理配置（显隐 + 顺序 + 基金代码/持有金额开关）
+  Future<void> _fetchHoldingColumns() async {
+    try {
+      final res = await _api.get(ApiEndpoints.holdingColumns);
+      final data = res.data;
+      final payload = (data is Map && data['data'] is Map)
+          ? data['data'] as Map<String, dynamic>
+          : (data as Map<String, dynamic>? ?? {});
+      final columns = (payload['columns'] as List?)
+              ?.whereType<Map<String, dynamic>>()
+              .toList() ??
+          [];
+      List<String>? keys;
+      if (columns.isNotEmpty) {
+        // 后端 key → 前端列 key 别名：primarySector→indicator / latestPrice→latestNav
+        const alias = {'primarySector': 'indicator', 'latestPrice': 'latestNav'};
+        keys = columns
+            .where((c) => c['visible'] != false)
+            .map((c) => alias[c['key']] ?? c['key'])
+            .whereType<String>()
+            .toList();
+      }
+      if (!mounted) return;
+      state = state.copyWith(
+        columnKeys: () => keys,
+        showFundCode: payload['showFundCode'] == true,
+        showHoldingAmount: payload['showHoldingAmount'] != false,
       );
     } catch (_) {}
+  }
+
+  /// 汇总卡片
+  Future<void> _fetchOverviewCards() async {
+    state = state.copyWith(overviewLoading: true);
+    try {
+      final res = await _api.get(ApiEndpoints.assetOverviewCards);
+      final data = res.data;
+      final list = data is List
+          ? data
+          : (data is Map && data['data'] is List ? data['data'] as List : []);
+      final cards = list
+          .whereType<Map<String, dynamic>>()
+          .map(OverviewCard.fromJson)
+          .toList();
+      if (!mounted) return;
+      state = state.copyWith(overviewCards: cards, overviewLoading: false);
+    } catch (_) {
+      if (!mounted) return;
+      state = state.copyWith(overviewLoading: false);
+    }
+  }
+
+  /// 汇总统计（全部账本合计）
+  Future<void> _fetchOverviewStats() async {
+    try {
+      final res = await _api.get(ApiEndpoints.assetListV2);
+      final data = res.data;
+      if (data == null) return;
+      final payload = (data['data'] is Map)
+          ? data['data'] as Map<String, dynamic>
+          : (data as Map<String, dynamic>? ?? {});
+      if (!mounted) return;
+      state = state.copyWith(
+        overviewTotalMarketValue: _toNum(payload['totalMarketValue']) ?? 0,
+        overviewTotalDayProfit: _toNum(payload['totalDayProfit']) ?? 0,
+        overviewTotalDayChangeRatio:
+            _toNum(payload['totalDayChangeRatio']) ?? 0,
+      );
+    } catch (_) {}
+  }
+
+  /// 基金群人数（匿名接口，1:1 uni-app useCommunityGroupCounter）
+  Future<void> _loadFundGroupCount() async {
+    try {
+      final res = await _anonDio.get(ApiEndpoints.communityGroupCount);
+      final data = res.data;
+      if (data is Map && data['code'] == 200) {
+        final count = data['data']?['currentCount'];
+        if (count != null) {
+          final text = '$count'.replaceFirst(RegExp(r'^0+(?=\d)'), '');
+          if (!mounted) return;
+          state = state.copyWith(fundGroupCountText: '已有$text入群');
+        }
+      }
+    } catch (_) {}
+  }
+
+  /// 市场魔方开关（公告 position=3，1:1 uni-app loadDarkMarketNotice）
+  Future<void> _loadMarketCubeSwitch() async {
+    try {
+      final res = await _api.get(
+        ApiEndpoints.announcement,
+        queryParameters: {'position': 3, 'limit': 1},
+      );
+      final data = res.data;
+      final payload = data is Map && data.containsKey('data')
+          ? data['data']
+          : data;
+      final items = payload is List
+          ? payload
+          : (payload is Map && payload['data'] is List
+              ? payload['data'] as List
+              : const []);
+      final enabled =
+          items.any((item) => item is Map && _toInt(item['position']) == 3);
+      if (!mounted) return;
+      state = state.copyWith(marketCubeEnabled: enabled);
+    } catch (_) {
+      if (!mounted) return;
+      state = state.copyWith(marketCubeEnabled: false);
+    }
+  }
+
+  /// 滚动通知条（slotCode=position_feed；失败/为空时隐藏）
+  Future<void> _loadFeedNotice() async {
+    try {
+      final res = await _api.get(
+        ApiEndpoints.scrollContentCurrent,
+        queryParameters: {'slotCode': 'position_feed'},
+      );
+      final data = res.data;
+      final payload = (data is Map && data['data'] is Map)
+          ? data['data'] as Map<String, dynamic>
+          : (data as Map<String, dynamic>? ?? {});
+      final rawItems = (payload['items'] is List && (payload['items'] as List).isNotEmpty
+              ? payload['items'] as List
+              : (payload['item'] != null ? [payload['item']] : []))
+          .whereType<Map<String, dynamic>>()
+          .where((it) => '${it['content'] ?? ''}'.trim().isNotEmpty)
+          .toList();
+      if (!mounted) return;
+      if (payload['enabled'] != true || rawItems.isEmpty) {
+        state = state.copyWith(feedNotice: () => null);
+        return;
+      }
+      // 1:1 uni-app consumeScrollNoticeIndex：冷启动/切回前台前进一步，配置变化归零
+      final configVersion = '${payload['configVersion'] ?? ''}';
+      final prefs = await SharedPreferences.getInstance();
+      final savedVersion = prefs.getString('scrollNoticeVer_position_feed') ?? '';
+      var index = 0;
+      if (savedVersion == configVersion) {
+        index = (prefs.getInt('scrollNoticeIdx_position_feed') ?? -1) + 1;
+      }
+      index = index % rawItems.length;
+      await prefs.setString('scrollNoticeVer_position_feed', configVersion);
+      await prefs.setInt('scrollNoticeIdx_position_feed', index);
+      final item = rawItems[index];
+      if (!mounted) return;
+      state = state.copyWith(
+        feedNotice: () => FeedNoticeItem(
+          content: '${item['content']}'.trim(),
+          scrollType: _toInt(item['scrollType']) ?? 3,
+          linkType: '${item['linkType'] ?? ''}',
+          linkUrl: '${item['linkUrl'] ?? ''}',
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      state = state.copyWith(feedNotice: () => null);
+    }
+  }
+
+  /// 关闭滚动通知条（仅本次会话隐藏，1:1 uni-app closeFeedNotice）
+  void dismissFeedNotice() {
+    state = state.copyWith(feedNotice: () => null);
   }
 
   /// 加载全部数据 (queryPositionPaging)
   Future<void> loadData({bool showRefreshTip = false}) async {
     state = state.copyWith(isLoading: true);
 
+    // 匿名即可用的区块（游客也加载）：基金群人数 / 市场魔方开关 / 滚动通知条
+    unawaited(_loadFundGroupCount());
+    unawaited(_loadMarketCubeSwitch());
+    unawaited(_loadFeedNotice());
+
     // 检查登录
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('token');
     final isLoggedIn = token != null && token.isNotEmpty;
     if (!isLoggedIn) {
-      state = state.copyWith(isLoading: false, isLoggedIn: false, items: []);
+      // 游客：不发需鉴权请求（避免 401 全局跳登录），落在「全部」tab
+      state = state.copyWith(
+        isLoading: false,
+        isLoggedIn: false,
+        items: [],
+        books: [],
+        tabIndex: 0,
+        overviewCards: [],
+      );
       return;
     }
 
     try {
       final books = await _fetchBooks();
-      final currentBook = state.currentBookId;
+      final allBookVisible = prefs.getBool('positionAllBookVisible') ?? true;
 
-      // 确保 tabIndex 不越界
+      // 初始化/矫正 tabIndex
       var tabIdx = state.tabIndex;
-      if (tabIdx > books.length) tabIdx = 0;
+      if (tabIdx < 0) tabIdx = allBookVisible ? 1 : 0;
+      final overviewIdx = books.length + (allBookVisible ? 1 : 0);
+      if (tabIdx > overviewIdx) tabIdx = 0;
 
-      state = state.copyWith(books: books, tabIndex: tabIdx, isLoggedIn: true);
-      await _fetchAssets(currentBook);
+      state = state.copyWith(
+        books: books,
+        tabIndex: tabIdx,
+        isLoggedIn: true,
+        allBookVisible: allBookVisible,
+      );
+
+      final currentBook = state.currentBookId;
+      if (state.isOverviewTab) {
+        await Future.wait([_fetchOverviewCards(), _fetchOverviewStats()]);
+      } else {
+        await _fetchAssets(currentBook);
+      }
+      unawaited(_fetchHoldingColumns());
 
       if (showRefreshTip) {
         final now = DateTime.now();
@@ -542,14 +1126,32 @@ class PositionNotifier extends StateNotifier<PositionState> {
     return d.weekday >= DateTime.monday && d.weekday <= DateTime.friday;
   }
 
-  /// 下拉刷新
-  Future<void> refresh() => loadData(showRefreshTip: true);
+  /// 下拉刷新（游客直接结束，不发请求）
+  Future<void> refresh() async {
+    if (!state.isLoggedIn) return;
+    await loadData(showRefreshTip: true);
+  }
 
-  /// 切换账本 — 1:1 uni-app watch(taberIndex)：只重新拉取资产列表，不重拉账本
+  /// 切换账本 — 1:1 uni-app watch(taberIndex)：汇总 tab 拉汇总数据，其余只重拉资产列表
   void selectTab(int index) {
     if (index == state.tabIndex) return;
     state = state.copyWith(tabIndex: index);
-    _fetchAssets(state.currentBookId);
+    if (state.isOverviewTab) {
+      _fetchOverviewCards();
+      _fetchOverviewStats();
+    } else {
+      _fetchAssets(state.currentBookId);
+    }
+  }
+
+  /// 汇总卡片点击 → 切换到对应账本 tab（1:1 uni-app handleOverviewCardSelect）
+  /// 返回 false 表示账本不存在
+  bool selectBookTabById(int bookId) {
+    final idx = state.books.indexWhere((b) => b.bookId == bookId);
+    if (idx < 0) return false;
+    final offset = state.allBookVisible ? 1 : 0;
+    selectTab(idx + offset);
+    return true;
   }
 
   // ==================== 交互 ====================
@@ -567,19 +1169,29 @@ class PositionNotifier extends StateNotifier<PositionState> {
     await prefs.setBool('positionShowProfitRatio', next);
   }
 
-  /// 切换排序 — 1:1 复刻 uni-app toggleMetalSort: desc → asc → cleared → desc
-  void toggleSort(String field) {
+  /// 切换排序 — 1:1 复刻 uni-app toggleMetalSort: desc → asc → cleared → desc（持久化）
+  Future<void> toggleSort(String field) async {
+    String nextField;
+    String nextOrder;
     if (state.sortField == field) {
       if (state.sortOrder == 'desc') {
-        state = state.copyWith(sortOrder: 'asc');
+        nextField = field;
+        nextOrder = 'asc';
       } else if (state.sortOrder == 'asc') {
-        state = state.copyWith(sortField: '', sortOrder: '');
+        nextField = '';
+        nextOrder = '';
       } else {
-        state = state.copyWith(sortOrder: 'desc');
+        nextField = field;
+        nextOrder = 'desc';
       }
     } else {
-      state = state.copyWith(sortField: field, sortOrder: 'desc');
+      nextField = field;
+      nextOrder = 'desc';
     }
+    state = state.copyWith(sortField: nextField, sortOrder: nextOrder);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('positionHoldingSortField', nextField);
+    await prefs.setString('positionHoldingSortOrder', nextOrder);
   }
 
   /// 置顶 — 将指定项移到列表顶部并保存排序
@@ -631,6 +1243,11 @@ class PositionNotifier extends StateNotifier<PositionState> {
     } catch (_) {
       return false;
     }
+  }
+
+  static int? _toInt(dynamic v) {
+    if (v is num) return v.toInt();
+    return int.tryParse('$v');
   }
 
   double? _toNum(dynamic v) {

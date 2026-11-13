@@ -1,54 +1,374 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
-import '../../../theme/app_colors.dart';
+import '../../../theme/app_icons.dart';
 import '../../../theme/text_styles.dart';
-import '../position_provider_types.dart' show PositionItem, PositionState;
+import '../position_provider_types.dart'
+    show PositionItem, PositionState, TableShowMode;
 import 'position_profit_color.dart';
 
-/// 持仓单行 — 1:1 复刻 .holding-card-list / .holding-card__body
-class PositionHoldingRow extends StatelessWidget {
+/// 持仓表格列定义 — 1:1 复刻 uni-app demoAllTableColumns（16 列）
+class PositionColumnDef {
+  final String key;
+  final String title;
+  final String sortField;
+
+  /// 副标题日期来源：trade=curTradeDate / nav=latestNavDate / ext=扩展列日期
+  final String dateSource;
+
+  /// 测试/定位用 key 后缀
+  final String keySlug;
+
+  const PositionColumnDef(
+    this.key,
+    this.title,
+    this.sortField, {
+    this.dateSource = 'trade',
+    required this.keySlug,
+  });
+}
+
+/// 默认全列（顺序 1:1 uni-app baseColumns）
+const kPositionAllColumns = <PositionColumnDef>[
+  PositionColumnDef('dayProfit', '当日收益', 'dayProfit', keySlug: 'day-profit'),
+  PositionColumnDef('indicator', '关联板块', 'increaseRatio', keySlug: 'indicator'),
+  PositionColumnDef('holdProfit', '持有收益', 'holdProfit', keySlug: 'hold-profit'),
+  PositionColumnDef('latestNav', '最新净值', 'latestPrice.latestPrice',
+      dateSource: 'nav', keySlug: 'latest-nav'),
+  PositionColumnDef('dayChangeRatio', '当日涨幅', 'dayChangeRatio',
+      keySlug: 'day-change-ratio'),
+  PositionColumnDef('topHoldingsAvgChangeRate', '重仓均涨幅',
+      'topHoldingsAvgChangeRate', dateSource: 'ext', keySlug: 'top-holdings'),
+  PositionColumnDef('weekProfit', '本周收益', 'weekProfit',
+      dateSource: 'ext', keySlug: 'week-profit'),
+  PositionColumnDef('monthProfit', '本月收益', 'monthProfit',
+      dateSource: 'ext', keySlug: 'month-profit'),
+  PositionColumnDef('yearProfitRate', '今年涨幅', 'yearProfitRate',
+      dateSource: 'ext', keySlug: 'year-profit-rate'),
+  PositionColumnDef('marketValue', '持有金额', 'marketValue', keySlug: 'market-value'),
+  PositionColumnDef('holdingRatio', '持仓占比', 'holdingRatio', keySlug: 'holding-ratio'),
+  PositionColumnDef('holdQuantity', '持有份额', 'holdQuantity', keySlug: 'hold-quantity'),
+  PositionColumnDef('holdCostAmount', '持有成本', 'holdCostAmount',
+      keySlug: 'hold-cost-amount'),
+  PositionColumnDef('holdDay', '持有天数', 'holdDay', keySlug: 'hold-day'),
+  PositionColumnDef('breakEvenRate', '回本涨幅', 'breakEvenRate',
+      keySlug: 'break-even-rate'),
+];
+
+/// 极简模式只保留的三列（1:1 uni-app DEMO_MINI_COLUMN_KEYS）
+const kPositionMiniColumnKeys = ['dayProfit', 'indicator', 'holdProfit'];
+
+/// 按表头管理配置过滤+排序可见列（无配置用默认全列）
+List<PositionColumnDef> visiblePositionColumns(PositionState state) {
+  final keys = state.columnKeys;
+  if (keys == null || keys.isEmpty) return kPositionAllColumns;
+  final result = <PositionColumnDef>[];
+  for (final key in keys) {
+    final col = kPositionAllColumns.where((c) => c.key == key).firstOrNull;
+    if (col != null) result.add(col);
+  }
+  return result.isEmpty ? kPositionAllColumns : result;
+}
+
+/// 单元格数据 — 1:1 uni-app createDemoCell 产物
+class HoldingCellData {
+  final String key;
+  final String keySlug;
+  final String text; // 空串 → 渲染占位符 --
+  final String subText;
+  final String subPrefix; // QDII 净值日期前缀
+  final bool showEmptySub;
+  final Color? textColor; // null → 中性色
+  final Color? subColor;
+  final bool oversize; // 持有收益 |值|≥100000 字号降档 32→28rpx
+  final bool subIsIndicatorName; // 板块名副行（18rpx，≥8 字降 16rpx）
+  final bool subIsNavSub; // 净值副行（灰色不带涨跌色）
+
+  const HoldingCellData({
+    required this.key,
+    required this.keySlug,
+    this.text = '',
+    this.subText = '',
+    this.subPrefix = '',
+    this.showEmptySub = false,
+    this.textColor,
+    this.subColor,
+    this.oversize = false,
+    this.subIsIndicatorName = false,
+    this.subIsNavSub = false,
+  });
+}
+
+// ===== 数值格式化（1:1 uni-app truncateNumber/formatPlainMoney 系列：截断不四舍五入）=====
+
+double? _truncate(num? value, [int digits = 2]) {
+  if (value == null) return null;
+  final num = value.toDouble();
+  if (num.isNaN || num.isInfinite) return null;
+  final factor = math.pow(10, digits).toDouble();
+  final abs = num.abs();
+  // 1:1 uni-app：absoluteValue + Number.EPSILON * max(1, abs)
+  const eps = 2.220446049250313e-16;
+  final adjusted = abs + eps * math.max(1, abs);
+  return num.sign * ((adjusted * factor).truncate() / factor);
+}
+
+String _plain(num? value, [int digits = 2]) {
+  final t = _truncate(value, digits);
+  if (t == null) return '0.00';
+  return t.toStringAsFixed(digits);
+}
+
+String _plainSigned(num? value, [int digits = 2]) {
+  final t = _truncate(value, digits);
+  if (t == null) return '0.00';
+  return '${t > 0 ? '+' : ''}${t.toStringAsFixed(digits)}';
+}
+
+String? _nullablePlain(num? value, [int digits = 2]) {
+  final t = _truncate(value, digits);
+  return t?.toStringAsFixed(digits);
+}
+
+String? _nullableSigned(num? value, [int digits = 2]) {
+  final t = _truncate(value, digits);
+  if (t == null) return null;
+  return '${t > 0 ? '+' : ''}${t.toStringAsFixed(digits)}';
+}
+
+/// 构建一行所有可见单元格 — 1:1 uni-app demoDisplayRows 的 cells 组装
+/// [singleLine] 简洁/极简模式只渲染主行（副行置空）
+List<HoldingCellData> buildHoldingCells(
+  PositionItem item,
+  List<PositionColumnDef> columns,
+  PositionState state,
+  bool isDark,
+) {
+  final hideHoldAmount = state.hideHoldAmount;
+  final hideIncomeAmount = state.hideIncomeAmount;
+  final hideIncomeRate = state.hideIncomeRate;
+  final cells = <String, HoldingCellData>{};
+
+  HoldingCellData make(
+    PositionColumnDef col,
+    String text,
+    String subText, {
+    Color? textColor,
+    Color? subColor,
+    String subPrefix = '',
+    bool showEmptySub = false,
+    bool oversize = false,
+    bool subIsIndicatorName = false,
+    bool subIsNavSub = false,
+  }) {
+    return HoldingCellData(
+      key: col.key,
+      keySlug: col.keySlug,
+      text: text,
+      subText: subText,
+      subPrefix: subPrefix,
+      showEmptySub: showEmptySub,
+      textColor: textColor,
+      subColor: subColor,
+      oversize: oversize,
+      subIsIndicatorName: subIsIndicatorName,
+      subIsNavSub: subIsNavSub,
+    );
+  }
+
+  for (final col in columns) {
+    switch (col.key) {
+      case 'dayProfit':
+        // TODO(lock): 当日收益解锁（dayProfitLocked）未移植，锁定态整列锁图标+「解锁」入口待补
+        cells[col.key] = make(
+          col,
+          hideIncomeAmount ? '******' : _plainSigned(item.dayProfit),
+          hideIncomeRate ? '******' : '${_plainSigned(item.dayChangeRatio)}%',
+          textColor: profitColor(item.dayProfit, isDark),
+          subColor: profitColor(item.dayChangeRatio, isDark),
+        );
+      case 'indicator':
+        final indicator = item.firstIndicator;
+        final ratio = indicator?.changeRatio;
+        cells[col.key] = make(
+          col,
+          ratio == null ? '' : '${_plainSigned(ratio)}%',
+          indicator == null ? '' : item.firstIndicatorName,
+          textColor: ratio == null ? null : profitColor(ratio, isDark),
+          subColor: isDark ? const Color(0xFF8F949D) : const Color(0xFF8D8B87),
+          showEmptySub: indicator == null,
+          subIsIndicatorName: true,
+        );
+      case 'holdProfit':
+        cells[col.key] = make(
+          col,
+          hideIncomeAmount ? '******' : _plainSigned(item.holdProfit),
+          hideIncomeRate ? '******' : '${_plainSigned(item.holdChangeRatio)}%',
+          textColor: profitColor(item.holdProfit, isDark),
+          subColor: profitColor(item.holdChangeRatio, isDark),
+          oversize: item.holdProfit.abs() >= 100000,
+        );
+      case 'latestNav':
+        final rate = item.latestChgRateOrNull;
+        final nav = _nullablePlain(item.latestPrice?.latestPrice, 4);
+        final prefix = item.isQdii ? item.navDateLabel : '';
+        cells[col.key] = make(
+          col,
+          rate == null
+              ? ''
+              : (hideIncomeRate ? '******' : '${_plainSigned(rate)}%'),
+          nav ?? '',
+          textColor: rate == null ? null : profitColor(rate, isDark),
+          subColor: isDark ? const Color(0xFF8F949D) : const Color(0xFF8D8B87),
+          subPrefix: prefix,
+          showEmptySub: nav == null && prefix.isEmpty,
+          subIsNavSub: true,
+        );
+      case 'dayChangeRatio':
+        cells[col.key] = make(
+          col,
+          '${_plainSigned(item.dayChangeRatio)}%',
+          '',
+          textColor: profitColor(item.dayChangeRatio, isDark),
+        );
+      case 'topHoldingsAvgChangeRate':
+        final rate = item.topHoldingsAvgChangeRate;
+        final text = _nullableSigned(rate);
+        cells[col.key] = make(
+          col,
+          text == null ? '' : '$text%',
+          '',
+          textColor: rate == null ? null : profitColor(rate, isDark),
+        );
+      case 'weekProfit':
+      case 'monthProfit':
+        final profit = col.key == 'weekProfit' ? item.weekProfit : item.monthProfit;
+        final rate =
+            col.key == 'weekProfit' ? item.weekProfitRate : item.monthProfitRate;
+        if (profit == null && rate == null) {
+          cells[col.key] = make(col, '', '');
+        } else {
+          cells[col.key] = make(
+            col,
+            profit == null
+                ? ''
+                : (hideIncomeAmount ? '******' : _plainSigned(profit)),
+            rate == null
+                ? ''
+                : (hideIncomeRate ? '******' : '${_nullableSigned(rate)}%'),
+            textColor: profitColor(profit ?? rate, isDark),
+            subColor: profitColor(rate ?? profit, isDark),
+            showEmptySub: rate == null,
+          );
+        }
+      case 'yearProfitRate':
+        final rate = item.yearProfitRate;
+        final profit = item.yearProfit;
+        if (rate == null && profit == null) {
+          cells[col.key] = make(col, '', '');
+        } else {
+          final rateText = _nullableSigned(rate);
+          cells[col.key] = make(
+            col,
+            rate == null
+                ? ''
+                : (hideIncomeRate ? '******' : '$rateText%'),
+            profit == null
+                ? ''
+                : (hideIncomeAmount ? '******' : _plainSigned(profit)),
+            textColor: profitColor(rate ?? profit, isDark),
+            subColor: profitColor(profit ?? rate, isDark),
+            showEmptySub: profit == null,
+          );
+        }
+      case 'marketValue':
+        cells[col.key] = make(
+          col,
+          hideHoldAmount ? '******' : _plain(item.marketValue),
+          '',
+        );
+      case 'holdingRatio':
+        final ratio = item.holdingRatio;
+        cells[col.key] = make(
+          col,
+          ratio == null ? '' : '${_plain(ratio)}%',
+          '',
+        );
+      case 'holdQuantity':
+        final quantity = item.holdQuantityNum;
+        cells[col.key] = make(
+          col,
+          quantity == null
+              ? ''
+              : (hideHoldAmount ? '******' : _plain(quantity)),
+          '',
+        );
+      case 'holdCostAmount':
+        final cost = item.holdCostAmountNum;
+        cells[col.key] = make(
+          col,
+          cost == null ? '' : (hideHoldAmount ? '******' : _plain(cost)),
+          '',
+        );
+      case 'holdDay':
+        final days = item.holdDay;
+        cells[col.key] = make(col, days == null ? '' : '$days天', '');
+      case 'breakEvenRate':
+        final rate = item.breakEvenRate;
+        cells[col.key] = make(
+          col,
+          rate == null ? '' : '+${_plain(rate)}%',
+          '',
+          textColor: (rate == null || rate == 0)
+              ? null
+              : profitColor(rate, isDark),
+        );
+    }
+  }
+  // 按列顺序输出；简洁/极简模式副行置空（模板自然不渲染）
+  final singleLine = state.tableMode != TableShowMode.normal;
+  return columns.map((col) {
+    final cell = cells[col.key]!;
+    if (!singleLine) return cell;
+    return HoldingCellData(
+      key: cell.key,
+      keySlug: cell.keySlug,
+      text: cell.text,
+      textColor: cell.textColor,
+      oversize: cell.oversize,
+    );
+  }).toList();
+}
+
+/// 左固定列单元格 — 1:1 复刻 .demo-fixed-row（名称 + 副信息行）
+class PositionHoldingFixedCell extends StatelessWidget {
   final PositionItem item;
   final int index;
   final bool isDark;
-  final double nameW;
-  final double dayProfitW;
-  final double indicatorW;
-  final double holdProfitW;
-  final bool isNormal;
-  final bool isCompact;
-  final bool isMinimal;
-  final double gapW;
+  final bool isMinimal; // 极简模式只显示名称一行
   final bool isLast;
   final bool isSelected;
-
-  /// 隐私级别派生标志 (1:1 uni-app hideHoldAmount/hideIncomeAmount/hideIncomeRate/hideFundName)
   final bool hideHoldAmount;
-  final bool hideIncomeAmount;
-  final bool hideIncomeRate;
   final bool hideFundName;
-
+  final bool showFundCode;
+  final bool showHoldingAmount;
   final VoidCallback onTap;
-  // 长按回传被按行的全局左上角 + 行高，供操作弹框跟随定位
   final void Function(Offset globalTopLeft, double height) onLongPress;
 
-  const PositionHoldingRow({
+  static const double rowHeight = 55; // 110rpx
+
+  const PositionHoldingFixedCell({
     super.key,
     required this.item,
     required this.index,
     required this.isDark,
-    required this.nameW,
-    required this.dayProfitW,
-    required this.indicatorW,
-    required this.holdProfitW,
-    required this.isNormal,
-    required this.isCompact,
     required this.isMinimal,
-    required this.gapW,
     required this.isLast,
     required this.isSelected,
     required this.hideHoldAmount,
-    required this.hideIncomeAmount,
-    required this.hideIncomeRate,
     required this.hideFundName,
+    required this.showFundCode,
+    required this.showHoldingAmount,
     required this.onTap,
     required this.onLongPress,
   });
@@ -67,7 +387,7 @@ class PositionHoldingRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final rowBg = isSelected
         ? (isDark ? const Color(0xFF2A2C31) : const Color(0xFFF1F1F1))
-        : Colors.transparent;
+        : (isDark ? const Color(0xFF202125) : Colors.white);
     final separatorColor = isDark
         ? const Color(0xFF2B2D33)
         : const Color(0xFFF4F1EC);
@@ -82,264 +402,276 @@ class PositionHoldingRow extends StatelessWidget {
       },
       child: Container(
         key: Key('position-holding-row-$index'),
-        padding: const EdgeInsets.symmetric(horizontal: 16),
+        height: rowHeight,
+        padding: const EdgeInsets.only(left: 16, right: 5), // 32rpx / 10rpx
         decoration: BoxDecoration(
           color: rowBg,
           border: isLast
               ? null
               : Border(bottom: BorderSide(color: separatorColor, width: 0.5)),
         ),
-        child: SizedBox(
-          height: 50, // 100rpx
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              // ===== 名称列 =====
-              SizedBox(width: nameW, child: _buildNameColumn()),
-              SizedBox(width: gapW),
-              // ===== 当日收益 =====
-              SizedBox(
-                key: Key('position-row-day-profit-$index'),
-                width: dayProfitW,
-                child: _buildDayProfitColumn(),
-              ),
-              SizedBox(width: gapW),
-              // ===== 关联板块 / 最新涨幅 =====
-              SizedBox(
-                key: Key('position-row-indicator-$index'),
-                width: indicatorW,
-                child: _buildIndicatorColumn(),
-              ),
-              // ===== 持有收益 (仅 normal/minimal) =====
-              if (isNormal || isMinimal) ...[
-                SizedBox(width: gapW),
-                SizedBox(
-                  key: Key('position-row-hold-profit-$index'),
-                  width: holdProfitW,
-                  child: _buildHoldProfitColumn(),
-                ),
-              ],
-            ],
-          ),
-        ),
+        child: isMinimal ? _buildNameOnly() : _buildNameWithSub(),
       ),
     );
   }
 
-  Widget _buildNameColumn() {
+  /// 极简模式：名称单行
+  Widget _buildNameOnly() {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: _nameText(),
+    );
+  }
+
+  Widget _buildNameWithSub() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Text(
-          hideFundName ? '******' : item.shortName,
-          style: AppTextStyles.cn(
-            14,
-            color: isDark ? const Color(0xFFD7DAE0) : const Color(0xFF23283C),
-            weight: FontWeight.w500,
-            height: 1.2,
-          ),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        // 源码：￥市值子行仅在 normal(listMunActive==0) 显示；compact/minimal 只显示名称单行
-        if (isNormal) ...[
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              // 1:1 uni-app: v-if="item.isLatestNav"（直接用接口字段）
-              if (item.isLatestNav)
-                Container(
-                  margin: const EdgeInsets.only(right: 4),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 3,
-                    vertical: 0.5,
-                  ),
-                  decoration: BoxDecoration(
-                    border: Border.all(
-                      color: AppColors.primary.withAlpha(140),
-                      width: 0.5,
-                    ),
-                    borderRadius: BorderRadius.circular(2),
-                    color: isDark
-                        ? AppColors.primary.withAlpha(36)
-                        : AppColors.primary.withAlpha(10),
-                  ),
-                  child: Text(
-                    '已更新',
-                    style: AppTextStyles.cn(
-                      9,
-                      color: AppColors.primary,
-                      height: 1,
-                    ),
-                  ),
+        _nameText(),
+        const SizedBox(height: 6), // margin-top 12rpx
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.baseline,
+          textBaseline: TextBaseline.alphabetic,
+          children: [
+            // 「已更新」徽章（1:1 uni-app isLatestNavItem）
+            if (item.isLatestNav)
+              Container(
+                margin: const EdgeInsets.only(right: 4), // gap 8rpx
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 3, // 6rpx
+                  vertical: 0.5, // 1rpx
                 ),
-              Text(
-                '￥${hideHoldAmount ? '******' : item.marketValue.toStringAsFixed(2)}',
-                style: AppTextStyles.cn(
-                  10.5, // 21rpx，源码 .holding-name__sub 恒定字号
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(2), // 4rpx
                   color: isDark
-                      ? const Color(0xFF9297A1)
-                      : const Color(0xFF77798B),
-                  height: 1,
+                      ? const Color(0x24E05665) // rgba(224,86,101,0.14)
+                      : const Color(0x0AE05665), // rgba(224,86,101,0.04)
+                ),
+                child: Text(
+                  '已更新',
+                  style: AppTextStyles.cn(
+                    9, // 18rpx
+                    color: const Color(0xFFE05665),
+                    height: 1,
+                  ),
                 ),
               ),
-              if (item.isYesterday) ...[
-                const SizedBox(width: 4),
-                Text(
+            // 表头管理：showFundCode → 基金代码；否则 showHoldingAmount → 持有金额
+            if (showFundCode)
+              Padding(
+                padding: const EdgeInsets.only(right: 4),
+                child: Text(
+                  hideFundName
+                      ? '******'
+                      : (item.symbolCode.isNotEmpty ? item.symbolCode : '--'),
+                  style: AppTextStyles.num(
+                    10.5, // 21rpx
+                    color: isDark
+                        ? const Color(0xFF9297A1)
+                        : const Color(0xFF77798B),
+                    height: 1,
+                  ),
+                ),
+              )
+            else if (showHoldingAmount)
+              Padding(
+                padding: const EdgeInsets.only(right: 4),
+                child: Text(
+                  '￥${hideHoldAmount ? '******' : _plain(item.marketValue)}',
+                  style: AppTextStyles.num(
+                    10.5, // 21rpx
+                    color: isDark
+                        ? const Color(0xFF9297A1)
+                        : const Color(0xFF77798B),
+                    height: 1,
+                  ),
+                ),
+              ),
+            // 昨日净值日期
+            if (item.isYesterday) ...[
+              Padding(
+                padding: const EdgeInsets.only(right: 4),
+                child: Text(
                   item.latestTimeLabel,
-                  style: AppTextStyles.cn(
-                    10,
+                  style: AppTextStyles.num(
+                    10, // 20rpx
                     color: isDark
                         ? const Color(0xFF8F949D)
                         : const Color(0xFF77798B),
                     height: 1,
                   ),
                 ),
-              ],
+              ),
             ],
-          ),
-        ],
-      ],
-    );
-  }
-
-  Widget _buildDayProfitColumn() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.end,
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Text(
-          hideIncomeAmount ? '******' : _formatSigned(item.dayProfit),
-          style: AppTextStyles.num(
-            15,
-            color: profitColor(item.dayProfit, isDark),
-            weight: FontWeight.w500,
-            height: 1,
-          ),
-        ),
-        if (isNormal) ...[
-          const SizedBox(height: 6),
-          Text(
-            hideIncomeRate ? '******' : '${_formatSigned(item.dayChangeRatio)}%',
-            style: AppTextStyles.num(
-              11,
-              color: profitColor(item.dayChangeRatio, isDark),
-              height: 1,
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-
-  Widget _buildIndicatorColumn() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.end,
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        if (isNormal) ...[
-          if (item.firstIndicator != null) ...[
-            Text(
-              '${_formatSigned(item.firstIndicator!.changeRatio ?? 0)}%',
-              style: AppTextStyles.num(
-                15,
-                color: profitColor(
-                  item.firstIndicator!.changeRatio ?? 0,
-                  isDark,
+            // 定投徽章
+            if (item.hasDcaPlan)
+              Container(
+                margin: const EdgeInsets.only(right: 4),
+                constraints: const BoxConstraints(minWidth: 14), // 28rpx
+                height: 14,
+                padding: const EdgeInsets.symmetric(horizontal: 2.5), // 5rpx
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(2.5), // 5rpx
+                  color: isDark
+                      ? const Color(0x2E4A90FF) // rgba(74,144,255,0.18)
+                      : const Color(0x1F347CFF), // rgba(52,124,255,0.12)
                 ),
+                alignment: Alignment.center,
+                child: Text(
+                  '定',
+                  style: AppTextStyles.cn(
+                    9, // 18rpx
+                    color: isDark
+                        ? const Color(0xFF6EA8FF)
+                        : const Color(0xFF347CFF),
+                    weight: FontWeight.w500,
+                    height: 1,
+                  ),
+                ),
+              ),
+            // 笔记图标
+            if (item.hasNote)
+              const Icon(AppIcons.note, size: 11, color: Color(0xFFE15665)),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _nameText() {
+    return Text(
+      hideFundName ? '******' : item.shortName,
+      style: AppTextStyles.cn(
+        14, // 28rpx
+        color: isDark ? const Color(0xFFD7DAE0) : const Color(0xFF23283C),
+        weight: FontWeight.w500,
+        height: 1.2,
+      ),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+    );
+  }
+}
+
+/// 右侧横滑区单元格 — 1:1 复刻 .demo-right-cell
+class PositionHoldingCell extends StatelessWidget {
+  final HoldingCellData cell;
+  final int rowIndex;
+  final bool isDark;
+  final bool singleLine;
+
+  const PositionHoldingCell({
+    super.key,
+    required this.cell,
+    required this.rowIndex,
+    required this.isDark,
+    required this.singleLine,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final placeholderColor = const Color(0xFFC3C8D1); // hsw-placeholder
+    return Container(
+      key: Key('position-row-${cell.keySlug}-$rowIndex'),
+      width: 72, // 144rpx
+      height: PositionHoldingFixedCell.rowHeight,
+      padding: const EdgeInsets.only(right: 4), // padding-right 8rpx
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          if (cell.text.isNotEmpty)
+            Text(
+              cell.text,
+              style: AppTextStyles.num(
+                cell.oversize ? 14 : 16, // 32rpx → 超档 28rpx
+                color: cell.textColor ?? positionProfitNeutralColor(isDark),
                 weight: FontWeight.w500,
                 height: 1,
               ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              item.firstIndicator!.name ??
-                  item.firstIndicator!.shortName ??
-                  '-',
-              style: AppTextStyles.cn(
-                10,
-                color: isDark
-                    ? const Color(0xFF8F949D)
-                    : const Color(0xFF8D8B87),
-                height: 1,
-              ),
               maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ] else ...[
+            )
+          else
             Text(
-              '-',
-              style: AppTextStyles.cn(
-                14,
-                color: isDark
-                    ? const Color(0xFF8F949D)
-                    : const Color(0xFF8D8B87),
+              '--',
+              style: AppTextStyles.num(
+                14, // 28rpx
+                color: placeholderColor,
                 height: 1,
               ),
             ),
-            const SizedBox(height: 3),
-            Text(
-              '-',
-              style: AppTextStyles.cn(
-                10,
-                color: isDark
-                    ? const Color(0xFF8F949D)
-                    : const Color(0xFF8D8B87),
-                height: 1,
+          if (!singleLine) ...[
+            if (cell.subText.isNotEmpty || cell.subPrefix.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 6), // margin-top 12rpx
+                child: _buildSub(),
+              )
+            else if (cell.showEmptySub)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(
+                  '--',
+                  style: AppTextStyles.num(
+                    10, // 20rpx
+                    color: placeholderColor,
+                    height: 1,
+                  ),
+                ),
               ),
-            ),
           ],
-        ] else ...[
-          // 简洁/极简: 显示最新涨幅
-          Text(
-            '${_formatSigned(item.latestChgRate)}%',
-            style: AppTextStyles.num(
-              15,
-              color: profitColor(item.latestChgRate, isDark),
-              weight: FontWeight.w500,
-              height: 1,
-            ),
-          ),
         ],
-      ],
+      ),
     );
   }
 
-  Widget _buildHoldProfitColumn() {
-    // 仅在 normal/minimal 模式渲染（compact 无此列，对齐 uni-app listMunActive==1 只有 3 列）
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.end,
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Text(
-          hideIncomeAmount ? '******' : _formatSigned(item.holdProfit),
-          style: AppTextStyles.num(
-            15,
-            color: profitColor(item.holdProfit, isDark),
-            weight: FontWeight.w500,
-            height: 1,
-          ),
+  Widget _buildSub() {
+    if (cell.subIsIndicatorName) {
+      // 板块名：18rpx，≥8 字降 16rpx（列宽 144rpx 下 18rpx 只能放 7 字）
+      final name = cell.subText;
+      return Text(
+        name,
+        style: AppTextStyles.cn(
+          name.length >= 8 ? 8 : 9,
+          color: cell.subColor,
+          height: 1,
         ),
-        if (isNormal) ...[
-          const SizedBox(height: 6),
-          Text(
-            hideIncomeRate
-                ? '******'
-                : '${_formatSigned(item.holdChangeRatio)}%',
-            style: AppTextStyles.num(
-              11,
-              color: profitColor(item.holdChangeRatio, isDark),
-              height: 1,
+        maxLines: 1,
+        textAlign: TextAlign.right,
+      );
+    }
+    if (cell.subIsNavSub) {
+      // 净值副行：[QDII 日期前缀 18rpx] 净值 4 位小数
+      return Text.rich(
+        TextSpan(children: [
+          if (cell.subPrefix.isNotEmpty)
+            TextSpan(
+              text: cell.subPrefix,
+              style: AppTextStyles.num(
+                9, // 18rpx
+                color: cell.subColor,
+                height: 1,
+              ),
             ),
+          if (cell.subPrefix.isNotEmpty) const TextSpan(text: ' '), // margin-right 6rpx
+          TextSpan(
+            text: cell.subText,
+            style: AppTextStyles.num(11, color: cell.subColor, height: 1),
           ),
-        ],
-      ],
+        ]),
+        maxLines: 1,
+        textAlign: TextAlign.right,
+      );
+    }
+    return Text(
+      cell.subText,
+      style: AppTextStyles.num(
+        11, // 22rpx
+        color: cell.subColor ?? positionProfitNeutralColor(isDark),
+        height: 1,
+      ),
+      maxLines: 1,
+      textAlign: TextAlign.right,
     );
-  }
-
-  String _formatSigned(double value) {
-    if (value > 0) return '+${value.toStringAsFixed(2)}';
-    return value.toStringAsFixed(2);
   }
 }

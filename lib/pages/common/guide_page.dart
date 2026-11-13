@@ -45,7 +45,7 @@ class _GuidePageState extends State<GuidePage> {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool(_seenGuideKey, true);
       if (!mounted) return;
-      context.go('/home'); // uni.switchTab → /pages/index/index
+      context.go('/position'); // uni goHome() → switchTab /pages/positionv1/index
     } else {
       await _controller.animateToPage(
         _currentIndex + 1,

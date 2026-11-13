@@ -71,4 +71,16 @@ class AppIcons {
   static const addAlt = IconData(0xe62c, fontFamily: _family);
   /// 添加成功 icon-tianjiachenggong \e670
   static const addSuccess = IconData(0xe670, fontFamily: _family);
+
+  // ---- 持仓表格 ----
+  /// 数据源 icon-shujuyuan \e634 — 估值数据源弹框入口
+  static const dataSource = IconData(0xe634, fontFamily: _family);
+  /// 笔记 icon-biji1 \e63e — 持仓行基金笔记标记
+  static const note = IconData(0xe63e, fontFamily: _family);
+
+  // ---- Tab 栏 ----
+  /// 暗盘 icon-meigu \e60d
+  static const meigu = IconData(0xe60d, fontFamily: _family);
+  /// 模拟盘 icon-kaishemonipan \e605
+  static const simulation = IconData(0xe605, fontFamily: _family);
 }

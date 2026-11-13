@@ -84,6 +84,12 @@ class ApiEndpoints {
   static const assetOcrPic = '/asset/api/Asset/ocr';                  // POST — ocrResult.vue ocrAssetPic 图片识别
   static const assetBySymbol = '/asset/api/Asset/symbol';            // GET /{symbolId} 需拼接
   static const assetDeleteV2 = '/asset/api/Asset';                     // DELETE /{assetId} 需拼接
+  static const assetExtendedColumns = '/asset/api/Asset/extended-columns'; // GET ?bookId= 重仓均涨幅/本周/本月/今年
+  static const assetOverviewCards = '/asset/api/Asset/overview/cards'; // GET 账户汇总卡片
+  static const holdingColumns = '/usercenter/api/User/holding-columns'; // GET 持仓表头管理配置
+  static const scrollContentCurrent = '/asset/api/ScrollContent/current'; // GET ?slotCode= 滚动通知条
+  static const announcement = '/asset/api/Announcement';               // GET ?position=&limit= 公告开关
+  static const communityGroupCount = '/asset/api/CommunityGroup/count'; // GET 基金群人数（匿名）
 
   // Profit
   static const profitCalendarAsset = '/asset/api/Profit/asset';        // GET /{assetId}

@@ -1,8 +1,8 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'theme/app_colors.dart';
+import 'theme/app_icons.dart';
 
 import 'pages/home/home_page.dart';
 import 'pages/position/position_page.dart';
@@ -16,6 +16,8 @@ import 'pages/optional/optional_search_page.dart';
 import 'pages/optional/ledger_page.dart';
 import 'pages/optional/widgets/ledger_book_api.dart';
 import 'pages/market/market_page.dart';
+import 'pages/market/dark_market_page.dart';
+import 'pages/noblemetal/noblemetal_page.dart';
 import 'pages/market/market_details_page.dart';
 import 'pages/market/plate_ranking_page.dart';
 import 'pages/market/plate_data_page.dart';
@@ -65,12 +67,13 @@ import 'features/auth/pages/password_login_page.dart';
 ///   /login/phone    → 手机号输入页 (无 TabBar)
 ///   /login/phone-code → 验证码输入页 (无 TabBar)
 ///   /login/password → 密码登录页 (无 TabBar)
-///   /home           → 首页 (Tab 0)
-///   /position       → 持仓 (Tab 1, 需登录)
-///   /optional       → 自选 (Tab 2, 需登录)
+///   /position       → 持仓 (Tab 0, 游客可看)
+///   /optional       → 自选 (Tab 1, 游客可看)
+///   /noblemetal     → 攒金 (Tab 2)
 ///   /market         → 行情 (Tab 3)
-///   /member         → 会员 (Tab 4)
+///   /dark-market    → 暗盘 (Tab 4)
 ///   /profile        → 我的 (Tab 5)
+///   /home /member   → 保留页面但不在底部 tab（对齐 uni-app tabBar 配置）
 class AppRouter {
   AppRouter._();
 
@@ -82,7 +85,7 @@ class AppRouter {
   // 单例，避免重复创建导致 GlobalKey 冲突
   static final GoRouter router = GoRouter(
     navigatorKey: _rootNavigatorKey,
-    initialLocation: '/home',
+    initialLocation: '/position',
       routes: [
         // ===== 登录路由 (无 TabBar) =====
         GoRoute(
@@ -140,21 +143,26 @@ class AppRouter {
                 child: HomePage(),
               ),
             ),
-            // 持仓
+            // 持仓（游客可看，对齐 uni-app positionv1 的 hasToken 处理）
             GoRoute(
               path: '/position',
               pageBuilder: (context, state) => const NoTransitionPage(
                 child: PositionPage(),
               ),
-              redirect: _authGuard,
             ),
-            // 自选
+            // 自选（游客可看）
             GoRoute(
               path: '/optional',
               pageBuilder: (context, state) => const NoTransitionPage(
                 child: OptionalPage(),
               ),
-              redirect: _authGuard,
+            ),
+            // 攒金
+            GoRoute(
+              path: '/noblemetal',
+              pageBuilder: (context, state) => const NoTransitionPage(
+                child: NobleMetalPage(),
+              ),
             ),
             // 行情
             GoRoute(
@@ -163,7 +171,14 @@ class AppRouter {
                 child: MarketPage(),
               ),
             ),
-            // 会员
+            // 暗盘
+            GoRoute(
+              path: '/dark-market',
+              pageBuilder: (context, state) => const NoTransitionPage(
+                child: DarkMarketPage(),
+              ),
+            ),
+            // 会员（保留页面，不在底部 tab）
             GoRoute(
               path: '/member',
               pageBuilder: (context, state) => const NoTransitionPage(
@@ -601,17 +616,6 @@ class AppRouter {
         ),
       ],
     );
-
-  /// 认证守卫: 持仓、自选需要登录，未登录跳转登录页
-  static Future<String?> _authGuard(
-      BuildContext context, GoRouterState state) async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('token');
-    if (token == null || token.isEmpty) {
-      return '/login';
-    }
-    return null;
-  }
 }
 
 /// Shell 主框架 - 包含底部导航栏
@@ -626,8 +630,10 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   int _currentIndex = 0;
 
+  // 对齐 uni-app CustomTabBar.vue rawTabList（H5/App 端）：
+  // 持仓 / 自选 / 攒金 / 行情 / 暗盘 / 我的（首页、会员不在 tab 中）
   static const _routes = [
-    '/home', '/position', '/optional', '/market', '/member', '/profile'
+    '/position', '/optional', '/noblemetal', '/market', '/dark-market', '/profile'
   ];
 
   @override
@@ -645,18 +651,17 @@ class _MainShellState extends State<MainShell> {
 
   Widget _buildTabBar(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    // 浅色模式: dark icons; 深色模式: black icons
+    // 1:1 uni-app CustomTabBar.vue：持仓/自选/攒金/行情/暗盘(iconfont)/我的
     final tabs = [
-      _TabData('assets/tab_icons/home.png', 'assets/tab_icons/home-a.png',
-          isDark ? 'assets/tab_icons/home-black.png' : 'assets/tab_icons/home.png', '首页'),
       _TabData('assets/tab_icons/position.png', 'assets/tab_icons/position-a.png',
           isDark ? 'assets/tab_icons/position-black.png' : 'assets/tab_icons/position.png', '持仓'),
       _TabData('assets/tab_icons/taboptional.png', 'assets/tab_icons/tab_optional.png',
           isDark ? 'assets/tab_icons/taboptional-black.png' : 'assets/tab_icons/taboptional.png', '自选'),
+      _TabData('assets/tab_icons/noblemetal.png', 'assets/tab_icons/noblemetal-a.png',
+          isDark ? 'assets/tab_icons/noblemetal-black.png' : 'assets/tab_icons/noblemetal.png', '攒金'),
       _TabData('assets/tab_icons/marketTrends.png', 'assets/tab_icons/marketTrends-a.png',
           isDark ? 'assets/tab_icons/marketTrends-black.png' : 'assets/tab_icons/marketTrends.png', '行情'),
-      _TabData('assets/tab_icons/vip.png', 'assets/tab_icons/vip-a.png',
-          isDark ? 'assets/tab_icons/vip-black.png' : 'assets/tab_icons/vip.png', '会员'),
+      const _TabData.iconfont(AppIcons.meigu, '暗盘'),
       _TabData('assets/tab_icons/user.png', 'assets/tab_icons/user-a.png',
           isDark ? 'assets/tab_icons/user-black.png' : 'assets/tab_icons/user.png', '我的'),
     ];
@@ -684,12 +689,23 @@ class _MainShellState extends State<MainShell> {
                       width: 21, height: 21, // 42rpx
                       child: Center(
                         // 源码 <image mode="aspectFit">：PNG 瞬时切换 + opacity 差异，无交叉淡入
-                        child: Image.asset(
-                          isActive ? tab.activeIcon : (isDark ? tab.darkIcon : tab.lightIcon),
-                          width: 20, height: 20, // 40rpx
-                          fit: BoxFit.contain,
-                          opacity: AlwaysStoppedAnimation(isActive ? 1.0 : inactiveOpacity),
-                        ),
+                        // iconfont 项（暗盘）：源码 .tab-iconfont color #333 / 深色 #A7ADB8，
+                        // opacity 恒 0.72（深色不降级），激活 #E60012 / 深色 #E05665
+                        child: tab.icon != null
+                            ? Icon(
+                                tab.icon,
+                                size: 20, // 40rpx
+                                color: isActive
+                                    ? (isDark ? AppColors.tabActiveColor : AppColors.tabActiveColorLight)
+                                    : (isDark ? AppColors.darkTextSecondary : AppColors.lightText)
+                                        .withAlpha(184), // 0.72
+                              )
+                            : Image.asset(
+                                isActive ? tab.activeIcon! : (isDark ? tab.darkIcon! : tab.lightIcon!),
+                                width: 20, height: 20, // 40rpx
+                                fit: BoxFit.contain,
+                                opacity: AlwaysStoppedAnimation(isActive ? 1.0 : inactiveOpacity),
+                              ),
                       ),
                     ),
                     const SizedBox(height: 2), // 4rpx
@@ -752,9 +768,15 @@ class _MainShellState extends State<MainShell> {
 }
 
 class _TabData {
-  final String lightIcon;
-  final String activeIcon;
-  final String darkIcon;
+  final String? lightIcon;
+  final String? activeIcon;
+  final String? darkIcon;
+  final IconData? icon; // iconfont 图标（优先于 png）
   final String label;
-  const _TabData(this.lightIcon, this.activeIcon, this.darkIcon, this.label);
+  const _TabData(this.lightIcon, this.activeIcon, this.darkIcon, this.label)
+      : icon = null;
+  const _TabData.iconfont(this.icon, this.label)
+      : lightIcon = null,
+        activeIcon = null,
+        darkIcon = null;
 }

@@ -152,6 +152,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
   Future<void> _logout() async {
     await ref.read(authProvider.notifier).logout();
-    if (mounted) context.go('/home');
+    if (mounted) context.go('/position'); // uni: clearLoginState + goHome() → positionv1
   }
 }

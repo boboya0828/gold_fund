@@ -141,7 +141,7 @@ class _PasswordLoginPageState extends ConsumerState<PasswordLoginPage> {
     final success = await ref.read(authProvider.notifier).passwordLogin(account, password);
     if (mounted) {
       setState(() => _loading = false);
-      if (success) context.go('/home');
+      if (success) context.go('/position'); // uni: switchTab /pages/positionv1/index
     }
   }
 }
