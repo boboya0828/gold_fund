@@ -95,10 +95,17 @@ class _YangJiAppState extends ConsumerState<YangJiApp> with WidgetsBindingObserv
       darkTheme: AppTheme.dark,
       routerConfig: router,
       // 屏幕自适应：按逻辑宽初始化/更新 SA.scale（rpx→px = rpx÷2×scale），
-      // web 拖窗口 MediaQuery 变化时此处随之重建，下游页面读取 .sx 即时生效
+      // web 拖窗口 MediaQuery 变化时此处随之重建，下游页面读取 .sx 即时生效。
+      // 锁定 textScaler=1.0：Flutter 默认跟随 iOS/Android 系统字体缩放，
+      // 而 uni-app 不响应系统设置，为与原版 1:1 必须屏蔽（否则只有字形被放大，
+      // 布局尺寸不变，出现文字偏大/截断——用户实测反馈）。
       builder: (context, child) {
         SA.update(MediaQuery.sizeOf(context).width);
-        return child ?? const SizedBox.shrink();
+        return MediaQuery(
+          data: MediaQuery.of(context)
+              .copyWith(textScaler: TextScaler.noScaling),
+          child: child ?? const SizedBox.shrink(),
+        );
       },
     );
   }
