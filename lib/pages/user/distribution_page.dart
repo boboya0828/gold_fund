@@ -157,7 +157,8 @@ class _DistributionPageState extends State<DistributionPage> {
               style: AppTextStyles.cn(15, color: textColor),
             ),
           ),
-          Text('${item.ratioText}%', style: AppTextStyles.cn(15, color: textColor, weight: FontWeight.w500)),
+          // 1:1 user/sub/distribution.vue .item-ratio numFamily
+          Text('${item.ratioText}%', style: AppTextStyles.num(15, color: textColor, weight: FontWeight.w500)),
         ],
       ),
     );

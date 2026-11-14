@@ -75,7 +75,8 @@ class DistributionDonut extends StatelessWidget {
         Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(centerCount, style: AppTextStyles.cn(24, color: textColor, weight: FontWeight.w600)),
+            // 1:1 user/sub/distribution.vue .chart-count numFamily
+            Text(centerCount, style: AppTextStyles.num(24, color: textColor, weight: FontWeight.w600)),
             const SizedBox(height: 4),
             Text(centerLabel, style: AppTextStyles.cn(14, color: labelColor)),
           ],

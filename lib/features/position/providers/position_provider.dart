@@ -451,6 +451,75 @@ class AssetVisibleLevel {
 /// 表格展示模式: 0=普通, 1=简洁, 2=极简
 enum TableShowMode { normal, compact, minimal }
 
+/// 列表字体档位 — 1:1 复刻 uni-app .font-standard CSS 覆盖（index.vue 尾部）
+/// 存储 fontSizeMode：0=标准（缩小一档）1=大号（默认，存量视觉不变）
+/// 数值单位 px（rpx÷2），大号口径 = index.vue 静态字号
+class PositionFontScale {
+  final double cellMain; // .holding-cell__rate 主行
+  final double cellMainSmall; // .holding-cell__rate--small（|持有收益|≥100000 再降档）
+  final double cellSub; // .holding-profit__mains 副行
+  final double nameMain; // .holding-name__main 基金名
+  final double nameSub; // .holding-name__sub 代码/持有金额
+  final double placeholder; // .hsw-placeholder 占位列主行
+  final double placeholderSub; // .hsw-placeholder--sub 占位列副行
+  final double indicatorName; // .indicator-name-text 板块名
+  final double indicatorNameXl; // .indicator-name-text--xl（≥8 字，两档相同）
+  final double yesterday; // .yesterday-jzhi 昨日净值日期
+  final double badge; // .updateditem / .dca-plan-badge 徽章
+  final double navDate; // .hsw-nav-date QDII 净值日期前缀
+
+  const PositionFontScale._({
+    required this.cellMain,
+    required this.cellMainSmall,
+    required this.cellSub,
+    required this.nameMain,
+    required this.nameSub,
+    required this.placeholder,
+    required this.placeholderSub,
+    required this.indicatorName,
+    required this.indicatorNameXl,
+    required this.yesterday,
+    required this.badge,
+    required this.navDate,
+  });
+
+  /// 大号（默认）：index.vue 静态字号
+  static const large = PositionFontScale._(
+    cellMain: 16, // 32rpx
+    cellMainSmall: 14, // 28rpx
+    cellSub: 11, // 22rpx
+    nameMain: 14, // 28rpx
+    nameSub: 10.5, // 21rpx
+    placeholder: 14, // 28rpx
+    placeholderSub: 10, // 20rpx
+    indicatorName: 9, // 18rpx
+    indicatorNameXl: 8, // 16rpx
+    yesterday: 10, // 20rpx
+    badge: 9, // 18rpx
+    navDate: 9, // 18rpx
+  );
+
+  /// 标准（缩小一档）：.font-standard CSS 覆盖值
+  static const standard = PositionFontScale._(
+    cellMain: 15, // 30rpx
+    cellMainSmall: 13, // 26rpx
+    cellSub: 10, // 20rpx
+    nameMain: 13, // 26rpx
+    nameSub: 9.5, // 19rpx
+    placeholder: 12, // 24rpx
+    placeholderSub: 8, // 16rpx
+    indicatorName: 9, // 18rpx（标准档不变）
+    indicatorNameXl: 8, // 16rpx
+    yesterday: 8, // 16rpx
+    badge: 7, // 14rpx
+    navDate: 7, // 14rpx
+  );
+
+  /// fontSizeMode：0=标准，其余（含缺失）=大号（对齐 uni-app normalizeFontSizeMode）
+  static PositionFontScale of(bool standard) =>
+      standard ? PositionFontScale.standard : PositionFontScale.large;
+}
+
 /// 持仓页状态
 class PositionState {
   final List<BookItem> books;
@@ -488,6 +557,7 @@ class PositionState {
   final List<String>? columnKeys; // null=默认全列；否则按配置顺序的可见列 key
   final bool showFundCode; // 名称副行显示基金代码（否则显示持有金额）
   final bool showHoldingAmount;
+  final bool listFontStandard; // fontSizeMode==0：列表字体「标准」档（缩小一档）
 
   const PositionState({
     this.books = const [],
@@ -522,6 +592,7 @@ class PositionState {
     this.columnKeys,
     this.showFundCode = false,
     this.showHoldingAmount = true,
+    this.listFontStandard = false,
   });
 
   PositionState copyWith({
@@ -557,6 +628,7 @@ class PositionState {
     List<String>? Function()? columnKeys,
     bool? showFundCode,
     bool? showHoldingAmount,
+    bool? listFontStandard,
   }) => PositionState(
     books: books ?? this.books,
     tabIndex: tabIndex ?? this.tabIndex,
@@ -592,7 +664,11 @@ class PositionState {
     columnKeys: columnKeys != null ? columnKeys() : this.columnKeys,
     showFundCode: showFundCode ?? this.showFundCode,
     showHoldingAmount: showHoldingAmount ?? this.showHoldingAmount,
+    listFontStandard: listFontStandard ?? this.listFontStandard,
   );
+
+  /// 列表字体档位（大号/标准）
+  PositionFontScale get fontScale => PositionFontScale.of(listFontStandard);
 
   /// 账本名称列表（滚动区；受 positionAllBookVisible 控制是否含「全部」）
   List<String> get bookNames =>
@@ -763,12 +839,15 @@ class PositionNotifier extends StateNotifier<PositionState> {
     // 1:1 uni-app positionHoldingSort {field, order} 持久化
     final sortField = prefs.getString('positionHoldingSortField') ?? '';
     final sortOrder = prefs.getString('positionHoldingSortOrder') ?? 'desc';
+    // 1:1 uni-app fontSizeMode（0=标准 1=大号；缺失/非法按大号）+ fontSizeModeChanged 事件
+    final listFontStandard = (prefs.getInt('fontSizeMode') ?? 1) == 0;
     state = state.copyWith(
       tableMode: TableShowMode.values[mode.clamp(0, 2)],
       showProfitRatio: showRatio,
       allBookVisible: allBookVisible,
       sortField: sortField,
       sortOrder: sortOrder == 'asc' ? 'asc' : 'desc',
+      listFontStandard: listFontStandard,
     );
   }
 
@@ -1085,6 +1164,8 @@ class PositionNotifier extends StateNotifier<PositionState> {
         tabIndex: tabIdx,
         isLoggedIn: true,
         allBookVisible: allBookVisible,
+        // 1:1 uni-app fontSizeModeChanged：页面存活期间档位变化随下次加载生效
+        listFontStandard: (prefs.getInt('fontSizeMode') ?? 1) == 0,
       );
 
       final currentBook = state.currentBookId;

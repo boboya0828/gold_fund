@@ -1366,7 +1366,8 @@ class _RunningTabPageState extends State<RunningTabPage> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            Text('估算手续费', style: AppTextStyles.cn(12, color: muted, height: 1.2)),
+            // 1:1 running-tab.vue .page-grid-from__fee-text numFamily
+            Text('估算手续费', style: AppTextStyles.num(12, color: muted, height: 1.2)),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 3),
               child: Text(_confirmFeeAmount, style: AppTextStyles.num(16, color: accent)),
@@ -1391,7 +1392,7 @@ class _RunningTabPageState extends State<RunningTabPage> {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Text(_sellFeeMode == 'rate' ? '卖出费率' : '卖出费用',
-              style: AppTextStyles.cn(14, color: accent, height: 1.2)),
+              style: AppTextStyles.num(14, color: accent, height: 1.2)),
           GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: _toggleSellFeeMode,
@@ -1604,14 +1605,14 @@ class _RunningTabPageState extends State<RunningTabPage> {
                 padding: const EdgeInsets.only(top: 12),
                 child: Row(
                   children: [
-                    Text('估算手续费', style: AppTextStyles.cn(12, color: subColor, height: 1.4)),
+                    Text('估算手续费', style: AppTextStyles.num(12, color: subColor, height: 1.4)),
                     Padding(
                       padding: const EdgeInsets.only(left: 2),
                       child: Text(_planFeeAmount,
                           style: AppTextStyles.num(12,
                               color: isDark ? const Color(0xFFE05665) : const Color(0xFFE85F6F))),
                     ),
-                    Text('元（买入费率', style: AppTextStyles.cn(12, color: subColor, height: 1.4)),
+                    Text('元（买入费率', style: AppTextStyles.num(12, color: subColor, height: 1.4)),
                     Container(
                       width: 60,
                       height: 21,
@@ -1637,7 +1638,7 @@ class _RunningTabPageState extends State<RunningTabPage> {
                         ),
                       ),
                     ),
-                    Text('%）', style: AppTextStyles.cn(12, color: subColor, height: 1.4)),
+                    Text('%）', style: AppTextStyles.num(12, color: subColor, height: 1.4)),
                     Container(
                       width: 18,
                       height: 18,
@@ -1793,8 +1794,9 @@ class _RunningTabPageState extends State<RunningTabPage> {
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
+                            // 1:1 running-tab.vue .plan-card__label numFamily
                             Text('累计定投(元)',
-                                style: AppTextStyles.cn(13,
+                                style: AppTextStyles.num(13,
                                     color: isDark
                                         ? AppColors.darkTextSecondary
                                         : const Color(0xFF9297A1),
@@ -1848,7 +1850,7 @@ class _RunningTabPageState extends State<RunningTabPage> {
                                     : const Color(0xFF9AA0AA),
                                 height: 1.4)),
                         Text('元',
-                            style: AppTextStyles.cn(14,
+                            style: AppTextStyles.num(14,
                                 color: isDark ? AppColors.darkText : const Color(0xFF202124),
                                 height: 1.4)),
                       ],

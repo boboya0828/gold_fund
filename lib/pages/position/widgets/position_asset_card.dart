@@ -93,7 +93,8 @@ class PositionAssetCard extends ConsumerWidget {
                   children: [
                     Text(
                       '账户资产(元)',
-                      style: AppTextStyles.cn(11, color: labelColor, height: 1),
+                      // .asset-card__label 也是 numFamily（DIN 数字字体）
+                      style: AppTextStyles.num(11, color: labelColor, height: 1),
                     ),
                     const SizedBox(width: 5), // gap 10rpx
                     GestureDetector(

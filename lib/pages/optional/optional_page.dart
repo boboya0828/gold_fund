@@ -549,7 +549,8 @@ class _OptionalPageState extends ConsumerState<OptionalPage> {
               const SizedBox(height: 4),
               Row(children: [
                 Flexible(child: Padding(padding: const EdgeInsets.only(top: 3),
-                  child: Text(codeText, style: AppTextStyles.cn(8, color: subColor), maxLines: 1, overflow: TextOverflow.ellipsis))),
+                  // 1:1 optional/index.vue .holding-name__sub textclass numFamily（基金代码用 DIN）
+                  child: Text(codeText, style: AppTextStyles.num(8, color: subColor), maxLines: 1, overflow: TextOverflow.ellipsis))),
                 if (item.isHold) ...[
                   const SizedBox(width: 4),
                   Container(padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),

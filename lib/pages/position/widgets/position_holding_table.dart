@@ -184,6 +184,7 @@ class _PositionHoldingTableState extends ConsumerState<PositionHoldingTable> {
                                         showFundCode: state.showFundCode,
                                         showHoldingAmount:
                                             state.showHoldingAmount,
+                                        fontScale: state.fontScale,
                                         onTap: () =>
                                             _handleRowTap(context, i, items[i]),
                                         onLongPress: (offset, height) {
@@ -408,6 +409,7 @@ class _PositionHoldingTableState extends ConsumerState<PositionHoldingTable> {
                 rowIndex: index,
                 isDark: isDark,
                 singleLine: singleLine,
+                fontScale: widget.state.fontScale,
               ),
           ],
         ),
