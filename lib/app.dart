@@ -2,6 +2,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/network/api_client.dart';
+import 'core/utils/screen_adapt.dart';
 import 'router.dart';
 import 'theme/app_theme.dart';
 import 'features/auth/providers/theme_provider.dart';
@@ -93,6 +94,12 @@ class _YangJiAppState extends ConsumerState<YangJiApp> with WidgetsBindingObserv
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
       routerConfig: router,
+      // 屏幕自适应：按逻辑宽初始化/更新 SA.scale（rpx→px = rpx÷2×scale），
+      // web 拖窗口 MediaQuery 变化时此处随之重建，下游页面读取 .sx 即时生效
+      builder: (context, child) {
+        SA.update(MediaQuery.sizeOf(context).width);
+        return child ?? const SizedBox.shrink();
+      },
     );
   }
 

@@ -3,15 +3,14 @@ import 'package:flutter/material.dart';
 
 /// 下拉刷新 — 对外统一入口（类名与参数保持不变，调用页面零改动）
 ///
-/// 内部实现：easy_refresh 的 [EasyRefresh] + [BezierCircleHeader]（气球弹动风格），
-/// 替换原自研 CupertinoSliverRefreshControl 方案（箭头+文字样式）。
+/// 内部实现：easy_refresh 的 [EasyRefresh] + [ClassicHeader]（经典文字+箭头风格，
+/// 对齐原 z-paging 默认刷新头的文案与交互）。
 ///
 /// 行为对齐原 z-paging refresher-only：
 /// - 触发阈值 100rpx = 50px（triggerOffset）
-/// - 刷新成功以 success 态的对勾弹动动画表示（BezierCircle 无文字态）
-/// - 完成后头部随 kBezierCircleDisappearDuration(800ms) 动画自然收起，
-///   由 easy_refresh 的 IndicatorNotifier 状态机管理，不会卡在半截
-///   （原自研版需要手动回弹修复的问题在 easy_refresh 内建流程中不存在）
+/// - 文案流转：继续下拉刷新 → 松开立即刷新 → 正在刷新... → 刷新成功
+/// - 完成后头部由 easy_refresh 的 IndicatorNotifier 状态机驱动自然收起，
+///   不会卡在半截（原自研版需要手动回弹修复的问题在 easy_refresh 内建流程中不存在）
 /// - 无 footer（refresher-only，上拉不加载）
 class ZPagingRefresh extends StatefulWidget {
   final Future<void> Function() onRefresh;
@@ -66,13 +65,27 @@ class _ZPagingRefreshState extends State<ZPagingRefresh> {
 
   @override
   Widget build(BuildContext context) {
+    // 经典刷新头：图标与文字同色（浅 #8E857E / 深 #A7ADB8，可用 titleColor 覆盖），
+    // 文字 15px（对齐原 z-paging refresher-title 15px）
+    final color = widget.titleColor ??
+        (widget.isDark ? const Color(0xFFA7ADB8) : const Color(0xFF8E857E));
     return EasyRefresh(
-      header: BezierCircleHeader(
+      header: ClassicHeader(
         triggerOffset: ZPagingRefresh.triggerOffset,
-        // 气球（前景）用品牌红；背景条透明，融入列表底色
-        foregroundColor:
-            widget.isDark ? const Color(0xFFE05665) : const Color(0xFFE15665),
-        backgroundColor: Colors.transparent,
+        dragText: '继续下拉刷新',
+        armedText: '松开立即刷新',
+        readyText: '正在刷新...',
+        processingText: '正在刷新...',
+        processedText: '刷新成功',
+        failedText: '刷新失败',
+        showMessage: false, // 原 z-paging 默认刷新头无副标题（上次刷新时间）
+        textStyle: TextStyle(
+          fontFamily: 'siyuanheitiCNRegular',
+          fontSize: 15,
+          height: 1,
+          color: color,
+        ),
+        iconTheme: IconThemeData(color: color),
       ),
       onRefresh: _handleRefresh,
       // 不传 physics：easy_refresh 通过 ScrollConfiguration 注入

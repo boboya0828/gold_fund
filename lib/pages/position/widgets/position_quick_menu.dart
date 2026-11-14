@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../theme/app_icons.dart';
 import '../../../theme/text_styles.dart';
+import '../../../core/utils/screen_adapt.dart';
 
 /// 快捷菜单面板 — 1:1 复刻 .quick-menu-panel
 /// uni-app: width:230rpx(115px), padding:8rpx(4px) 0, border-radius:16rpx(8px)
@@ -31,14 +32,14 @@ class PositionQuickMenu extends StatelessWidget {
     final dividerColor = isDark ? const Color(0xFF3A3E48) : const Color(0xFFEEF1F5);
 
     return Container(
-      width: 115, // 230rpx
-      padding: const EdgeInsets.symmetric(vertical: 4), // 8rpx 0
+      width: 115.sx, // 230rpx
+      padding: EdgeInsets.symmetric(vertical: 4.sx), // 8rpx 0
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF282B32) : Colors.white,
-        borderRadius: BorderRadius.circular(8), // 16rpx
+        borderRadius: BorderRadius.circular(8.sx), // 16rpx
         // 源码浅色 .quick-menu-panel 无阴影，仅深色有
         boxShadow: isDark
-            ? [BoxShadow(color: Colors.black.withAlpha(87), blurRadius: 17)]
+            ? [BoxShadow(color: Colors.black.withAlpha(87), blurRadius: 17.sx)]
             : null,
       ),
       child: Column(children: [
@@ -60,19 +61,19 @@ class PositionQuickMenu extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        height: 44, // 88rpx
-        padding: const EdgeInsets.symmetric(horizontal: 12), // 0 24rpx
+        height: 44.sx, // 88rpx
+        padding: EdgeInsets.symmetric(horizontal: 12.sx), // 0 24rpx
         child: Row(children: [
           // 源码 .quick-menu-item__icon: 34rpx(17px) 容器 + margin-right 16rpx(8px)
           SizedBox(
-            width: 17,
-            height: 17,
+            width: 17.sx,
+            height: 17.sx,
             child: Center(
               child: Icon(icon, size: iconSize, color: iconColor),
             ),
           ),
-          const SizedBox(width: 8),
-          Text(label, style: AppTextStyles.cn(12, color: textColor)), // 24rpx
+          SizedBox(width: 8.sx),
+          Text(label, style: AppTextStyles.cn(12.sx, color: textColor)), // 24rpx
         ]),
       ),
     );
@@ -80,6 +81,6 @@ class PositionQuickMenu extends StatelessWidget {
 
   Widget _divider(Color color) {
     // uni-app divider: left:72rpx(36px), right:24rpx(12px), height:1px(0.5px)
-    return Container(height: 0.5, margin: const EdgeInsets.only(left: 36, right: 12), color: color);
+    return Container(height: 0.5, margin: EdgeInsets.only(left: 36.sx, right: 12.sx), color: color);
   }
 }

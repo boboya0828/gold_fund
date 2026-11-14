@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../theme/text_styles.dart';
+import '../../../core/utils/screen_adapt.dart';
 
 /// 交易记录页辅助组件 — 1:1 复刻 uni-app pages/positionv1/trading-record.vue
 /// 的类型 Tab 栏 (.type-tabs)、记录卡片 (.record-item) 与 z-paging 底部状态。
@@ -52,10 +53,10 @@ class TradingRecordTypeTabs extends StatelessWidget {
           ),
         ),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 9), // 18rpx 12rpx
+      padding: EdgeInsets.symmetric(horizontal: 6.sx, vertical: 9.sx), // 18rpx 12rpx
       child: Row(children: [
         for (var i = 0; i < tabs.length; i++) ...[
-          if (i > 0) const SizedBox(width: 5), // gap 10rpx
+          if (i > 0) SizedBox(width: 5.sx), // gap 10rpx
           Expanded(child: _tab(tabs[i])),
         ],
       ]),
@@ -68,18 +69,18 @@ class TradingRecordTypeTabs extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       onTap: () => onChanged(tab.value),
       child: Container(
-        height: 26, // 52rpx
+        height: 26.sx, // 52rpx
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: active
               ? (isDark ? const Color(0xFFE05665).withValues(alpha: 0.16) : const Color(0xFFFFECEF))
               : (isDark ? const Color(0xFF282828) : const Color(0xFFF5F5F5)),
-          borderRadius: BorderRadius.circular(13), // 999rpx 胶囊
+          borderRadius: BorderRadius.circular(13.sx), // 999rpx 胶囊
         ),
         child: Text(
           tab.label,
           style: AppTextStyles.cn(
-            12, // 24rpx
+            12.sx, // 24rpx
             weight: active ? FontWeight.w700 : FontWeight.w400,
             color: active
                 ? const Color(0xFFE05665)
@@ -119,16 +120,16 @@ class TradingRecordItem extends StatelessWidget {
     final mutedColor = isDark ? const Color(0xFF8F949D) : const Color(0xFF8D8B87);
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 8), // 16rpx
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 20), // 40rpx 24rpx
+      margin: EdgeInsets.only(bottom: 8.sx), // 16rpx
+      padding: EdgeInsets.symmetric(horizontal: 12.sx, vertical: 20.sx), // 40rpx 24rpx
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF202125) : Colors.white,
-        borderRadius: BorderRadius.circular(8), // 16rpx
+        borderRadius: BorderRadius.circular(8.sx), // 16rpx
         boxShadow: isDark
             ? null
-            : const [
+            : [
                 // 0 8rpx 18rpx rgba(69,32,8,0.04)
-                BoxShadow(color: Color(0x0A452008), blurRadius: 9, offset: Offset(0, 4)),
+                BoxShadow(color: Color(0x0A452008), blurRadius: 9.sx, offset: Offset(0, 4.sx)),
               ],
       ),
       child: Row(children: [
@@ -136,10 +137,10 @@ class TradingRecordItem extends StatelessWidget {
           child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
             // .record-type-wrap: padding-top 2rpx, margin-right 14rpx
             Padding(
-              padding: const EdgeInsets.only(top: 1, right: 7),
+              padding: EdgeInsets.only(top: 1.sx, right: 7.sx),
               child: Text(
                 typeText,
-                style: AppTextStyles.cn(14, weight: FontWeight.w700, color: toneColor, height: 1.3), // 28rpx lh36rpx
+                style: AppTextStyles.cn(14.sx, weight: FontWeight.w700, color: toneColor, height: 1.3), // 28rpx lh36rpx
               ),
             ),
             // .record-info
@@ -149,15 +150,15 @@ class TradingRecordItem extends StatelessWidget {
                   displayName,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: AppTextStyles.cn(14, color: nameColor, height: 1.3), // 28rpx lh36rpx
+                  style: AppTextStyles.cn(14.sx, color: nameColor, height: 1.3), // 28rpx lh36rpx
                 ),
                 Padding(
-                  padding: const EdgeInsets.only(top: 5), // margin-top 10rpx
+                  padding: EdgeInsets.only(top: 5.sx), // margin-top 10rpx
                   child: Text(
                     dateText,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: AppTextStyles.cn(11, color: mutedColor, height: 1.27), // 22rpx lh28rpx
+                    style: AppTextStyles.cn(11.sx, color: mutedColor, height: 1.27), // 22rpx lh28rpx
                   ),
                 ),
               ]),
@@ -166,19 +167,19 @@ class TradingRecordItem extends StatelessWidget {
         ),
         // .record-right: margin-left 20rpx, 右对齐
         Padding(
-          padding: const EdgeInsets.only(left: 10),
+          padding: EdgeInsets.only(left: 10.sx),
           child: Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
             Text(
               amountText,
-              style: AppTextStyles.cn(15, color: toneColor, height: 1.13), // 30rpx lh34rpx
+              style: AppTextStyles.cn(15.sx, color: toneColor, height: 1.13), // 30rpx lh34rpx
             ),
             if (effectiveText.isNotEmpty)
               Padding(
-                padding: const EdgeInsets.only(top: 5), // margin-top 10rpx
+                padding: EdgeInsets.only(top: 5.sx), // margin-top 10rpx
                 child: Text(
                   effectiveText,
                   maxLines: 1,
-                  style: AppTextStyles.cn(11, color: mutedColor, height: 1.3), // 22rpx
+                  style: AppTextStyles.cn(11.sx, color: mutedColor, height: 1.3), // 22rpx
                 ),
               ),
           ]),
@@ -221,8 +222,8 @@ class TradingRecordFooter extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       onTap: state == TradingRecordFooterState.error ? onRetry : null,
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        child: Center(child: Text(text, style: AppTextStyles.cn(12, color: color))), // 24rpx
+        padding: EdgeInsets.symmetric(vertical: 14.sx),
+        child: Center(child: Text(text, style: AppTextStyles.cn(12.sx, color: color))), // 24rpx
       ),
     );
   }

@@ -56,8 +56,12 @@ flutter build apk|ios|web             # 生产构建
 - `text_styles.dart` — `AppTextStyles.cn(size,…)` 使用中文字体 `siyuanheitiCNRegular`；`AppTextStyles.num(size,…)` 使用数字字体 `DIN`。文字标签用 `cn`，数值/百分比用 `num`。
 - `app_icons.dart` — 自定义 `iconfont.ttf` 图标（`AppIcons.search`、`.add` 等），是 uni-app iconfont 的 1:1 复刻。
 
-### 关键约定：rpx → px 换算
-uni-app 中的尺寸单位是 **rpx**（750rpx = 375px 设计稿宽度）。迁移 `.vue` 样式时，**把 rpx 除以 2** 即可得到 Flutter 中的逻辑像素值（例如 `28rpx` → `14`，`80rpx` 高度 → `40`）。现有 Dart 代码中的颜色/间距已经遵循这个规则，继续保持一致即可。
+### 关键约定：rpx → px 换算（屏幕自适应 SA）
+uni-app 中的尺寸单位是 **rpx**（750rpx = 屏宽，1rpx = 屏宽/750）。迁移 `.vue` 样式时：
+- 先按 **rpx÷2** 写出基准值（375pt 逻辑宽下的 px），再包 `.sx` 随屏宽缩放：`28rpx` → `14.sx`，`80rpx` 高度 → `40.sx`。
+- `.sx` 来自 `lib/core/utils/screen_adapt.dart`（`SA.scale = 逻辑宽/375`，在 `lib/app.dart` 的 MaterialApp builder 初始化并随宽度变化更新；小屏兜底 320pt）。测试环境不初始化时 scale=1.0，等同于旧 rpx÷2 约定。
+- **rpx÷2 裸写（不包 .sx）只允许用于确实不随屏宽的场景**：MediaQuery 的 viewPadding/padding（状态栏等设备真实 px）、0.5px 物理最小分隔线，以及尚未迁移 SA 的页面。
+- 已迁移范围：`lib/pages/position/**`、`lib/router.dart`（MainShell tab 栏）。`AppTextStyles.cn/num` 的 size 在调用处包 `.sx`（`AppTextStyles.cn(15.sx, …)`），不要改 AppTextStyles 内部。
 
 ### 数据模型 (`lib/core/models/`)
 带 `fromJson` 的普通 Dart 数据类（asset、book、symbol、trade、profit、kline、alert、user）；`models.dart` 是统一导出的 barrel 文件。部分页面会在文件内部直接定义小型内联模型（例如 `optional_page.dart` 里的 `FavItem`/`IndicatorRef`）—— 遇到这种情况应遵循所在页面已有的风格。

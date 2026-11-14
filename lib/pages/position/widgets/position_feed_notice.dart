@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../theme/text_styles.dart';
 import '../../position/position_provider_types.dart' show FeedNoticeItem;
+import '../../../core/utils/screen_adapt.dart';
 
 /// 滚动通知条 — 1:1 复刻 .feed-notice
 /// （GET /asset/api/ScrollContent/current?slotCode=position_feed）
@@ -81,8 +82,8 @@ class _PositionFeedNoticeState extends State<PositionFeedNotice>
     return GestureDetector(
       onTap: widget.onTap,
       child: Container(
-        height: 40, // 80rpx
-        padding: const EdgeInsets.symmetric(horizontal: 12), // 0 24rpx
+        height: 40.sx, // 80rpx
+        padding: EdgeInsets.symmetric(horizontal: 12.sx), // 0 24rpx
         decoration: BoxDecoration(
           color: isDark ? const Color(0xFF202125) : Colors.white,
           border: Border(
@@ -94,22 +95,22 @@ class _PositionFeedNoticeState extends State<PositionFeedNotice>
         ),
         child: Row(
           children: [
-            Icon(Icons.volume_up, size: 22, color: mutedIconColor), // sound
-            const SizedBox(width: 6), // gap 12rpx
+            Icon(Icons.volume_up, size: 22.sx, color: mutedIconColor), // sound
+            SizedBox(width: 6.sx), // gap 12rpx
             Expanded(child: _buildMessage(textColor)),
             Icon(
               Icons.keyboard_double_arrow_right, // arrow-right-double
-              size: 14,
+              size: 14.sx,
               color: isDark ? const Color(0xFFD7DAE0) : const Color(0xFF1F2430),
             ),
-            const SizedBox(width: 6),
+            SizedBox(width: 6.sx),
             GestureDetector(
               onTap: widget.onClose,
-              child: const SizedBox(
-                width: 16, // 32rpx
-                height: 16,
+              child: SizedBox(
+                width: 16.sx, // 32rpx
+                height: 16.sx,
                 child: Center(
-                  child: Icon(Icons.close, size: 16, color: Color(0xFF999999)),
+                  child: Icon(Icons.close, size: 16.sx, color: Color(0xFF999999)),
                 ),
               ),
             ),
@@ -120,7 +121,7 @@ class _PositionFeedNoticeState extends State<PositionFeedNotice>
   }
 
   Widget _buildMessage(Color textColor) {
-    final style = AppTextStyles.cn(13, color: textColor, weight: FontWeight.w500);
+    final style = AppTextStyles.cn(13.sx, color: textColor, weight: FontWeight.w500);
     switch (widget.item.scrollType) {
       case 1:
         // 上下滚动：单条时等同静止（多条轮换依赖后端多任务，当前只取游标选出的一条）
@@ -143,11 +144,11 @@ class _PositionFeedNoticeState extends State<PositionFeedNotice>
             child: Row(
               children: [
                 Padding(
-                  padding: const EdgeInsets.only(right: 40), // 80rpx
+                  padding: EdgeInsets.only(right: 40.sx), // 80rpx
                   child: Text(widget.item.content, style: style, maxLines: 1),
                 ),
                 Padding(
-                  padding: const EdgeInsets.only(right: 40),
+                  padding: EdgeInsets.only(right: 40.sx),
                   child: Text(
                     widget.item.content,
                     style: style,

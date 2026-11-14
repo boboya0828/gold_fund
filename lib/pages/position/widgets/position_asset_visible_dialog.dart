@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../theme/text_styles.dart';
+import '../../../core/utils/screen_adapt.dart';
 
 /// 闭眼模式选择弹窗 — 1:1 复刻 .asset-visible-panel
 /// uni-app assetVisible: 0=全部显示, 1=隐藏持有金额, 2=再隐藏收益金额,
@@ -53,12 +54,12 @@ class PositionAssetVisibleDialog extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: Container(
-          width: 310, // max-width 620rpx
-          margin: const EdgeInsets.symmetric(horizontal: 16), // mask padding 32rpx
-          padding: const EdgeInsets.fromLTRB(12, 12, 12, 9), // 24rpx 24rpx 18rpx
+          width: 310.sx, // max-width 620rpx
+          margin: EdgeInsets.symmetric(horizontal: 16.sx), // mask padding 32rpx
+          padding: EdgeInsets.fromLTRB(12.sx, 12.sx, 12.sx, 9.sx), // 24rpx 24rpx 18rpx
           decoration: BoxDecoration(
             color: isDark ? const Color(0xFF202125) : Colors.white,
-            borderRadius: BorderRadius.circular(9), // 18rpx
+            borderRadius: BorderRadius.circular(9.sx), // 18rpx
             boxShadow: [
               BoxShadow(
                 // light 0 16rpx 42rpx rgba(69,32,8,0.16) / dark 0 18rpx 50rpx rgba(0,0,0,0.36)
@@ -75,13 +76,13 @@ class PositionAssetVisibleDialog extends StatelessWidget {
               Text(
                 '闭眼模式选择',
                 style: AppTextStyles.cn(
-                  14, // 28rpx
+                  14.sx, // 28rpx
                   color: titleColor,
                   weight: FontWeight.w700,
                   height: 1,
                 ),
               ),
-              const SizedBox(height: 11), // margin-top 22rpx
+              SizedBox(height: 11.sx), // margin-top 22rpx
               for (final opt in _options) ...[
                 _option(
                   context,
@@ -91,19 +92,19 @@ class PositionAssetVisibleDialog extends StatelessWidget {
                   titleColor: optionTitleColor,
                 ),
                 if (opt.level != _options.last.level)
-                  const SizedBox(height: 6), // gap 12rpx
+                  SizedBox(height: 6.sx), // gap 12rpx
               ],
               // 显示全部
               GestureDetector(
                 onTap: () => Navigator.pop(context, 0),
                 child: Container(
-                  margin: const EdgeInsets.only(top: 8), // 16rpx
-                  height: 25, // 50rpx
+                  margin: EdgeInsets.only(top: 8.sx), // 16rpx
+                  height: 25.sx, // 50rpx
                   alignment: Alignment.center,
                   child: Text(
                     '显示全部',
                     style: AppTextStyles.cn(
-                      12, // 24rpx
+                      12.sx, // 24rpx
                       color: const Color(0xFFE05665),
                       weight: FontWeight.w600,
                     ),
@@ -129,7 +130,7 @@ class PositionAssetVisibleDialog extends StatelessWidget {
       onTap: () => Navigator.pop(context, level),
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.fromLTRB(11, 10, 11, 9), // 20rpx 22rpx 18rpx
+        padding: EdgeInsets.fromLTRB(11.sx, 10.sx, 11.sx, 9.sx), // 20rpx 22rpx 18rpx
         decoration: BoxDecoration(
           color: active
               ? (isDark ? const Color(0x1FE05665) : const Color(0xFFFFF3F4))
@@ -144,7 +145,7 @@ class PositionAssetVisibleDialog extends StatelessWidget {
                     ? const Color(0xFF2B2D33)
                     : const Color(0xFFF2E4E0)),
           ),
-          borderRadius: BorderRadius.circular(6), // 12rpx
+          borderRadius: BorderRadius.circular(6.sx), // 12rpx
           boxShadow: isDark
               ? null
               : [
@@ -153,7 +154,7 @@ class PositionAssetVisibleDialog extends StatelessWidget {
                         ? const Color(0x1AE05665) // rgba(224,86,101,0.1)
                         : const Color(0x0D452008), // rgba(69,32,8,0.05)
                     blurRadius: active ? 10 : 9,
-                    offset: const Offset(0, 4),
+                    offset: Offset(0, 4.sx),
                   ),
                 ],
         ),
@@ -163,13 +164,13 @@ class PositionAssetVisibleDialog extends StatelessWidget {
             Text(
               title,
               style: AppTextStyles.cn(
-                12.5, // 25rpx
+                12.5.sx, // 25rpx
                 color: titleColor,
                 weight: FontWeight.w700,
                 height: 1,
               ),
             ),
-            const SizedBox(height: 7), // margin-top 14rpx
+            SizedBox(height: 7.sx), // margin-top 14rpx
             Wrap(
               spacing: 2, // gap 4rpx
               runSpacing: 3, // row-gap 6rpx (>3 个标签时换行)
@@ -185,19 +186,19 @@ class PositionAssetVisibleDialog extends StatelessWidget {
 
   Widget _tag(String text) {
     return Container(
-      height: 16, // min-height 32rpx
-      padding: const EdgeInsets.symmetric(horizontal: 4), // 0 8rpx
+      height: 16.sx, // min-height 32rpx
+      padding: EdgeInsets.symmetric(horizontal: 4.sx), // 0 8rpx
       decoration: BoxDecoration(
         color: isDark
             ? const Color(0x29E05665) // rgba(224,86,101,0.16)
             : const Color(0xFFFFF1F3),
-        borderRadius: BorderRadius.circular(3.5), // 7rpx
+        borderRadius: BorderRadius.circular(3.5.sx), // 7rpx
       ),
       alignment: Alignment.center,
       child: Text(
         text,
         style: AppTextStyles.cn(
-          9.5, // 19rpx
+          9.5.sx, // 19rpx
           color: isDark ? const Color(0xFFEF6672) : const Color(0xFFA95B50),
           weight: FontWeight.w600,
           height: 1,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/text_styles.dart';
 import 'position_details_models.dart';
+import '../../../core/utils/screen_adapt.dart';
 
 /// 持仓详情 — 底部操作栏
 /// uni-app 对应: position-details.vue 的 .bottom-actionsa
@@ -25,7 +26,7 @@ class PositionDetailsBottomActions extends StatelessWidget {
       decoration: BoxDecoration(
         color: isDark ? AppColors.darkSurface.withValues(alpha: 0.96) : Colors.white.withValues(alpha: 0.96),
         border: Border(top: BorderSide(color: isDark ? AppColors.darkBorder : const Color(0xFFEFEFEF), width: 0.5)),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 12, offset: const Offset(0, -4))],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 12.sx, offset: const Offset(0, -4))],
       ),
       child: Row(children: [
         for (final a in actions)
@@ -34,10 +35,10 @@ class PositionDetailsBottomActions extends StatelessWidget {
               child: GestureDetector(
                 onTap: () => onTap(a.label),
                 child: Container(
-                  height: 35, // 70rpx
-                  margin: const EdgeInsets.only(left: 6), // 12rpx gap
+                  height: 35.sx, // 70rpx
+                  margin: EdgeInsets.only(left: 6.sx), // 12rpx gap
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(999),
+                    borderRadius: BorderRadius.circular(999.sx),
                     color: a.accent == 'sell' ? const Color(0xFFFDE4E8) : null,
                     gradient: a.accent == 'sell'
                         ? null
@@ -50,7 +51,7 @@ class PositionDetailsBottomActions extends StatelessWidget {
                   alignment: Alignment.center,
                   child: Text(
                     a.label,
-                    style: AppTextStyles.cn(14, color: a.accent == 'sell' ? const Color(0xFFE36074) : Colors.white, height: 1.0),
+                    style: AppTextStyles.cn(14.sx, color: a.accent == 'sell' ? const Color(0xFFE36074) : Colors.white, height: 1.0),
                   ),
                 ),
               ),
@@ -60,13 +61,13 @@ class PositionDetailsBottomActions extends StatelessWidget {
               onTap: () => onTap(a.label),
               behavior: HitTestBehavior.opaque,
               child: SizedBox(
-                width: 40, // 80rpx
+                width: 40.sx, // 80rpx
                 child: Column(mainAxisSize: MainAxisSize.min, children: [
                   SizedBox(
-                    height: 22,
+                    height: 22.sx,
                     child: Icon(a.icon, size: a.iconSize, color: iconColor),
                   ),
-                  Text(a.label, style: AppTextStyles.cn(10, color: iconColor, height: 1.2)),
+                  Text(a.label, style: AppTextStyles.cn(10.sx, color: iconColor, height: 1.2)),
                 ]),
               ),
             ),

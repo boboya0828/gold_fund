@@ -8,6 +8,7 @@ import '../../theme/text_styles.dart';
 import '../fund/upload/madd_number_keyboard.dart';
 import 'widgets/batch_adjust_widgets.dart';
 import 'widgets/position_sort_widgets.dart';
+import '../../core/utils/screen_adapt.dart';
 
 /// 批量加减仓页 — 1:1 复刻 uni-app pages/positionv1/batch-adjust.vue
 /// 持仓多选 → 统一金额弹框 → 二次确认 → 逐只编辑金额 → 批量提交
@@ -436,19 +437,19 @@ class _BatchAdjustPageState extends State<BatchAdjustPage> {
       barrierColor: Colors.black26,
       builder: (_) => Center(
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+          padding: EdgeInsets.symmetric(horizontal: 18.sx, vertical: 14.sx),
           decoration: BoxDecoration(
             color: const Color(0xCC303133),
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(8.sx),
           ),
-          child: const Column(mainAxisSize: MainAxisSize.min, children: [
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
             SizedBox(
-              width: 24,
-              height: 24,
-              child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
+              width: 24.sx,
+              height: 24.sx,
+              child: CircularProgressIndicator(strokeWidth: 2.5.sx, color: Colors.white),
             ),
-            SizedBox(height: 8),
-            Text('提交中...', style: TextStyle(color: Colors.white, fontSize: 13)),
+            SizedBox(height: 8.sx),
+            Text('提交中...', style: TextStyle(color: Colors.white, fontSize: 13.sx)),
           ]),
         ),
       ),
@@ -474,10 +475,10 @@ class _BatchAdjustPageState extends State<BatchAdjustPage> {
           ),
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 64), // 0 24rpx 128rpx
+              padding: EdgeInsets.fromLTRB(12.sx, 0, 12.sx, 64.sx), // 0 24rpx 128rpx
               child: Container(
-                margin: const EdgeInsets.only(top: 9), // 18rpx
-                decoration: BoxDecoration(color: cardBg, borderRadius: BorderRadius.circular(8)), // 16rpx
+                margin: EdgeInsets.only(top: 9.sx), // 18rpx
+                decoration: BoxDecoration(color: cardBg, borderRadius: BorderRadius.circular(8.sx)), // 16rpx
                 clipBehavior: Clip.antiAlias,
                 child: Column(mainAxisSize: MainAxisSize.min, children: [
                   _buildHeader(isDark),
@@ -554,11 +555,11 @@ class _BatchAdjustPageState extends State<BatchAdjustPage> {
   Widget _buildHeader(bool isDark) {
     final color = isDark ? const Color(0xFFA7ADB8) : const Color(0xFFADA5A6);
     return Container(
-      padding: const EdgeInsets.fromLTRB(10, 9, 10, 7),
+      padding: EdgeInsets.fromLTRB(10.sx, 9.sx, 10.sx, 7.sx),
       color: isDark ? const Color(0xFF202125) : const Color(0xEBFFFFFF), // rgba(255,255,255,0.92)
       child: Row(children: [
         SizedBox(
-          width: 31, // 62rpx
+          width: 31.sx, // 62rpx
           child: _positionList.isNotEmpty && !_isEditingAmounts
               ? Align(
                   alignment: Alignment.centerLeft,
@@ -566,10 +567,10 @@ class _BatchAdjustPageState extends State<BatchAdjustPage> {
                 )
               : const SizedBox.shrink(),
         ),
-        Expanded(child: Text('持仓名称', style: AppTextStyles.cn(12, color: color))), // 24rpx
+        Expanded(child: Text('持仓名称', style: AppTextStyles.cn(12.sx, color: color))), // 24rpx
         SizedBox(
-          width: 90, // 180rpx
-          child: Text(_valueHeaderText, textAlign: TextAlign.right, style: AppTextStyles.cn(12, color: color)),
+          width: 90.sx, // 180rpx
+          child: Text(_valueHeaderText, textAlign: TextAlign.right, style: AppTextStyles.cn(12.sx, color: color)),
         ),
       ]),
     );
@@ -579,12 +580,12 @@ class _BatchAdjustPageState extends State<BatchAdjustPage> {
   Widget _buildEmpty(bool isDark) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 12), // 80rpx 24rpx
+      padding: EdgeInsets.symmetric(vertical: 40.sx, horizontal: 12.sx), // 80rpx 24rpx
       color: isDark ? const Color(0xFF202125) : Colors.white,
       child: Text(
         '暂无数据',
         textAlign: TextAlign.center,
-        style: AppTextStyles.cn(13, color: isDark ? const Color(0xFFA7ADB8) : const Color(0xFFB0A8A9)), // 26rpx
+        style: AppTextStyles.cn(13.sx, color: isDark ? const Color(0xFFA7ADB8) : const Color(0xFFB0A8A9)), // 26rpx
       ),
     );
   }
@@ -595,7 +596,7 @@ class _BatchAdjustPageState extends State<BatchAdjustPage> {
     final textColor = isDark ? const Color(0xFFD7DAE0) : const Color(0xFF333333);
     final mutedColor = isDark ? const Color(0xFFA7ADB8) : const Color(0xFFB0A8A9);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+      padding: EdgeInsets.symmetric(horizontal: 10.sx, vertical: 9.sx),
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF202125) : Colors.white,
         border: Border(top: BorderSide(color: divider, width: 0.5)),
@@ -603,7 +604,7 @@ class _BatchAdjustPageState extends State<BatchAdjustPage> {
       child: Row(children: [
         // row-select: 62rpx (编辑态无勾选框, 占位保留)
         SizedBox(
-          width: 31,
+          width: 31.sx,
           child: !_isEditingAmounts
               ? Align(
                   alignment: Alignment.centerLeft,
@@ -625,7 +626,7 @@ class _BatchAdjustPageState extends State<BatchAdjustPage> {
                 item.shortName.isNotEmpty ? item.shortName : item.name,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: AppTextStyles.cn(13, color: textColor), // 26rpx
+                style: AppTextStyles.cn(13.sx, color: textColor), // 26rpx
               ),
               if (item.code.isNotEmpty) ...[
                 const SizedBox(height: 1), // gap 2rpx
@@ -633,7 +634,7 @@ class _BatchAdjustPageState extends State<BatchAdjustPage> {
                   item.code,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: AppTextStyles.cn(10.5, color: mutedColor), // 21rpx
+                  style: AppTextStyles.cn(10.5.sx, color: mutedColor), // 21rpx
                 ),
               ],
             ]),
@@ -641,7 +642,7 @@ class _BatchAdjustPageState extends State<BatchAdjustPage> {
         ),
         // row-value: 180rpx, 右对齐
         SizedBox(
-          width: 90,
+          width: 90.sx,
           child: _isEditingAmounts ? _buildAmountInput(item, isDark) : _buildValueText(item, textColor),
         ),
       ]),
@@ -656,7 +657,7 @@ class _BatchAdjustPageState extends State<BatchAdjustPage> {
         _formatMoney(item.marketValue),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
-        style: AppTextStyles.cn(13, color: textColor), // 26rpx
+        style: AppTextStyles.cn(13.sx, color: textColor), // 26rpx
       ),
     );
   }
@@ -670,17 +671,17 @@ class _BatchAdjustPageState extends State<BatchAdjustPage> {
       child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
         Text(
           _amountPrefixText,
-          style: AppTextStyles.cn(12, color: _accent, weight: FontWeight.w500), // 24rpx
+          style: AppTextStyles.cn(12.sx, color: _accent, weight: FontWeight.w500), // 24rpx
         ),
-        const SizedBox(width: 2), // gap 4rpx
+        SizedBox(width: 2.sx), // gap 4rpx
         Container(
-          width: 60, // 120rpx
-          height: 24, // 48rpx
-          padding: const EdgeInsets.symmetric(horizontal: 5), // 0 10rpx
+          width: 60.sx, // 120rpx
+          height: 24.sx, // 48rpx
+          padding: EdgeInsets.symmetric(horizontal: 5.sx), // 0 10rpx
           decoration: BoxDecoration(
             color: isDark ? const Color(0xFF2B2D33) : const Color(0xFFFAFAFA),
             border: Border.all(color: isDark ? const Color(0xFF4A4F58) : const Color(0xFFE6E6E6), width: 0.5),
-            borderRadius: BorderRadius.circular(4), // 8rpx
+            borderRadius: BorderRadius.circular(4.sx), // 8rpx
           ),
           alignment: Alignment.centerRight,
           child: Text(
@@ -688,8 +689,8 @@ class _BatchAdjustPageState extends State<BatchAdjustPage> {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: value.isEmpty
-                ? AppTextStyles.num(13, color: isDark ? const Color(0xFFA7ADB8) : const Color(0xFF999999))
-                : AppTextStyles.num(13, color: isDark ? const Color(0xFFD7DAE0) : const Color(0xFF333333)), // 26rpx numFamily
+                ? AppTextStyles.num(13.sx, color: isDark ? const Color(0xFFA7ADB8) : const Color(0xFF999999))
+                : AppTextStyles.num(13.sx, color: isDark ? const Color(0xFFD7DAE0) : const Color(0xFF333333)), // 26rpx numFamily
           ),
         ),
       ]),

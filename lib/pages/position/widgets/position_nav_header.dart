@@ -5,6 +5,7 @@ import '../../../theme/app_colors.dart';
 import '../../../theme/app_icons.dart';
 import '../../../theme/text_styles.dart';
 import '../../../features/position/providers/position_provider.dart';
+import '../../../core/utils/screen_adapt.dart';
 
 /// 顶部导航头 — 1:1 复刻 .pages-nav
 /// 标题栏（基金群胶囊 + 标题 + 搜索/添加）+ 账本 tab 行
@@ -45,19 +46,19 @@ class PositionNavHeader extends ConsumerWidget {
       color: isDark ? const Color(0xFF202125) : Colors.transparent,
       // pages-nav padding: SafeArea 已消费状态栏，此处补 10px（对齐 topHeight=statusBarHeight+10）
       child: Padding(
-        padding: const EdgeInsets.only(
-          top: 10,
-          bottom: 5,
-          left: 16,
-          right: 16,
+        padding: EdgeInsets.only(
+          top: 10.sx,
+          bottom: 5.sx,
+          left: 16.sx,
+          right: 16.sx,
         ),
         child: Column(
           children: [
             // pagesnavtitle: margin-bottom: 20rpx = 10px
             Padding(
-              padding: const EdgeInsets.only(bottom: 10),
+              padding: EdgeInsets.only(bottom: 10.sx),
               child: SizedBox(
-                height: 29, // 58rpx
+                height: 29.sx, // 58rpx
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -65,11 +66,11 @@ class PositionNavHeader extends ConsumerWidget {
                     GestureDetector(
                       onTap: () => FundGroupService.open(context),
                       child: Container(
-                        width: 80, // 160rpx
-                        height: 29, // 58rpx
+                        width: 80.sx, // 160rpx
+                        height: 29.sx, // 58rpx
                         decoration: BoxDecoration(
                           color: isDark ? Colors.transparent : Colors.white,
-                          borderRadius: BorderRadius.circular(25), // 50rpx
+                          borderRadius: BorderRadius.circular(25.sx), // 50rpx
                         ),
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -77,14 +78,14 @@ class PositionNavHeader extends ConsumerWidget {
                             Image.asset(
                               fundGroupAsset,
                               key: const Key('position-fund-group-image'),
-                              width: 54, // 108rpx
-                              height: 11, // 22rpx
+                              width: 54.sx, // 108rpx
+                              height: 11.sx, // 22rpx
                               fit: BoxFit.contain,
                               errorBuilder: (context, error, stackTrace) =>
                                   Text(
                                     '基金群',
                                     style: AppTextStyles.cn(
-                                      12,
+                                      12.sx,
                                       color: isDark
                                           ? const Color(0xFFD6D8DE)
                                           : const Color(0xFF452008),
@@ -97,7 +98,7 @@ class PositionNavHeader extends ConsumerWidget {
                               state.fundGroupCountText,
                               key: const Key('position-fund-group-count'),
                               style: AppTextStyles.cn(
-                                8, // 16rpx
+                                8.sx, // 16rpx
                                 color: isDark
                                     ? const Color(0xFFA7ADB8)
                                     : const Color(0xFF9A7A61),
@@ -112,7 +113,7 @@ class PositionNavHeader extends ConsumerWidget {
                     Text(
                       '养基助手',
                       style: AppTextStyles.cn(
-                        17, // 34rpx
+                        17.sx, // 34rpx
                         color: isDark
                             ? const Color(0xFFD6D8DE)
                             : const Color(0xFF452008),
@@ -120,11 +121,11 @@ class PositionNavHeader extends ConsumerWidget {
                     ),
                     // 搜索+添加
                     Container(
-                      width: 80,
-                      height: 29,
+                      width: 80.sx,
+                      height: 29.sx,
                       decoration: BoxDecoration(
                         color: isDark ? Colors.transparent : Colors.white,
-                        borderRadius: BorderRadius.circular(25),
+                        borderRadius: BorderRadius.circular(25.sx),
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -133,16 +134,16 @@ class PositionNavHeader extends ConsumerWidget {
                             onTap: onSearchTap,
                             child: Icon(
                               AppIcons.search,
-                              size: 20,
+                              size: 20.sx,
                               color: navIconColor,
                             ),
                           ),
-                          const SizedBox(width: 16), // margin-left 32rpx
+                          SizedBox(width: 16.sx), // margin-left 32rpx
                           GestureDetector(
                             onTap: onMenuTap,
                             child: Icon(
                               AppIcons.add,
-                              size: 20,
+                              size: 20.sx,
                               color: navIconColor,
                             ),
                           ),
@@ -156,7 +157,7 @@ class PositionNavHeader extends ConsumerWidget {
             // ===== 账本标签行 — pages-taber =====
             // 左固定「账户汇总」+ 右侧横滚 taberList + 末尾「+」账本管理
             SizedBox(
-              height: 38,
+              height: 38.sx,
               child: Row(
                 children: [
                   _tabItem(
@@ -167,7 +168,7 @@ class PositionNavHeader extends ConsumerWidget {
                         .read(positionProvider.notifier)
                         .selectTab(state.overviewTabIndex),
                   ),
-                  const SizedBox(width: 15), // pages-taber gap 30rpx
+                  SizedBox(width: 15.sx), // pages-taber gap 30rpx
                   Expanded(
                     child: ListView(
                       scrollDirection: Axis.horizontal,
@@ -187,15 +188,15 @@ class PositionNavHeader extends ConsumerWidget {
                           key: const Key('position-book-tab-add'),
                           onTap: onAddTap,
                           child: Container(
-                            padding: const EdgeInsets.only(
-                              top: 4,
-                              bottom: 9,
-                              left: 2, // margin-left 4rpx
+                            padding: EdgeInsets.only(
+                              top: 4.sx,
+                              bottom: 9.sx,
+                              left: 2.sx, // margin-left 4rpx
                             ),
                             color: Colors.transparent,
-                            child: const Icon(
+                            child: Icon(
                               Icons.add,
-                              size: 18,
+                              size: 18.sx,
                               color: Color(0xFF9A7A61),
                             ),
                           ),
@@ -224,8 +225,8 @@ class PositionNavHeader extends ConsumerWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        margin: const EdgeInsets.only(right: 15), // margin-right 30rpx
-        padding: const EdgeInsets.only(top: 4, bottom: 9), // padding 8rpx 0 18rpx
+        margin: EdgeInsets.only(right: 15.sx), // margin-right 30rpx
+        padding: EdgeInsets.only(top: 4.sx, bottom: 9.sx), // padding 8rpx 0 18rpx
         color: Colors.transparent,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -245,13 +246,13 @@ class PositionNavHeader extends ConsumerWidget {
             ),
             Container(
               key: indicatorKey,
-              width: 27, // 54rpx
-              height: 4, // 8rpx
+              width: 27.sx, // 54rpx
+              height: 4.sx, // 8rpx
               decoration: BoxDecoration(
                 color: active
                     ? (isDark ? const Color(0xFFE05665) : AppColors.primary)
                     : Colors.transparent,
-                borderRadius: BorderRadius.circular(999),
+                borderRadius: BorderRadius.circular(999.sx),
               ),
             ),
           ],

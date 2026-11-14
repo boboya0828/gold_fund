@@ -5,6 +5,7 @@ import '../../core/network/api_endpoints.dart';
 import '../../shared/widgets/custom_nav_bar.dart';
 import '../../theme/text_styles.dart';
 import 'widgets/position_sort_widgets.dart';
+import '../../core/utils/screen_adapt.dart';
 
 /// 持仓排序管理页 — 1:1 复刻 uni-app pages/positionv1/sort.vue
 /// 全选/单选、置顶(移到首位)、长按拖拽排序、批量删除、「完成」时保存排序
@@ -266,19 +267,19 @@ class _PositionSortPageState extends ConsumerState<PositionSortPage> {
         ),
         Expanded(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 12), // 24rpx
+            padding: EdgeInsets.symmetric(horizontal: 12.sx), // 24rpx
             child: Container(
-              margin: const EdgeInsets.only(top: 9), // 18rpx
-              decoration: BoxDecoration(color: cardBg, borderRadius: BorderRadius.circular(8)), // 16rpx
+              margin: EdgeInsets.only(top: 9.sx), // 18rpx
+              decoration: BoxDecoration(color: cardBg, borderRadius: BorderRadius.circular(8.sx)), // 16rpx
               clipBehavior: Clip.antiAlias,
               child: Column(mainAxisSize: MainAxisSize.min, children: [
                 _buildHeader(isDark),
                 if (_list.isEmpty)
                   Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 12), // 80rpx 24rpx
+                    padding: EdgeInsets.symmetric(vertical: 40.sx, horizontal: 12.sx), // 80rpx 24rpx
                     child: Center(
                       child: Text('暂无数据',
-                          style: AppTextStyles.cn(13, color: isDark ? const Color(0xFFA7ADB8) : const Color(0xFFB0A8A9))),
+                          style: AppTextStyles.cn(13.sx, color: isDark ? const Color(0xFFA7ADB8) : const Color(0xFFB0A8A9))),
                     ),
                   )
                 else
@@ -309,10 +310,10 @@ class _PositionSortPageState extends ConsumerState<PositionSortPage> {
   Widget _buildHeader(bool isDark) {
     final color = isDark ? const Color(0xFFA7ADB8) : const Color(0xFFADA5A6);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(10, 9, 10, 7),
+      padding: EdgeInsets.fromLTRB(10.sx, 9.sx, 10.sx, 7.sx),
       child: Row(children: [
         SizedBox(
-          width: 31, // 62rpx
+          width: 31.sx, // 62rpx
           child: _list.isEmpty
               ? const SizedBox.shrink()
               : Align(
@@ -320,9 +321,9 @@ class _PositionSortPageState extends ConsumerState<PositionSortPage> {
                   child: PositionSortCheckBox(checked: _isAllSelected, isDark: isDark, onTap: _toggleSelectAll),
                 ),
         ),
-        Expanded(child: Text('持仓名称', style: AppTextStyles.cn(12, color: color))), // 24rpx
-        SizedBox(width: 45, child: Center(child: Text('置顶', style: AppTextStyles.cn(12, color: color)))), // 90rpx
-        SizedBox(width: 45, child: Center(child: Text('排序', style: AppTextStyles.cn(12, color: color)))),
+        Expanded(child: Text('持仓名称', style: AppTextStyles.cn(12.sx, color: color))), // 24rpx
+        SizedBox(width: 45.sx, child: Center(child: Text('置顶', style: AppTextStyles.cn(12.sx, color: color)))), // 90rpx
+        SizedBox(width: 45.sx, child: Center(child: Text('排序', style: AppTextStyles.cn(12.sx, color: color)))),
       ]),
     );
   }
@@ -333,7 +334,7 @@ class _PositionSortPageState extends ConsumerState<PositionSortPage> {
       animation: animation,
       builder: (context, child) => Material(
         color: Colors.transparent,
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(6.sx),
         elevation: 6 * animation.value,
         shadowColor: Colors.black.withValues(alpha: 0.28),
         child: child,
@@ -348,7 +349,7 @@ class _PositionSortPageState extends ConsumerState<PositionSortPage> {
     final selected = _isSelected(item);
     return Container(
       key: key,
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+      padding: EdgeInsets.symmetric(horizontal: 10.sx, vertical: 9.sx),
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF202125) : Colors.white,
         border: Border(top: BorderSide(color: divider, width: 0.5)),
@@ -356,7 +357,7 @@ class _PositionSortPageState extends ConsumerState<PositionSortPage> {
       child: Row(children: [
         // row-select: 62rpx
         SizedBox(
-          width: 31,
+          width: 31.sx,
           child: Align(
             alignment: Alignment.centerLeft,
             child: PositionSortCheckBox(checked: selected, isDark: isDark, onTap: () => _toggleSelectItem(item)),
@@ -372,7 +373,7 @@ class _PositionSortPageState extends ConsumerState<PositionSortPage> {
                 item.name.isEmpty ? '--' : item.name,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: AppTextStyles.cn(13, color: isDark ? const Color(0xFFD7DAE0) : const Color(0xFF333333)), // 26rpx
+                style: AppTextStyles.cn(13.sx, color: isDark ? const Color(0xFFD7DAE0) : const Color(0xFF333333)), // 26rpx
               ),
               if (item.code.isNotEmpty) ...[
                 const SizedBox(height: 1), // gap 2rpx
@@ -380,7 +381,7 @@ class _PositionSortPageState extends ConsumerState<PositionSortPage> {
                   item.code,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: AppTextStyles.cn(10.5, color: isDark ? const Color(0xFFA7ADB8) : const Color(0xFFB0A8A9)), // 21rpx
+                  style: AppTextStyles.cn(10.5.sx, color: isDark ? const Color(0xFFA7ADB8) : const Color(0xFFB0A8A9)), // 21rpx
                 ),
               ],
             ]),
@@ -388,30 +389,30 @@ class _PositionSortPageState extends ConsumerState<PositionSortPage> {
         ),
         // row-pin: 90rpx, uni-icons arrow-up
         SizedBox(
-          width: 45,
+          width: 45.sx,
           child: Center(
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: () => _handlePin(item),
               child: Padding(
-                padding: const EdgeInsets.all(4),
-                child: Icon(Icons.arrow_upward, size: 22, color: isDark ? const Color(0xFFA7ADB8) : const Color(0xFF333333)),
+                padding: EdgeInsets.all(4.sx),
+                child: Icon(Icons.arrow_upward, size: 22.sx, color: isDark ? const Color(0xFFA7ADB8) : const Color(0xFF333333)),
               ),
             ),
           ),
         ),
         // row-sort 拖拽手柄: 90rpx, sortico.png
         SizedBox(
-          width: 45,
+          width: 45.sx,
           child: Center(
             child: ReorderableDragStartListener(
               index: index,
               child: Padding(
-                padding: const EdgeInsets.all(6),
+                padding: EdgeInsets.all(6.sx),
                 child: Image.asset(
                   'assets/images/img/sortico.png',
-                  width: 15, // 30rpx
-                  height: 14, // 28rpx
+                  width: 15.sx, // 30rpx
+                  height: 14.sx, // 28rpx
                   color: isDark ? Colors.white.withValues(alpha: 0.72) : null, // theme-dark: invert(1) opacity(0.72)
                 ),
               ),
@@ -439,22 +440,22 @@ class _DeleteConfirmDialog extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: Container(
-          width: 275,
-          decoration: BoxDecoration(color: cardBg, borderRadius: BorderRadius.circular(10)),
+          width: 275.sx,
+          decoration: BoxDecoration(color: cardBg, borderRadius: BorderRadius.circular(10.sx)),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
-            const SizedBox(height: 16),
+            SizedBox(height: 16.sx),
             Text('确认删除',
-                style: AppTextStyles.cn(16, weight: FontWeight.w600, color: isDark ? const Color(0xFFD7DAE0) : const Color(0xFF333333))),
+                style: AppTextStyles.cn(16.sx, weight: FontWeight.w600, color: isDark ? const Color(0xFFD7DAE0) : const Color(0xFF333333))),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+              padding: EdgeInsets.symmetric(horizontal: 20.sx, vertical: 14.sx),
               child: Text(
                 '确定删除选中的$count个持仓吗？',
                 textAlign: TextAlign.center,
-                style: AppTextStyles.cn(14, color: isDark ? const Color(0xFFA7ADB8) : const Color(0xFF666666), height: 1.5),
+                style: AppTextStyles.cn(14.sx, color: isDark ? const Color(0xFFA7ADB8) : const Color(0xFF666666), height: 1.5),
               ),
             ),
             Container(
-              height: 44,
+              height: 44.sx,
               decoration: BoxDecoration(border: Border(top: BorderSide(color: divider, width: 0.5))),
               child: Row(children: [
                 Expanded(
@@ -463,7 +464,7 @@ class _DeleteConfirmDialog extends StatelessWidget {
                     onTap: () => Navigator.pop(context, false),
                     child: Center(
                       child: Text('取消',
-                          style: AppTextStyles.cn(15, color: isDark ? const Color(0xFFA7ADB8) : const Color(0xFF666666))),
+                          style: AppTextStyles.cn(15.sx, color: isDark ? const Color(0xFFA7ADB8) : const Color(0xFF666666))),
                     ),
                   ),
                 ),
@@ -472,7 +473,7 @@ class _DeleteConfirmDialog extends StatelessWidget {
                   child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
                     onTap: () => Navigator.pop(context, true),
-                    child: Center(child: Text('删除', style: AppTextStyles.cn(15, color: _accent))), // confirmColor #E05665
+                    child: Center(child: Text('删除', style: AppTextStyles.cn(15.sx, color: _accent))), // confirmColor #E05665
                   ),
                 ),
               ]),

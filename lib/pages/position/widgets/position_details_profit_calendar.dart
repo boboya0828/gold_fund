@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/text_styles.dart';
 import 'position_details_models.dart';
+import '../../../core/utils/screen_adapt.dart';
 
 /// 持仓详情 — 我的收益（收益日历 + 分析框）
 /// uni-app 对应: position-details.vue 的 .curve-calendar / .calendar-* / .analysis-box
@@ -65,26 +66,26 @@ class PositionDetailsProfitCalendar extends StatelessWidget {
     final cellBg = isDark ? const Color(0xFF282828) : const Color(0xFFFAFAFA);
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+      padding: EdgeInsets.fromLTRB(12.sx, 0, 12.sx, 12.sx),
       child: Column(
         children: [
           // 标题行
           Padding(
-            padding: const EdgeInsets.fromLTRB(0, 15, 0, 10), // 30rpx 24rpx 20rpx
+            padding: EdgeInsets.fromLTRB(0, 15.sx, 0, 10.sx), // 30rpx 24rpx 20rpx
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Row(children: [
-                  Container(width: 3, height: 14, decoration: BoxDecoration(color: kPdChartRed, borderRadius: BorderRadius.circular(2))),
-                  const SizedBox(width: 6),
-                  Text('收益日历', style: AppTextStyles.cn(14, color: textColor, weight: FontWeight.w700)),
+                  Container(width: 3.sx, height: 14.sx, decoration: BoxDecoration(color: kPdChartRed, borderRadius: BorderRadius.circular(2.sx))),
+                  SizedBox(width: 6.sx),
+                  Text('收益日历', style: AppTextStyles.cn(14.sx, color: textColor, weight: FontWeight.w700)),
                 ]),
                 GestureDetector(
                   onTap: onToggleMode,
                   child: Row(children: [
-                    Icon(Icons.swap_horiz, size: 16, color: kPdChartRed),
-                    const SizedBox(width: 2),
-                    Text(showPercent ? '切换为收益' : '切换为收益率', style: AppTextStyles.cn(11, color: kPdChartRed)),
+                    Icon(Icons.swap_horiz, size: 16.sx, color: kPdChartRed),
+                    SizedBox(width: 2.sx),
+                    Text(showPercent ? '切换为收益' : '切换为收益率', style: AppTextStyles.cn(11.sx, color: kPdChartRed)),
                   ]),
                 ),
               ],
@@ -95,23 +96,23 @@ class PositionDetailsProfitCalendar extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Container(
-                padding: const EdgeInsets.all(2),
+                padding: EdgeInsets.all(2.sx),
                 decoration: BoxDecoration(
                   color: isDark ? const Color(0xFF282828) : const Color(0xFFF5F5F6),
-                  borderRadius: BorderRadius.circular(7),
+                  borderRadius: BorderRadius.circular(7.sx),
                 ),
                 child: Row(children: [
                   for (final v in views)
                     GestureDetector(
                       onTap: () => onViewChange(v),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                        padding: EdgeInsets.symmetric(horizontal: 14.sx, vertical: 4.sx),
                         decoration: BoxDecoration(
                           color: activeView == v ? AppColors.upColor : Colors.transparent,
-                          borderRadius: BorderRadius.circular(6),
+                          borderRadius: BorderRadius.circular(6.sx),
                         ),
                         child: Text(v,
-                            style: AppTextStyles.cn(11,
+                            style: AppTextStyles.cn(11.sx,
                                 color: activeView == v ? Colors.white : subColor)),
                       ),
                     ),
@@ -120,30 +121,30 @@ class PositionDetailsProfitCalendar extends StatelessWidget {
               GestureDetector(
                 onTap: onOpenMonthPicker,
                 child: Row(children: [
-                  Text(switchLabel, style: AppTextStyles.cn(12, color: isDark ? AppColors.darkText : const Color(0xFF4E556A))),
-                  Icon(Icons.keyboard_arrow_down, size: 14, color: isDark ? AppColors.darkTextSecondary : const Color(0xFF4E556A)),
+                  Text(switchLabel, style: AppTextStyles.cn(12.sx, color: isDark ? AppColors.darkText : const Color(0xFF4E556A))),
+                  Icon(Icons.keyboard_arrow_down, size: 14.sx, color: isDark ? AppColors.darkTextSecondary : const Color(0xFF4E556A)),
                 ]),
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          SizedBox(height: 10.sx),
           if (activeView == '日') ...[
             // 星期头
             Row(children: [
               for (final w in _weekDays)
-                Expanded(child: Center(child: Text(w, style: AppTextStyles.cn(11, color: subColor)))),
+                Expanded(child: Center(child: Text(w, style: AppTextStyles.cn(11.sx, color: subColor)))),
             ]),
-            const SizedBox(height: 4),
+            SizedBox(height: 4.sx),
             // 日格子（5 列，仅工作日）
             for (var r = 0; r < (days.length + 4) ~/ 5; r++)
               Padding(
-                padding: const EdgeInsets.only(bottom: 4),
+                padding: EdgeInsets.only(bottom: 4.sx),
                 child: Row(children: [
                   for (var c = 0; c < 5; c++)
                     Expanded(
                       child: Padding(
                         padding: EdgeInsets.only(left: c == 0 ? 0 : 4),
-                        child: r * 5 + c < days.length ? _dayCell(days[r * 5 + c]) : const SizedBox(height: 44),
+                        child: r * 5 + c < days.length ? _dayCell(days[r * 5 + c]) : SizedBox(height: 44.sx),
                       ),
                     ),
                 ]),
@@ -154,10 +155,10 @@ class PositionDetailsProfitCalendar extends StatelessWidget {
             _cellGrid(yearCells, (c) => '${c.keyValue}', onYearTap),
           // 底部累计
           Padding(
-            padding: const EdgeInsets.only(top: 8),
+            padding: EdgeInsets.only(top: 8.sx),
             child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-              Text('$footerLabel累计收益：', style: AppTextStyles.cn(11, color: subColor)),
-              Text(footerProfitText, style: AppTextStyles.num(12, color: kPdRiseColor, weight: FontWeight.w600)),
+              Text('$footerLabel累计收益：', style: AppTextStyles.cn(11.sx, color: subColor)),
+              Text(footerProfitText, style: AppTextStyles.num(12.sx, color: kPdRiseColor, weight: FontWeight.w600)),
             ]),
           ),
           // 分析框
@@ -180,32 +181,32 @@ class PositionDetailsProfitCalendar extends StatelessWidget {
     return GestureDetector(
       onTap: () => onDayTap(d),
       child: Container(
-        height: 44,
+        height: 44.sx,
         decoration: BoxDecoration(
           color: bg,
-          borderRadius: BorderRadius.circular(6),
-          border: selected ? Border.all(color: profitColor, width: 1) : null,
+          borderRadius: BorderRadius.circular(6.sx),
+          border: selected ? Border.all(color: profitColor, width: 1.sx) : null,
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(d.isToday ? '今' : (d.day?.toString() ?? ''),
-                style: AppTextStyles.cn(10,
+                style: AppTextStyles.cn(10.sx,
                     color: d.isToday ? kPdRiseColor : (d.day == null ? Colors.transparent : dayColor), height: 1.0)),
             if (d.value.isNotEmpty || d.percentValue.isNotEmpty)
               Padding(
-                padding: const EdgeInsets.only(top: 2),
+                padding: EdgeInsets.only(top: 2.sx),
                 child: Text(
                   showPercent ? d.percentValue : d.value,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: AppTextStyles.num(9, color: profitColor, height: 1.0),
+                  style: AppTextStyles.num(9.sx, color: profitColor, height: 1.0),
                 ),
               ),
             if (d.tag.isNotEmpty)
               Padding(
-                padding: const EdgeInsets.only(top: 2),
-                child: Text(d.tag, style: AppTextStyles.cn(9, color: isDark ? AppColors.darkTextSecondary : const Color(0xFF999999), height: 1.0)),
+                padding: EdgeInsets.only(top: 2.sx),
+                child: Text(d.tag, style: AppTextStyles.cn(9.sx, color: isDark ? AppColors.darkTextSecondary : const Color(0xFF999999), height: 1.0)),
               ),
           ],
         ),
@@ -235,16 +236,16 @@ class PositionDetailsProfitCalendar extends StatelessWidget {
           child: Container(
             decoration: BoxDecoration(
               color: c.isActive ? AppColors.upColor : cellBg,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(8.sx),
             ),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(titleOf(c), style: AppTextStyles.cn(12, color: c.isActive ? Colors.white : textColor)),
+                Text(titleOf(c), style: AppTextStyles.cn(12.sx, color: c.isActive ? Colors.white : textColor)),
                 if (c.value.isNotEmpty)
                   Padding(
-                    padding: const EdgeInsets.only(top: 3),
-                    child: Text(c.value, style: AppTextStyles.num(11, color: c.isActive ? Colors.white : valColor)),
+                    padding: EdgeInsets.only(top: 3.sx),
+                    child: Text(c.value, style: AppTextStyles.num(11.sx, color: c.isActive ? Colors.white : valColor)),
                   ),
               ],
             ),
@@ -273,41 +274,41 @@ class PositionDetailsProfitCalendar extends StatelessWidget {
     Widget item(String label, String value, String sub, {Color? valueColor}) => Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [
-              Text(label, style: AppTextStyles.cn(11, color: subColor)),
-              const SizedBox(width: 6),
-              Text(value, style: AppTextStyles.num(13, color: valueColor ?? textColor, weight: FontWeight.w600)),
+              Text(label, style: AppTextStyles.cn(11.sx, color: subColor)),
+              SizedBox(width: 6.sx),
+              Text(value, style: AppTextStyles.num(13.sx, color: valueColor ?? textColor, weight: FontWeight.w600)),
             ]),
-            const SizedBox(height: 4),
-            Text(sub, style: AppTextStyles.cn(11, color: isDark ? AppColors.darkTextSecondary : const Color(0xFFB7ABAB))),
+            SizedBox(height: 4.sx),
+            Text(sub, style: AppTextStyles.cn(11.sx, color: isDark ? AppColors.darkTextSecondary : const Color(0xFFB7ABAB))),
           ]),
         );
-    Widget divider() => Container(width: 0.5, height: 30, color: isDark ? AppColors.darkBorder : const Color(0xFFEEEEEE));
+    Widget divider() => Container(width: 0.5, height: 30.sx, color: isDark ? AppColors.darkBorder : const Color(0xFFEEEEEE));
 
     return Container(
-      margin: const EdgeInsets.only(top: 12),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(10)),
+      margin: EdgeInsets.only(top: 12.sx),
+      padding: EdgeInsets.all(12.sx),
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(10.sx)),
       child: Column(children: [
         Row(children: [
           item('赚最大', s == null ? '--' : signed(s['maxProfit']), s == null ? '--' : dateOf(s['maxProfitDate']),
               valueColor: const Color(0xFFE45A6F)),
           divider(),
-          const SizedBox(width: 12),
+          SizedBox(width: 12.sx),
           item('亏最大', s == null ? '--' : signed(s['minProfit']), s == null ? '--' : dateOf(s['minProfitDate']),
               valueColor: const Color(0xFF10A86D)),
         ]),
-        const SizedBox(height: 12),
+        SizedBox(height: 12.sx),
         Row(children: [
           item('上涨天数', s == null ? '--' : daysOf(s['riseDays']), '占${s == null ? '--' : pctOf(s['riseDays'], s['totalDays'])}'),
           divider(),
-          const SizedBox(width: 12),
+          SizedBox(width: 12.sx),
           item('下跌天数', s == null ? '--' : daysOf(s['fallDays']), '占${s == null ? '--' : pctOf(s['fallDays'], s['totalDays'])}'),
         ]),
-        const SizedBox(height: 12),
+        SizedBox(height: 12.sx),
         Row(children: [
           item('最长连涨', s == null ? '--' : daysOf(s['maxConsecutiveRise']), s?['maxConsecutiveRiseRange']?.toString() ?? '--'),
           divider(),
-          const SizedBox(width: 12),
+          SizedBox(width: 12.sx),
           item('最长连跌', s == null ? '--' : daysOf(s['maxConsecutiveFall']), s?['maxConsecutiveFallRange']?.toString() ?? '--'),
         ]),
       ]),

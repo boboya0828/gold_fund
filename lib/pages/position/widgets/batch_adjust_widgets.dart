@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../theme/text_styles.dart';
+import '../../../core/utils/screen_adapt.dart';
 
 /// 批量加减仓页辅助组件 — 1:1 复刻 uni-app pages/positionv1/batch-adjust.vue
 /// 的底部操作栏与两个 up-modal 弹窗（金额输入 / 二次确认）。
@@ -39,7 +40,7 @@ class BatchAdjustBottomBar extends StatelessWidget {
     final bottomInset = MediaQuery.of(context).viewPadding.bottom;
     return Container(
       // padding 16rpx 24rpx + env(safe-area-inset-bottom); 阴影 0 -6rpx 20rpx
-      padding: EdgeInsets.fromLTRB(12, 8, 12, 8 + bottomInset),
+      padding: EdgeInsets.fromLTRB(12.sx, 8.sx, 12.sx, 8.sx + bottomInset),
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF191D27) : Colors.white,
         boxShadow: [
@@ -47,7 +48,7 @@ class BatchAdjustBottomBar extends StatelessWidget {
             color: isDark
                 ? Colors.black.withValues(alpha: 0.28)
                 : Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
+            blurRadius: 10.sx,
             offset: const Offset(0, -3),
           ),
         ],
@@ -55,11 +56,11 @@ class BatchAdjustBottomBar extends StatelessWidget {
       child: Row(children: [
         if (isEditingAmounts) ...[
           Expanded(child: _cancelBtn()),
-          const SizedBox(width: 9), // gap 18rpx
+          SizedBox(width: 9.sx), // gap 18rpx
           Expanded(child: _buyBtn('提交', onEditSubmit)),
         ] else ...[
           Expanded(child: _sellBtn()),
-          const SizedBox(width: 9),
+          SizedBox(width: 9.sx),
           Expanded(child: _buyBtn('批量加仓', onBatchBuy)),
         ],
       ]),
@@ -72,18 +73,18 @@ class BatchAdjustBottomBar extends StatelessWidget {
     return GestureDetector(
       onTap: onBatchSell,
       child: Container(
-        height: 38, // 76rpx
+        height: 38.sx, // 76rpx
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: active
               ? (isDark ? _kAccent.withValues(alpha: 0.16) : const Color(0xFFFFECEF))
               : (isDark ? const Color(0xFF282828) : const Color(0xFFE6E6E6)),
-          borderRadius: BorderRadius.circular(19), // 38rpx
+          borderRadius: BorderRadius.circular(19.sx), // 38rpx
         ),
         child: Text(
           '批量减仓',
           style: AppTextStyles.cn(
-            14, // 28rpx
+            14.sx, // 28rpx
             weight: FontWeight.w600,
             color: active ? _kAccent : (isDark ? const Color(0xFFA7ADB8) : const Color(0xFFA9A9A9)),
           ),
@@ -97,7 +98,7 @@ class BatchAdjustBottomBar extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        height: 38,
+        height: 38.sx,
         alignment: Alignment.center,
         decoration: BoxDecoration(
           gradient: isDark
@@ -108,9 +109,9 @@ class BatchAdjustBottomBar extends StatelessWidget {
                   colors: [Color(0xFFE05665), Color(0xFFF06B78)],
                 ),
           color: isDark ? _kAccent : null,
-          borderRadius: BorderRadius.circular(19),
+          borderRadius: BorderRadius.circular(19.sx),
         ),
-        child: Text(text, style: AppTextStyles.cn(14, weight: FontWeight.w600, color: Colors.white)),
+        child: Text(text, style: AppTextStyles.cn(14.sx, weight: FontWeight.w600, color: Colors.white)),
       ),
     );
   }
@@ -120,16 +121,16 @@ class BatchAdjustBottomBar extends StatelessWidget {
     return GestureDetector(
       onTap: onCancelEdit,
       child: Container(
-        height: 38,
+        height: 38.sx,
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: isDark ? const Color(0xFF282828) : const Color(0xFFF2F2F2),
-          borderRadius: BorderRadius.circular(19),
+          borderRadius: BorderRadius.circular(19.sx),
         ),
         child: Text(
           '取消',
           style: AppTextStyles.cn(
-            14,
+            14.sx,
             weight: FontWeight.w600,
             color: isDark ? const Color(0xFFA7ADB8) : const Color(0xFF666666),
           ),
@@ -173,23 +174,23 @@ class BatchAdjustModalShell extends StatelessWidget {
           width: width,
           decoration: BoxDecoration(
             color: isDark ? const Color(0xFF202125) : Colors.white,
-            borderRadius: BorderRadius.circular(12), // 24rpx
+            borderRadius: BorderRadius.circular(12.sx), // 24rpx
             boxShadow: [
               BoxShadow(
                 // 0 26rpx 80rpx rgba(32,25,26,0.18) / 深色 rgba(0,0,0,0.42)
                 color: isDark ? Colors.black.withValues(alpha: 0.42) : const Color(0x2E20191A),
-                blurRadius: 40,
-                offset: const Offset(0, 13),
+                blurRadius: 40.sx,
+                offset: Offset(0, 13.sx),
               ),
             ],
           ),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             Padding(
-              padding: const EdgeInsets.only(top: 19), // title padding-top 38rpx
+              padding: EdgeInsets.only(top: 19.sx), // title padding-top 38rpx
               child: Text(
                 title,
                 style: AppTextStyles.cn(
-                  16, // 32rpx
+                  16.sx, // 32rpx
                   weight: FontWeight.w700,
                   color: isDark ? const Color(0xFFD7DAE0) : const Color(0xFF333333),
                   height: 1.2,
@@ -199,7 +200,7 @@ class BatchAdjustModalShell extends StatelessWidget {
             child,
             // 按钮组: 高 96rpx, 上边框 + 中间竖线 (u-line)
             Container(
-              height: 48, // 96rpx
+              height: 48.sx, // 96rpx
               decoration: BoxDecoration(
                 border: Border(top: BorderSide(color: divider, width: 0.5)),
               ),
@@ -212,7 +213,7 @@ class BatchAdjustModalShell extends StatelessWidget {
                       child: Text(
                         cancelText,
                         style: AppTextStyles.cn(
-                          15, // 30rpx
+                          15.sx, // 30rpx
                           weight: FontWeight.w600,
                           color: isDark ? const Color(0xFFA7ADB8) : const Color(0xFF7F7A7B),
                         ),
@@ -228,7 +229,7 @@ class BatchAdjustModalShell extends StatelessWidget {
                     child: Center(
                       child: Text(
                         confirmText,
-                        style: AppTextStyles.cn(15, weight: FontWeight.w600, color: _kAccent),
+                        style: AppTextStyles.cn(15.sx, weight: FontWeight.w600, color: _kAccent),
                       ),
                     ),
                   ),
@@ -272,46 +273,46 @@ class BatchAdjustAmountModal extends StatelessWidget {
   Widget build(BuildContext context) {
     return BatchAdjustModalShell(
       title: title,
-      width: 275, // 550rpx
+      width: 275.sx, // 550rpx
       isDark: isDark,
       cancelText: '取消',
       confirmText: '完成',
       onCancel: onCancel,
       onConfirm: onConfirm,
       child: Padding(
-        padding: const EdgeInsets.only(top: 12, bottom: 11), // 24rpx 0 22rpx
+        padding: EdgeInsets.only(top: 12.sx, bottom: 11.sx), // 24rpx 0 22rpx
         child: Column(children: [
           // .amount-input-wrap: 400rpx x 80rpx, bg #F5F5F5, radius 16rpx
           GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: onOpenKeyboard,
             child: Container(
-              width: 200, // 400rpx
-              height: 40, // 80rpx
-              padding: const EdgeInsets.symmetric(horizontal: 10), // 0 20rpx
+              width: 200.sx, // 400rpx
+              height: 40.sx, // 80rpx
+              padding: EdgeInsets.symmetric(horizontal: 10.sx), // 0 20rpx
               decoration: BoxDecoration(
                 color: isDark ? const Color(0xFF282828) : const Color(0xFFF5F5F5),
-                borderRadius: BorderRadius.circular(8), // 16rpx
+                borderRadius: BorderRadius.circular(8.sx), // 16rpx
               ),
               child: Row(children: [
                 Text(
                   amountPrefixText,
                   style: AppTextStyles.cn(
-                    14, // 28rpx
+                    14.sx, // 28rpx
                     weight: FontWeight.w500,
                     color: isDark ? const Color(0xFFD7DAE0) : const Color(0xFF333333),
                   ),
                 ),
-                const SizedBox(width: 4), // margin-right 8rpx
+                SizedBox(width: 4.sx), // margin-right 8rpx
                 Expanded(
                   child: Text(
                     amountInput.isEmpty ? '请输入金额' : amountInput,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: amountInput.isEmpty
-                        ? AppTextStyles.cn(14, color: const Color(0xFF999999)) // .amount-placeholder
+                        ? AppTextStyles.cn(14.sx, color: const Color(0xFF999999)) // .amount-placeholder
                         : AppTextStyles.num(
-                            14, // 28rpx numFamily
+                            14.sx, // 28rpx numFamily
                             color: isDark ? const Color(0xFFD7DAE0) : const Color(0xFF333333),
                           ),
                   ),
@@ -320,9 +321,9 @@ class BatchAdjustAmountModal extends StatelessWidget {
                   GestureDetector(
                     behavior: HitTestBehavior.opaque,
                     onTap: onClear,
-                    child: const Padding(
-                      padding: EdgeInsets.all(4), // 8rpx, margin-right -8rpx 忽略
-                      child: Icon(Icons.cancel, size: 16, color: Color(0xFFCCCCCC)), // up-icon close-circle
+                    child: Padding(
+                      padding: EdgeInsets.all(4.sx), // 8rpx, margin-right -8rpx 忽略
+                      child: Icon(Icons.cancel, size: 16.sx, color: Color(0xFFCCCCCC)), // up-icon close-circle
                     ),
                   ),
               ]),
@@ -330,13 +331,13 @@ class BatchAdjustAmountModal extends StatelessWidget {
           ),
           // .amount-modal-tip
           Container(
-            width: 200, // 400rpx
-            margin: const EdgeInsets.only(top: 4), // 8rpx
+            width: 200.sx, // 400rpx
+            margin: EdgeInsets.only(top: 4.sx), // 8rpx
             alignment: Alignment.centerRight,
             child: Text(
               tipText,
               style: AppTextStyles.cn(
-                11, // 22rpx
+                11.sx, // 22rpx
                 color: isDark ? const Color(0xFFA7ADB8) : const Color(0xFF999999),
                 height: 1.0,
               ),
@@ -367,31 +368,31 @@ class BatchAdjustConfirmModal extends StatelessWidget {
   Widget build(BuildContext context) {
     return BatchAdjustModalShell(
       title: '确认提交',
-      width: 310, // 620rpx
+      width: 310.sx, // 620rpx
       isDark: isDark,
       cancelText: '再想想',
       confirmText: '提交',
       onCancel: onCancel,
       onConfirm: onConfirm,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(19, 14, 19, 23), // 28rpx 38rpx 46rpx
+        padding: EdgeInsets.fromLTRB(19.sx, 14.sx, 19.sx, 23.sx), // 28rpx 38rpx 46rpx
         child: Column(children: [
           // .confirm-modal-icon: 64rpx 圆, #FFF0F2 / 深色 rgba(224,86,101,0.16)
           Container(
-            width: 32, // 64rpx
-            height: 32,
+            width: 32.sx, // 64rpx
+            height: 32.sx,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: isDark ? _kAccent.withValues(alpha: 0.16) : const Color(0xFFFFF0F2),
             ),
-            child: const Icon(Icons.info, size: 24, color: _kAccent), // uni-icons info
+            child: Icon(Icons.info, size: 24.sx, color: _kAccent), // uni-icons info
           ),
-          const SizedBox(height: 11), // gap 22rpx
+          SizedBox(height: 11.sx), // gap 22rpx
           Text(
             content,
             textAlign: TextAlign.center,
             style: AppTextStyles.cn(
-              14, // 28rpx
+              14.sx, // 28rpx
               weight: FontWeight.w500,
               color: isDark ? const Color(0xFFD7DAE0) : const Color(0xFF333333),
               height: 1.65,

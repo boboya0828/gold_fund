@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../theme/text_styles.dart';
 import 'position_details_models.dart';
+import '../../../core/utils/screen_adapt.dart';
 
 /// 持仓详情 — 弹幕层（覆盖在关联涨跌图上）
 /// uni-app 对应: position-details.vue 的 .danmu-layer / .danmu-item / .danmu-report
@@ -111,7 +112,7 @@ class _PositionDetailsDanmuLayerState extends State<PositionDetailsDanmuLayer> {
           final target = item;
           final top = (_tops[target.topIndex % _tops.length] - 28).clamp(2.0, 200.0);
           children.add(Positioned(
-            left: 16,
+            left: 16.sx,
             top: top,
             child: GestureDetector(
               onTap: () {
@@ -119,13 +120,13 @@ class _PositionDetailsDanmuLayerState extends State<PositionDetailsDanmuLayer> {
                 _closeReport();
               },
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5), // 92x54rpx 近似
+                padding: EdgeInsets.symmetric(horizontal: 12.sx, vertical: 5.sx), // 92x54rpx 近似
                 decoration: BoxDecoration(
                   color: widget.isDark ? const Color(0xFF3A3E48) : Colors.white,
-                  borderRadius: BorderRadius.circular(6),
-                  boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.12), blurRadius: 8)],
+                  borderRadius: BorderRadius.circular(6.sx),
+                  boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.12), blurRadius: 8.sx)],
                 ),
-                child: Text('举报', style: AppTextStyles.cn(11, color: widget.isDark ? Colors.white : const Color(0xFF333333))),
+                child: Text('举报', style: AppTextStyles.cn(11.sx, color: widget.isDark ? Colors.white : const Color(0xFF333333))),
               ),
             ),
           ));
@@ -202,12 +203,12 @@ class _DanmuRunnerState extends State<_DanmuRunner> with SingleTickerProviderSta
           child: GestureDetector(
             onTap: widget.onTap,
             child: Container(
-              height: 19, // 38rpx
-              constraints: const BoxConstraints(maxWidth: 210), // 420rpx
-              padding: const EdgeInsets.symmetric(horizontal: 9), // 18rpx
+              height: 19.sx, // 38rpx
+              constraints: BoxConstraints(maxWidth: 210.sx), // 420rpx
+              padding: EdgeInsets.symmetric(horizontal: 9.sx), // 18rpx
               decoration: BoxDecoration(
                 color: widget.bg,
-                borderRadius: BorderRadius.circular(999),
+                borderRadius: BorderRadius.circular(999.sx),
                 border: widget.active || widget.item.isOwn
                     ? Border.all(color: widget.color.withValues(alpha: 0.6), width: 0.5)
                     : null,
@@ -217,7 +218,7 @@ class _DanmuRunnerState extends State<_DanmuRunner> with SingleTickerProviderSta
                 widget.item.text,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: AppTextStyles.cn(11, color: widget.color, height: 1.0),
+                style: AppTextStyles.cn(11.sx, color: widget.color, height: 1.0),
               ),
             ),
           ),

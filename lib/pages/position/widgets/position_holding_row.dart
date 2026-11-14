@@ -6,6 +6,7 @@ import '../../../theme/text_styles.dart';
 import '../position_provider_types.dart'
     show PositionFontScale, PositionItem, PositionState, TableShowMode;
 import 'position_profit_color.dart';
+import '../../../core/utils/screen_adapt.dart';
 
 /// 持仓表格列定义 — 1:1 复刻 uni-app demoAllTableColumns（16 列）
 class PositionColumnDef {
@@ -356,7 +357,7 @@ class PositionHoldingFixedCell extends StatelessWidget {
   final VoidCallback onTap;
   final void Function(Offset globalTopLeft, double height) onLongPress;
 
-  static const double rowHeight = 55; // 110rpx
+  static double get rowHeight => 55.sx; // 110rpx
 
   const PositionHoldingFixedCell({
     super.key,
@@ -405,7 +406,7 @@ class PositionHoldingFixedCell extends StatelessWidget {
       child: Container(
         key: Key('position-holding-row-$index'),
         height: rowHeight,
-        padding: const EdgeInsets.only(left: 16, right: 5), // 32rpx / 10rpx
+        padding: EdgeInsets.only(left: 16.sx, right: 5.sx), // 32rpx / 10rpx
         decoration: BoxDecoration(
           color: rowBg,
           border: isLast
@@ -431,7 +432,7 @@ class PositionHoldingFixedCell extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         _nameText(),
-        const SizedBox(height: 6), // margin-top 12rpx
+        SizedBox(height: 6.sx), // margin-top 12rpx
         Row(
           crossAxisAlignment: CrossAxisAlignment.baseline,
           textBaseline: TextBaseline.alphabetic,
@@ -439,13 +440,13 @@ class PositionHoldingFixedCell extends StatelessWidget {
             // 「已更新」徽章（1:1 uni-app isLatestNavItem）
             if (item.isLatestNav)
               Container(
-                margin: const EdgeInsets.only(right: 4), // gap 8rpx
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 3, // 6rpx
+                margin: EdgeInsets.only(right: 4.sx), // gap 8rpx
+                padding: EdgeInsets.symmetric(
+                  horizontal: 3.sx, // 6rpx
                   vertical: 0.5, // 1rpx
                 ),
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(2), // 4rpx
+                  borderRadius: BorderRadius.circular(2.sx), // 4rpx
                   color: isDark
                       ? const Color(0x24E05665) // rgba(224,86,101,0.14)
                       : const Color(0x0AE05665), // rgba(224,86,101,0.04)
@@ -453,7 +454,7 @@ class PositionHoldingFixedCell extends StatelessWidget {
                 child: Text(
                   '已更新',
                   style: AppTextStyles.cn(
-                    fontScale.badge, // 18rpx（标准档 14rpx）
+                    fontScale.badge.sx, // 18rpx（标准档 14rpx）
                     color: const Color(0xFFE05665),
                     height: 1,
                   ),
@@ -462,13 +463,13 @@ class PositionHoldingFixedCell extends StatelessWidget {
             // 表头管理：showFundCode → 基金代码；否则 showHoldingAmount → 持有金额
             if (showFundCode)
               Padding(
-                padding: const EdgeInsets.only(right: 4),
+                padding: EdgeInsets.only(right: 4.sx),
                 child: Text(
                   hideFundName
                       ? '******'
                       : (item.symbolCode.isNotEmpty ? item.symbolCode : '--'),
                   style: AppTextStyles.num(
-                    fontScale.nameSub, // 21rpx（标准档 19rpx）
+                    fontScale.nameSub.sx, // 21rpx（标准档 19rpx）
                     color: isDark
                         ? const Color(0xFF9297A1)
                         : const Color(0xFF77798B),
@@ -478,11 +479,11 @@ class PositionHoldingFixedCell extends StatelessWidget {
               )
             else if (showHoldingAmount)
               Padding(
-                padding: const EdgeInsets.only(right: 4),
+                padding: EdgeInsets.only(right: 4.sx),
                 child: Text(
                   '￥${hideHoldAmount ? '******' : _plain(item.marketValue)}',
                   style: AppTextStyles.num(
-                    fontScale.nameSub, // 21rpx（标准档 19rpx）
+                    fontScale.nameSub.sx, // 21rpx（标准档 19rpx）
                     color: isDark
                         ? const Color(0xFF9297A1)
                         : const Color(0xFF77798B),
@@ -493,11 +494,11 @@ class PositionHoldingFixedCell extends StatelessWidget {
             // 昨日净值日期
             if (item.isYesterday) ...[
               Padding(
-                padding: const EdgeInsets.only(right: 4),
+                padding: EdgeInsets.only(right: 4.sx),
                 child: Text(
                   item.latestTimeLabel,
                   style: AppTextStyles.num(
-                    fontScale.yesterday, // 20rpx（标准档 16rpx）
+                    fontScale.yesterday.sx, // 20rpx（标准档 16rpx）
                     color: isDark
                         ? const Color(0xFF8F949D)
                         : const Color(0xFF77798B),
@@ -509,12 +510,12 @@ class PositionHoldingFixedCell extends StatelessWidget {
             // 定投徽章
             if (item.hasDcaPlan)
               Container(
-                margin: const EdgeInsets.only(right: 4),
-                constraints: const BoxConstraints(minWidth: 14), // 28rpx
-                height: 14,
-                padding: const EdgeInsets.symmetric(horizontal: 2.5), // 5rpx
+                margin: EdgeInsets.only(right: 4.sx),
+                constraints: BoxConstraints(minWidth: 14.sx), // 28rpx
+                height: 14.sx,
+                padding: EdgeInsets.symmetric(horizontal: 2.5.sx), // 5rpx
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(2.5), // 5rpx
+                  borderRadius: BorderRadius.circular(2.5.sx), // 5rpx
                   color: isDark
                       ? const Color(0x2E4A90FF) // rgba(74,144,255,0.18)
                       : const Color(0x1F347CFF), // rgba(52,124,255,0.12)
@@ -523,7 +524,7 @@ class PositionHoldingFixedCell extends StatelessWidget {
                 child: Text(
                   '定',
                   style: AppTextStyles.cn(
-                    fontScale.badge, // 18rpx（标准档 14rpx）
+                    fontScale.badge.sx, // 18rpx（标准档 14rpx）
                     color: isDark
                         ? const Color(0xFF6EA8FF)
                         : const Color(0xFF347CFF),
@@ -534,7 +535,7 @@ class PositionHoldingFixedCell extends StatelessWidget {
               ),
             // 笔记图标
             if (item.hasNote)
-              const Icon(AppIcons.note, size: 11, color: Color(0xFFE15665)),
+              Icon(AppIcons.note, size: 11.sx, color: Color(0xFFE15665)),
           ],
         ),
       ],
@@ -545,7 +546,7 @@ class PositionHoldingFixedCell extends StatelessWidget {
     return Text(
       hideFundName ? '******' : item.shortName,
       style: AppTextStyles.cn(
-        fontScale.nameMain, // 28rpx（标准档 26rpx）
+        fontScale.nameMain.sx, // 28rpx（标准档 26rpx）
         color: isDark ? const Color(0xFFD7DAE0) : const Color(0xFF23283C),
         weight: FontWeight.w500,
         height: 1.2,
@@ -578,9 +579,9 @@ class PositionHoldingCell extends StatelessWidget {
     final placeholderColor = const Color(0xFFC3C8D1); // hsw-placeholder
     return Container(
       key: Key('position-row-${cell.keySlug}-$rowIndex'),
-      width: 72, // 144rpx
+      width: 72.sx, // 144rpx
       height: PositionHoldingFixedCell.rowHeight,
-      padding: const EdgeInsets.only(right: 4), // padding-right 8rpx
+      padding: EdgeInsets.only(right: 4.sx), // padding-right 8rpx
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.end,
         mainAxisAlignment: MainAxisAlignment.center,
@@ -590,7 +591,7 @@ class PositionHoldingCell extends StatelessWidget {
               cell.text,
               style: AppTextStyles.num(
                 // 32rpx → 超档 28rpx（标准档 30rpx → 26rpx）
-                cell.oversize ? fontScale.cellMainSmall : fontScale.cellMain,
+                cell.oversize ? fontScale.cellMainSmall.sx : fontScale.cellMain.sx,
                 color: cell.textColor ?? positionProfitNeutralColor(isDark),
                 weight: FontWeight.w500,
                 height: 1,
@@ -601,7 +602,7 @@ class PositionHoldingCell extends StatelessWidget {
             Text(
               '--',
               style: AppTextStyles.num(
-                fontScale.placeholder, // 28rpx（标准档 24rpx）
+                fontScale.placeholder.sx, // 28rpx（标准档 24rpx）
                 color: placeholderColor,
                 height: 1,
               ),
@@ -609,16 +610,16 @@ class PositionHoldingCell extends StatelessWidget {
           if (!singleLine) ...[
             if (cell.subText.isNotEmpty || cell.subPrefix.isNotEmpty)
               Padding(
-                padding: const EdgeInsets.only(top: 6), // margin-top 12rpx
+                padding: EdgeInsets.only(top: 6.sx), // margin-top 12rpx
                 child: _buildSub(),
               )
             else if (cell.showEmptySub)
               Padding(
-                padding: const EdgeInsets.only(top: 6),
+                padding: EdgeInsets.only(top: 6.sx),
                 child: Text(
                   '--',
                   style: AppTextStyles.num(
-                    fontScale.placeholderSub, // 20rpx（标准档 16rpx）
+                    fontScale.placeholderSub.sx, // 20rpx（标准档 16rpx）
                     color: placeholderColor,
                     height: 1,
                   ),
@@ -637,7 +638,7 @@ class PositionHoldingCell extends StatelessWidget {
       return Text(
         name,
         style: AppTextStyles.cn(
-          name.length >= 8 ? fontScale.indicatorNameXl : fontScale.indicatorName,
+          name.length >= 8 ? fontScale.indicatorNameXl.sx : fontScale.indicatorName.sx,
           color: cell.subColor,
           height: 1,
         ),
@@ -653,7 +654,7 @@ class PositionHoldingCell extends StatelessWidget {
             TextSpan(
               text: cell.subPrefix,
               style: AppTextStyles.num(
-                fontScale.navDate, // 18rpx（标准档 14rpx）
+                fontScale.navDate.sx, // 18rpx（标准档 14rpx）
                 color: cell.subColor,
                 height: 1,
               ),
@@ -661,7 +662,7 @@ class PositionHoldingCell extends StatelessWidget {
           if (cell.subPrefix.isNotEmpty) const TextSpan(text: ' '), // margin-right 6rpx
           TextSpan(
             text: cell.subText,
-            style: AppTextStyles.num(fontScale.cellSub, color: cell.subColor, height: 1),
+            style: AppTextStyles.num(fontScale.cellSub.sx, color: cell.subColor, height: 1),
           ),
         ]),
         maxLines: 1,
@@ -671,7 +672,7 @@ class PositionHoldingCell extends StatelessWidget {
     return Text(
       cell.subText,
       style: AppTextStyles.num(
-        fontScale.cellSub, // 22rpx（标准档 20rpx）
+        fontScale.cellSub.sx, // 22rpx（标准档 20rpx）
         color: cell.subColor ?? positionProfitNeutralColor(isDark),
         height: 1,
       ),

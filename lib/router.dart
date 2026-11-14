@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'theme/app_colors.dart';
 import 'theme/app_icons.dart';
+import 'core/utils/screen_adapt.dart';
 
 import 'pages/home/home_page.dart';
 import 'pages/position/position_page.dart';
@@ -638,6 +639,8 @@ class _MainShellState extends State<MainShell> {
 
   @override
   Widget build(BuildContext context) {
+    // 依赖 MediaQuery：web 拖窗口/旋屏时触发 SA 尺寸重建
+    MediaQuery.sizeOf(context);
     // 根据当前路由同步 tab 索引
     final location = GoRouterState.of(context).uri.toString();
     final idx = _routes.indexOf(location);
@@ -667,8 +670,8 @@ class _MainShellState extends State<MainShell> {
     ];
 
     final barContent = Container(
-      height: 50, // 100rpx
-      padding: const EdgeInsets.symmetric(horizontal: 5), // 10rpx
+      height: 50.sx, // 100rpx
+      padding: EdgeInsets.symmetric(horizontal: 5.sx), // 10rpx
       child: Row(
         children: List.generate(tabs.length, (index) {
           final tab = tabs[index];
@@ -681,12 +684,12 @@ class _MainShellState extends State<MainShell> {
               behavior: HitTestBehavior.opaque,
               onTap: () => _onTabTap(index),
               child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 3), // 6rpx
+                padding: EdgeInsets.symmetric(vertical: 3.sx), // 6rpx
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     SizedBox(
-                      width: 21, height: 21, // 42rpx
+                      width: 21.sx, height: 21.sx, // 42rpx
                       child: Center(
                         // 源码 <image mode="aspectFit">：PNG 瞬时切换 + opacity 差异，无交叉淡入
                         // iconfont 项（暗盘）：源码 .tab-iconfont color #333 / 深色 #A7ADB8，
@@ -694,7 +697,7 @@ class _MainShellState extends State<MainShell> {
                         child: tab.icon != null
                             ? Icon(
                                 tab.icon,
-                                size: 20, // 40rpx
+                                size: 20.sx, // 40rpx
                                 color: isActive
                                     ? (isDark ? AppColors.tabActiveColor : AppColors.tabActiveColorLight)
                                     : (isDark ? AppColors.darkTextSecondary : AppColors.lightText)
@@ -702,17 +705,17 @@ class _MainShellState extends State<MainShell> {
                               )
                             : Image.asset(
                                 isActive ? tab.activeIcon! : (isDark ? tab.darkIcon! : tab.lightIcon!),
-                                width: 20, height: 20, // 40rpx
+                                width: 20.sx, height: 20.sx, // 40rpx
                                 fit: BoxFit.contain,
                                 opacity: AlwaysStoppedAnimation(isActive ? 1.0 : inactiveOpacity),
                               ),
                       ),
                     ),
-                    const SizedBox(height: 2), // 4rpx
+                    SizedBox(height: 2.sx), // 4rpx
                     Text(
                       tab.label,
                       style: TextStyle(
-                        fontSize: 10, // 20rpx
+                        fontSize: 10.sx, // 20rpx
                         height: 1.0,
                         color: isActive
                             ? (isDark ? AppColors.tabActiveColor : AppColors.tabActiveColorLight)

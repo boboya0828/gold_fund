@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/text_styles.dart';
 import 'position_details_models.dart';
+import '../../../core/utils/screen_adapt.dart';
 
 /// 持仓详情 — 顶部资产概览卡（hero-card）
 /// uni-app 对应: pages/index/fund/position-details.vue 的 .hero-card
@@ -49,33 +50,33 @@ class PositionDetailsHeroCard extends StatelessWidget {
     final labelColor = isDark ? AppColors.darkTextSecondary : const Color(0xFF9A9A9A);
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(15, 14, 15, 13), // 28rpx 30rpx 26rpx
+      padding: EdgeInsets.fromLTRB(15.sx, 14.sx, 15.sx, 13.sx), // 28rpx 30rpx 26rpx
       decoration: BoxDecoration(
         color: isDark ? AppColors.darkSurface : Colors.white,
-        borderRadius: BorderRadius.circular(7), // 14rpx
+        borderRadius: BorderRadius.circular(7.sx), // 14rpx
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // 基金名称
-          Text(shortName, style: AppTextStyles.cn(16, color: titleColor, weight: FontWeight.w700, height: 1.25)),
+          Text(shortName, style: AppTextStyles.cn(16.sx, color: titleColor, weight: FontWeight.w700, height: 1.25)),
           // 代码 | 类型
           Padding(
-            padding: const EdgeInsets.only(top: 6), // 12rpx
+            padding: EdgeInsets.only(top: 6.sx), // 12rpx
             child: Row(children: [
-              Text(symbol.isEmpty ? '000001' : symbol, style: AppTextStyles.num(12, color: metaColor)),
+              Text(symbol.isEmpty ? '000001' : symbol, style: AppTextStyles.num(12.sx, color: metaColor)),
               Container(
                 width: 0.5,
-                height: 10,
-                margin: const EdgeInsets.symmetric(horizontal: 9), // 18rpx gap
+                height: 10.sx,
+                margin: EdgeInsets.symmetric(horizontal: 9.sx), // 18rpx gap
                 color: isDark ? AppColors.darkTextSecondary : const Color(0xFFD8D8D8),
               ),
-              Text(assetTypeLabel, style: AppTextStyles.cn(12, color: metaColor)),
+              Text(assetTypeLabel, style: AppTextStyles.cn(12.sx, color: metaColor)),
             ]),
           ),
           // 顶部 3 指标
           Padding(
-            padding: const EdgeInsets.only(top: 4),
+            padding: EdgeInsets.only(top: 4.sx),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
@@ -92,9 +93,9 @@ class PositionDetailsHeroCard extends StatelessWidget {
                             weight: FontWeight.w700,
                           ),
                         ),
-                        const SizedBox(height: 10), // 20rpx
+                        SizedBox(height: 10.sx), // 20rpx
                         Text(summaryTop[i].label,
-                            style: AppTextStyles.cn(12, color: isDark ? AppColors.darkTextSecondary : const Color(0xFFA2A2A2), height: 1.0)),
+                            style: AppTextStyles.cn(12.sx, color: isDark ? AppColors.darkTextSecondary : const Color(0xFFA2A2A2), height: 1.0)),
                       ],
                     ),
                   ),
@@ -104,7 +105,7 @@ class PositionDetailsHeroCard extends StatelessWidget {
           // 账本选择
           if (showBookSelect)
             Padding(
-              padding: const EdgeInsets.only(top: 7), // 14rpx
+              padding: EdgeInsets.only(top: 7.sx), // 14rpx
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -112,24 +113,24 @@ class PositionDetailsHeroCard extends StatelessWidget {
                     onTap: onToggleBookDropdown,
                     behavior: HitTestBehavior.opaque,
                     child: SizedBox(
-                      height: 17, // 34rpx
+                      height: 17.sx, // 34rpx
                       child: Row(mainAxisSize: MainAxisSize.min, children: [
                         Text(selectedBookName,
-                            style: AppTextStyles.cn(12, color: AppColors.upColor, weight: FontWeight.w500, height: 1.0)),
+                            style: AppTextStyles.cn(12.sx, color: AppColors.upColor, weight: FontWeight.w500, height: 1.0)),
                         Icon(bookDropdownOpen ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
-                            size: 12, color: AppColors.upColor),
+                            size: 12.sx, color: AppColors.upColor),
                       ]),
                     ),
                   ),
                   if (bookDropdownOpen)
                     Container(
-                      width: 120, // 240rpx
-                      margin: const EdgeInsets.only(top: 4),
-                      constraints: const BoxConstraints(maxHeight: 180), // 360rpx
+                      width: 120.sx, // 240rpx
+                      margin: EdgeInsets.only(top: 4.sx),
+                      constraints: BoxConstraints(maxHeight: 180.sx), // 360rpx
                       decoration: BoxDecoration(
                         color: isDark ? const Color(0xFF282B32) : Colors.white,
-                        borderRadius: BorderRadius.circular(6),
-                        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.12), blurRadius: 12)],
+                        borderRadius: BorderRadius.circular(6.sx),
+                        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.12), blurRadius: 12.sx)],
                       ),
                       child: ListView.builder(
                         shrinkWrap: true,
@@ -141,10 +142,10 @@ class PositionDetailsHeroCard extends StatelessWidget {
                           return GestureDetector(
                             onTap: () => onSelectBook(item),
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+                              padding: EdgeInsets.symmetric(horizontal: 10.sx, vertical: 9.sx),
                               color: active ? (isDark ? const Color(0xFF3A3E48) : const Color(0xFFFFF3F4)) : Colors.transparent,
                               child: Text(item.bookName,
-                                  style: AppTextStyles.cn(12,
+                                  style: AppTextStyles.cn(12.sx,
                                       color: active ? AppColors.upColor : (isDark ? AppColors.darkText : AppColors.lightText))),
                             ),
                           );
@@ -157,7 +158,7 @@ class PositionDetailsHeroCard extends StatelessWidget {
           // 持仓 9 指标
           if (positionMetrics.isNotEmpty)
             Padding(
-              padding: const EdgeInsets.only(top: 12),
+              padding: EdgeInsets.only(top: 12.sx),
               child: GridView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
@@ -171,18 +172,18 @@ class PositionDetailsHeroCard extends StatelessWidget {
                 itemBuilder: (_, i) {
                   final m = positionMetrics[i];
                   return Container(
-                    padding: const EdgeInsets.fromLTRB(5, 10, 5, 9), // 20rpx 10rpx 18rpx
-                    decoration: BoxDecoration(color: metricBg, borderRadius: BorderRadius.circular(8)), // 16rpx
+                    padding: EdgeInsets.fromLTRB(5.sx, 10.sx, 5.sx, 9.sx), // 20rpx 10rpx 18rpx
+                    decoration: BoxDecoration(color: metricBg, borderRadius: BorderRadius.circular(8.sx)), // 16rpx
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text(m.label, style: AppTextStyles.cn(11, color: labelColor, height: 1.0)), // 22rpx
-                        const SizedBox(height: 6), // 12rpx
+                        Text(m.label, style: AppTextStyles.cn(11.sx, color: labelColor, height: 1.0)), // 22rpx
+                        SizedBox(height: 6.sx), // 12rpx
                         Text(
                           m.value,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: AppTextStyles.num(14, color: m.valueColor ?? (isDark ? AppColors.darkText : AppColors.lightText),
+                          style: AppTextStyles.num(14.sx, color: m.valueColor ?? (isDark ? AppColors.darkText : AppColors.lightText),
                               weight: FontWeight.w700, height: 1.2), // 28rpx
                         ),
                       ],

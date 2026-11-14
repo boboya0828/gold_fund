@@ -8,6 +8,7 @@ import '../../../shared/widgets/z_paging_refresh.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/text_styles.dart';
 import 'position_profit_color.dart';
+import '../../../core/utils/screen_adapt.dart';
 
 /// 账户汇总 tab 内容区 — 1:1 复刻 .overview-content
 /// （资产卡由页面层渲染；本组件是 .overview-page 卡片列表 + 空态）
@@ -50,7 +51,7 @@ class PositionOverviewContent extends ConsumerWidget {
                       onTap: () => _handleCardTap(context, ref, cards[i]),
                     ),
                   // .overview-list padding-bottom 140rpx（无指数轮播条）
-                  const SizedBox(height: 70),
+                  SizedBox(height: 70.sx),
                 ],
               ),
       ),
@@ -87,17 +88,17 @@ class PositionOverviewContent extends ConsumerWidget {
               }
             },
             child: Container(
-              margin: const EdgeInsets.only(top: 16), // overview-empty-action 32rpx
-              width: 270, // max-width 540rpx
-              height: 43, // 86rpx
+              margin: EdgeInsets.only(top: 16.sx), // overview-empty-action 32rpx
+              width: 270.sx, // max-width 540rpx
+              height: 43.sx, // 86rpx
               decoration: BoxDecoration(
                 color: AppColors.primary,
-                borderRadius: BorderRadius.circular(5),
-                boxShadow: const [
+                borderRadius: BorderRadius.circular(5.sx),
+                boxShadow: [
                   BoxShadow(
                     color: Color(0x29527AF8),
-                    blurRadius: 18,
-                    offset: Offset(0, 8),
+                    blurRadius: 18.sx,
+                    offset: Offset(0, 8.sx),
                   ),
                 ],
               ),
@@ -105,23 +106,23 @@ class PositionOverviewContent extends ConsumerWidget {
               child: Text(
                 '导入我的持有基金',
                 style: AppTextStyles.cn(
-                  15,
+                  15.sx,
                   color: Colors.white,
                   weight: FontWeight.w500,
                 ),
               ),
             ),
           ),
-          const SizedBox(height: 12), // ndata-tip margin-top 24rpx
+          SizedBox(height: 12.sx), // ndata-tip margin-top 24rpx
           Text(
             '已支持支付宝、天天基金、腾讯理财通、雪球基金等平台的一键导入',
-            style: AppTextStyles.cn(12, color: tipColor, height: 1.5),
+            style: AppTextStyles.cn(12.sx, color: tipColor, height: 1.5),
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 11), // ndata-tip1 margin-top 22rpx
+          SizedBox(height: 11.sx), // ndata-tip1 margin-top 22rpx
           Text(
             '养基助手应用仅用于数据同步模拟，不涉及任何真实交易',
-            style: AppTextStyles.num(10, color: tipColor, height: 1.5),
+            style: AppTextStyles.num(10.sx, color: tipColor, height: 1.5),
             textAlign: TextAlign.center,
           ),
         ],
@@ -165,7 +166,7 @@ class _OverviewCard extends StatelessWidget {
       onTap: onTap,
       child: Container(
         key: Key('position-overview-card-$index'),
-        margin: const EdgeInsets.only(bottom: 8), // margin-bottom 16rpx
+        margin: EdgeInsets.only(bottom: 8.sx), // margin-bottom 16rpx
         decoration: BoxDecoration(
           color: cardBg,
           border: Border(
@@ -177,8 +178,8 @@ class _OverviewCard extends StatelessWidget {
           children: [
             // ===== 头部：图标 + 账本名 + 涨/跌家数 =====
             Container(
-              height: 38, // 76rpx
-              padding: const EdgeInsets.symmetric(horizontal: 15), // 0 30rpx
+              height: 38.sx, // 76rpx
+              padding: EdgeInsets.symmetric(horizontal: 15.sx), // 0 30rpx
               decoration: BoxDecoration(
                 border: Border(
                   bottom: BorderSide(color: borderColor, width: 0.5),
@@ -192,20 +193,20 @@ class _OverviewCard extends StatelessWidget {
                       children: [
                         Image.asset(
                           _bookIcon(card),
-                          width: 20, // 40rpx
-                          height: 20,
+                          width: 20.sx, // 40rpx
+                          height: 20.sx,
                           fit: BoxFit.contain,
                           errorBuilder: (context, error, stackTrace) =>
-                              const SizedBox(width: 20, height: 20),
+                              SizedBox(width: 20.sx, height: 20.sx),
                         ),
-                        const SizedBox(width: 6), // margin-right 12rpx
+                        SizedBox(width: 6.sx), // margin-right 12rpx
                         Flexible(
                           child: Text(
                             card.bookName.isNotEmpty
                                 ? card.bookName
                                 : '账户${index + 1}',
                             style: AppTextStyles.cn(
-                              14, // 28rpx
+                              14.sx, // 28rpx
                               color: nameColor,
                               height: 1.4, // line-height 40rpx
                             ),
@@ -224,7 +225,7 @@ class _OverviewCard extends StatelessWidget {
                         card.riseCount,
                         positionProfitUpColor(),
                       ),
-                      const SizedBox(width: 15), // gap 30rpx
+                      SizedBox(width: 15.sx), // gap 30rpx
                       _countBadge(
                         Icons.arrow_downward,
                         const Color(0xFF00B26A),
@@ -238,8 +239,8 @@ class _OverviewCard extends StatelessWidget {
             ),
             // ===== 中部：账户资产 + 迷你走势 =====
             Container(
-              height: 71, // 142rpx
-              padding: const EdgeInsets.fromLTRB(15, 13, 15, 6), // 26rpx 30rpx 12rpx
+              height: 71.sx, // 142rpx
+              padding: EdgeInsets.fromLTRB(15.sx, 13.sx, 15.sx, 6.sx), // 26rpx 30rpx 12rpx
               child: Row(
                 children: [
                   Expanded(
@@ -250,18 +251,18 @@ class _OverviewCard extends StatelessWidget {
                         Text(
                           '账户资产',
                           style: AppTextStyles.cn(
-                            12, // 24rpx
+                            12.sx, // 24rpx
                             color: labelColor,
                             height: 1.33, // line-height 32rpx
                           ),
                         ),
-                        const SizedBox(height: 4), // margin-top 8rpx
+                        SizedBox(height: 4.sx), // margin-top 8rpx
                         Text(
                           hideHoldAmount
                               ? '******'
                               : formatThousands(card.assetAmount),
                           style: AppTextStyles.num(
-                            15, // 30rpx
+                            15.sx, // 30rpx
                             color: assetValueColor,
                             weight: FontWeight.w600,
                             height: 1.33,
@@ -270,10 +271,10 @@ class _OverviewCard extends StatelessWidget {
                       ],
                     ),
                   ),
-                  const SizedBox(width: 12), // column-gap 24rpx
+                  SizedBox(width: 12.sx), // column-gap 24rpx
                   SizedBox(
-                    width: 165, // 330rpx
-                    height: 46, // 92rpx
+                    width: 165.sx, // 330rpx
+                    height: 46.sx, // 92rpx
                     child: CustomPaint(
                       painter: _TrendPainter(
                         points: _trendPoints(card.trend),
@@ -288,7 +289,7 @@ class _OverviewCard extends StatelessWidget {
             ),
             // ===== 底部：持有收益 / 当日收益 =====
             Padding(
-              padding: const EdgeInsets.fromLTRB(15, 0, 15, 13), // 0 30rpx 26rpx
+              padding: EdgeInsets.fromLTRB(15.sx, 0, 15.sx, 13.sx), // 0 30rpx 26rpx
               child: Row(
                 children: [
                   Expanded(
@@ -299,7 +300,7 @@ class _OverviewCard extends StatelessWidget {
                       labelColor: labelColor,
                     ),
                   ),
-                  const SizedBox(width: 25), // column-gap 50rpx
+                  SizedBox(width: 25.sx), // column-gap 50rpx
                   Expanded(
                     child: _profitBlock(
                       label: '当日收益',
@@ -321,11 +322,11 @@ class _OverviewCard extends StatelessWidget {
   Widget _countBadge(IconData icon, Color iconColor, int count, Color textColor) {
     return Row(
       children: [
-        Icon(icon, size: 16, color: iconColor),
-        const SizedBox(width: 1), // gap 2rpx
+        Icon(icon, size: 16.sx, color: iconColor),
+        SizedBox(width: 1.sx), // gap 2rpx
         Text(
           '$count',
-          style: AppTextStyles.num(13, color: textColor, weight: FontWeight.w500),
+          style: AppTextStyles.num(13.sx, color: textColor, weight: FontWeight.w500),
         ),
       ],
     );
@@ -342,28 +343,28 @@ class _OverviewCard extends StatelessWidget {
       children: [
         Text(
           label,
-          style: AppTextStyles.cn(12, color: labelColor, height: 1.33),
+          style: AppTextStyles.cn(12.sx, color: labelColor, height: 1.33),
         ),
-        const SizedBox(height: 4), // margin-top 8rpx
+        SizedBox(height: 4.sx), // margin-top 8rpx
         Row(
           children: [
             Text(
               hideIncomeAmount ? '******' : _formatSignedMoney(value),
               style: AppTextStyles.num(
-                14.5, // 29rpx
+                14.5.sx, // 29rpx
                 color: profitColor(value, isDark),
                 weight: FontWeight.w600,
                 height: 1.38, // line-height 40rpx
               ),
             ),
-            const SizedBox(width: 7), // gap 14rpx
+            SizedBox(width: 7.sx), // gap 14rpx
             Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 4, // 8rpx
-                vertical: 1.5, // 3rpx
+              padding: EdgeInsets.symmetric(
+                horizontal: 4.sx, // 8rpx
+                vertical: 1.5.sx, // 3rpx
               ),
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(3), // 6rpx
+                borderRadius: BorderRadius.circular(3.sx), // 6rpx
                 color: rate >= 0
                     ? const Color(0x1AFF4D5D) // rgba(255,77,93,0.1)
                     : const Color(0x1A00B26A), // rgba(0,178,106,0.1)
@@ -371,7 +372,7 @@ class _OverviewCard extends StatelessWidget {
               child: Text(
                 hideIncomeRate ? '******' : '${_formatSignedMoney(rate)}%',
                 style: AppTextStyles.num(
-                  11, // 22rpx
+                  11.sx, // 22rpx
                   color: profitColor(rate, isDark),
                   height: 1.36, // line-height 30rpx
                 ),
@@ -455,7 +456,7 @@ class _TrendPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     if (points.length < 2) return;
-    const inset = 2.0; // echarts grid 4px@2x
+    final inset = 2.0.sx; // echarts grid 4px@2x
     final values = points.map((p) => p.dy);
     var min = values.reduce((a, b) => a < b ? a : b);
     var max = values.reduce((a, b) => a > b ? a : b);
@@ -480,7 +481,7 @@ class _TrendPainter extends CustomPainter {
       path,
       Paint()
         ..color = color
-        ..strokeWidth = 0.75 // echarts lineStyle width 1.5@2x
+        ..strokeWidth = 0.75.sx // echarts lineStyle width 1.5@2x
         ..style = PaintingStyle.stroke
         ..strokeJoin = StrokeJoin.round,
     );

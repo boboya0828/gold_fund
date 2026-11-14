@@ -4,6 +4,7 @@ import '../../../features/position/providers/position_provider.dart'
     show TableShowMode;
 import '../../../theme/app_colors.dart';
 import '../../../theme/text_styles.dart';
+import '../../../core/utils/screen_adapt.dart';
 
 /// Table mode popup matching the uni-app `.table-mode-menu`.
 class PositionTableModeMenu extends StatelessWidget {
@@ -21,18 +22,18 @@ class PositionTableModeMenu extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 82,
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      width: 82.sx,
+      padding: EdgeInsets.symmetric(vertical: 4.sx),
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF282B32) : Colors.white,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(8.sx),
         boxShadow: [
           BoxShadow(
             color: isDark
                 ? Colors.black.withAlpha(87)
                 : const Color(0x291A2240),
-            blurRadius: 14,
-            offset: const Offset(0, 6),
+            blurRadius: 14.sx,
+            offset: Offset(0, 6.sx),
           ),
         ],
       ),
@@ -60,16 +61,16 @@ class PositionTableModeMenu extends StatelessWidget {
     return GestureDetector(
       onTap: () => onSelect(mode),
       child: Container(
-        height: 36,
-        padding: const EdgeInsets.symmetric(horizontal: 10),
+        height: 36.sx,
+        padding: EdgeInsets.symmetric(horizontal: 10.sx),
         child: Row(
           children: [
-            Icon(icon, size: 18, color: iconColor),
-            const SizedBox(width: 7),
+            Icon(icon, size: 18.sx, color: iconColor),
+            SizedBox(width: 7.sx),
             Text(
               label,
               style: AppTextStyles.cn(
-                14,
+                14.sx,
                 color: textColor,
                 weight: isActive ? FontWeight.w600 : FontWeight.w400,
               ),
@@ -83,7 +84,7 @@ class PositionTableModeMenu extends StatelessWidget {
   Widget _divider() {
     return Container(
       height: 0.5,
-      margin: const EdgeInsets.symmetric(horizontal: 10),
+      margin: EdgeInsets.symmetric(horizontal: 10.sx),
       color: isDark ? const Color(0xFF3A3E48) : const Color(0xFFF0F0F0),
     );
   }

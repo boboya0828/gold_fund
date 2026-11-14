@@ -19,6 +19,7 @@ import 'widgets/position_details_hero_card.dart';
 import 'widgets/position_details_history.dart';
 import 'widgets/position_details_models.dart';
 import 'widgets/position_details_profit_calendar.dart';
+import '../../core/utils/screen_adapt.dart';
 
 /// 持仓详情页
 /// uni-app 对应: pages/index/fund/position-details.vue（5396 行，按优先级迁移核心区块）
@@ -663,8 +664,8 @@ class _PositionDetailsPageState extends ConsumerState<PositionDetailsPage> {
             children: [
               if (books.isEmpty)
                 Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Center(child: Text('暂无自选账本', style: AppTextStyles.cn(12, color: AppColors.lightTextSecondary))),
+                  padding: EdgeInsets.all(24.sx),
+                  child: Center(child: Text('暂无自选账本', style: AppTextStyles.cn(12.sx, color: AppColors.lightTextSecondary))),
                 )
               else
                 for (final b in books)
@@ -699,12 +700,12 @@ class _PositionDetailsPageState extends ConsumerState<PositionDetailsPage> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: isDark ? AppColors.darkSurface : Colors.white,
-        title: Text('确认删除', style: AppTextStyles.cn(15, color: isDark ? AppColors.darkText : AppColors.lightText, weight: FontWeight.w600)),
+        title: Text('确认删除', style: AppTextStyles.cn(15.sx, color: isDark ? AppColors.darkText : AppColors.lightText, weight: FontWeight.w600)),
         content: Text('确定要删除「$_shortName」的自选吗？',
-            style: AppTextStyles.cn(13, color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary)),
+            style: AppTextStyles.cn(13.sx, color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text('取消', style: AppTextStyles.cn(13, color: AppColors.lightTextSecondary))),
-          TextButton(onPressed: () => Navigator.pop(ctx, true), child: Text('确认删除', style: AppTextStyles.cn(13, color: AppColors.upColor))),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text('取消', style: AppTextStyles.cn(13.sx, color: AppColors.lightTextSecondary))),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: Text('确认删除', style: AppTextStyles.cn(13.sx, color: AppColors.upColor))),
         ],
       ),
     );
@@ -734,37 +735,37 @@ class _PositionDetailsPageState extends ConsumerState<PositionDetailsPage> {
       constraints: BoxConstraints(maxHeight: MediaQuery.of(ctx).size.height * 0.6),
       decoration: BoxDecoration(
         color: isDark ? AppColors.darkSurface : Colors.white,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(14.sx)),
       ),
       child: SafeArea(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 8, 10),
+            padding: EdgeInsets.fromLTRB(16.sx, 14.sx, 8.sx, 10.sx),
             child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              const SizedBox(width: 40),
+              SizedBox(width: 40.sx),
               Text(title,
-                  style: AppTextStyles.cn(14, color: isDark ? AppColors.darkText : AppColors.lightText, weight: FontWeight.w600)),
+                  style: AppTextStyles.cn(14.sx, color: isDark ? AppColors.darkText : AppColors.lightText, weight: FontWeight.w600)),
               IconButton(
                 onPressed: () => Navigator.pop(ctx),
-                icon: Icon(Icons.close, size: 18, color: isDark ? AppColors.darkTextSecondary : const Color(0xFFBFC2CC)),
+                icon: Icon(Icons.close, size: 18.sx, color: isDark ? AppColors.darkTextSecondary : const Color(0xFFBFC2CC)),
               ),
             ]),
           ),
           Flexible(
-            child: ListView(shrinkWrap: true, padding: const EdgeInsets.symmetric(horizontal: 16), children: children),
+            child: ListView(shrinkWrap: true, padding: EdgeInsets.symmetric(horizontal: 16.sx), children: children),
           ),
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.all(16.sx),
             child: GestureDetector(
               onTap: onConfirm,
               child: Container(
-                height: 40,
+                height: 40.sx,
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(colors: [Color(0xFFEE5668), Color(0xFFE74C62)]),
-                  borderRadius: BorderRadius.circular(999),
+                  borderRadius: BorderRadius.circular(999.sx),
                 ),
                 alignment: Alignment.center,
-                child: Text(actionText, style: AppTextStyles.cn(14, color: Colors.white)),
+                child: Text(actionText, style: AppTextStyles.cn(14.sx, color: Colors.white)),
               ),
             ),
           ),
@@ -778,21 +779,21 @@ class _PositionDetailsPageState extends ConsumerState<PositionDetailsPage> {
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 12),
+        padding: EdgeInsets.symmetric(vertical: 12.sx),
         child: Row(children: [
           Container(
-            width: 18,
-            height: 18,
+            width: 18.sx,
+            height: 18.sx,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: selected ? AppColors.upColor : Colors.transparent,
               border: Border.all(color: selected ? AppColors.upColor : (isDark ? AppColors.darkTextSecondary : const Color(0xFFBFC2CC))),
             ),
-            child: selected ? const Icon(Icons.check, size: 12, color: Colors.white) : null,
+            child: selected ? Icon(Icons.check, size: 12.sx, color: Colors.white) : null,
           ),
-          const SizedBox(width: 10),
+          SizedBox(width: 10.sx),
           Expanded(
-            child: Text(name, style: AppTextStyles.cn(13, color: isDark ? AppColors.darkText : AppColors.lightText)),
+            child: Text(name, style: AppTextStyles.cn(13.sx, color: isDark ? AppColors.darkText : AppColors.lightText)),
           ),
         ]),
       ),
@@ -851,21 +852,21 @@ class _PositionDetailsPageState extends ConsumerState<PositionDetailsPage> {
         final isDark = Theme.of(ctx).brightness == Brightness.dark;
         final textColor = isDark ? AppColors.darkText : AppColors.lightText;
         return Container(
-          height: 300,
+          height: 300.sx,
           decoration: BoxDecoration(
             color: isDark ? AppColors.darkSurface : Colors.white,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(14.sx)),
           ),
           child: SafeArea(
             child: Column(children: [
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                padding: EdgeInsets.symmetric(horizontal: 16.sx, vertical: 10.sx),
                 child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                   GestureDetector(
                     onTap: () => Navigator.pop(ctx),
-                    child: Text('取消', style: AppTextStyles.cn(14, color: AppColors.lightTextSecondary)),
+                    child: Text('取消', style: AppTextStyles.cn(14.sx, color: AppColors.lightTextSecondary)),
                   ),
-                  Text('选择年月', style: AppTextStyles.cn(14, color: textColor, weight: FontWeight.w700)),
+                  Text('选择年月', style: AppTextStyles.cn(14.sx, color: textColor, weight: FontWeight.w700)),
                   GestureDetector(
                     onTap: () {
                       Navigator.pop(ctx);
@@ -879,7 +880,7 @@ class _PositionDetailsPageState extends ConsumerState<PositionDetailsPage> {
                       });
                       _loadCalendar();
                     },
-                    child: Text('确定', style: AppTextStyles.cn(14, color: AppColors.upColor)),
+                    child: Text('确定', style: AppTextStyles.cn(14.sx, color: AppColors.upColor)),
                   ),
                 ]),
               ),
@@ -890,7 +891,7 @@ class _PositionDetailsPageState extends ConsumerState<PositionDetailsPage> {
                       scrollController: yearCtrl,
                       itemExtent: 44, // 88rpx
                       onSelectedItemChanged: (i) => yearIdx = i,
-                      children: [for (final y in years) Center(child: Text('$y年', style: AppTextStyles.cn(15, color: textColor)))],
+                      children: [for (final y in years) Center(child: Text('$y年', style: AppTextStyles.cn(15.sx, color: textColor)))],
                     ),
                   ),
                   Expanded(
@@ -898,7 +899,7 @@ class _PositionDetailsPageState extends ConsumerState<PositionDetailsPage> {
                       scrollController: monthCtrl,
                       itemExtent: 44,
                       onSelectedItemChanged: (i) => monthIdx = i,
-                      children: [for (var m = 1; m <= 12; m++) Center(child: Text('$m月', style: AppTextStyles.cn(15, color: textColor)))],
+                      children: [for (var m = 1; m <= 12; m++) Center(child: Text('$m月', style: AppTextStyles.cn(15.sx, color: textColor)))],
                     ),
                   ),
                 ]),
@@ -925,48 +926,48 @@ class _PositionDetailsPageState extends ConsumerState<PositionDetailsPage> {
           return Padding(
             padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
             child: Container(
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+              padding: EdgeInsets.fromLTRB(16.sx, 14.sx, 16.sx, 16.sx),
               decoration: BoxDecoration(
                 color: isDark ? AppColors.darkSurface : Colors.white,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(14.sx)),
               ),
               child: SafeArea(
                 child: Column(mainAxisSize: MainAxisSize.min, children: [
                   Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                    Text('发弹幕', style: AppTextStyles.cn(14, color: isDark ? AppColors.darkText : AppColors.lightText, weight: FontWeight.w600)),
+                    Text('发弹幕', style: AppTextStyles.cn(14.sx, color: isDark ? AppColors.darkText : AppColors.lightText, weight: FontWeight.w600)),
                     GestureDetector(
                       onTap: () => Navigator.pop(ctx),
-                      child: Icon(Icons.close, size: 18, color: isDark ? AppColors.darkTextSecondary : const Color(0xFFBFC2CC)),
+                      child: Icon(Icons.close, size: 18.sx, color: isDark ? AppColors.darkTextSecondary : const Color(0xFFBFC2CC)),
                     ),
                   ]),
-                  const SizedBox(height: 12),
+                  SizedBox(height: 12.sx),
                   TextField(
                     controller: controller,
                     maxLength: 30,
                     autofocus: true,
-                    style: AppTextStyles.cn(13, color: isDark ? AppColors.darkText : AppColors.lightText),
+                    style: AppTextStyles.cn(13.sx, color: isDark ? AppColors.darkText : AppColors.lightText),
                     decoration: InputDecoration(
                       hintText: '说点什么...',
-                      hintStyle: AppTextStyles.cn(13, color: isDark ? AppColors.darkTextSecondary : const Color(0xFFB8B8BD)),
+                      hintStyle: AppTextStyles.cn(13.sx, color: isDark ? AppColors.darkTextSecondary : const Color(0xFFB8B8BD)),
                       filled: true,
                       fillColor: isDark ? const Color(0xFF282828) : const Color(0xFFF5F5F6),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
-                      counterStyle: AppTextStyles.num(10, color: AppColors.lightTextSecondary),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.sx), borderSide: BorderSide.none),
+                      counterStyle: AppTextStyles.num(10.sx, color: AppColors.lightTextSecondary),
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  SizedBox(height: 8.sx),
                   Row(children: [
                     for (final t in tones)
                       GestureDetector(
                         onTap: () => setSheet(() => tone = t.$1),
                         child: Container(
-                          width: 24,
-                          height: 24,
-                          margin: const EdgeInsets.only(right: 10),
+                          width: 24.sx,
+                          height: 24.sx,
+                          margin: EdgeInsets.only(right: 10.sx),
                           decoration: BoxDecoration(
                             color: t.$2,
                             shape: BoxShape.circle,
-                            border: tone == t.$1 ? Border.all(color: isDark ? Colors.white : Colors.black54, width: 2) : null,
+                            border: tone == t.$1 ? Border.all(color: isDark ? Colors.white : Colors.black54, width: 2.sx) : null,
                           ),
                         ),
                       ),
@@ -979,12 +980,12 @@ class _PositionDetailsPageState extends ConsumerState<PositionDetailsPage> {
                         _sendDanmu(text, tone);
                       },
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 8),
+                        padding: EdgeInsets.symmetric(horizontal: 22.sx, vertical: 8.sx),
                         decoration: BoxDecoration(
                           gradient: const LinearGradient(colors: [Color(0xFFEE5668), Color(0xFFE74C62)]),
-                          borderRadius: BorderRadius.circular(999),
+                          borderRadius: BorderRadius.circular(999.sx),
                         ),
-                        child: Text('发送', style: AppTextStyles.cn(13, color: Colors.white)),
+                        child: Text('发送', style: AppTextStyles.cn(13.sx, color: Colors.white)),
                       ),
                     ),
                   ]),
@@ -1404,7 +1405,7 @@ class _PositionDetailsPageState extends ConsumerState<PositionDetailsPage> {
         iconTheme: IconThemeData(color: textColor),
         title: Text(
           _navbarScrolled && _shortName.isNotEmpty ? _shortName : '养基助手',
-          style: AppTextStyles.cn(16, color: textColor, weight: FontWeight.w600),
+          style: AppTextStyles.cn(16.sx, color: textColor, weight: FontWeight.w600),
         ),
       ),
       body: NotificationListener<ScrollNotification>(
@@ -1420,7 +1421,7 @@ class _PositionDetailsPageState extends ConsumerState<PositionDetailsPage> {
           child: _loading
               ? const Center(child: CircularProgressIndicator(color: AppColors.upColor))
               : ListView(
-                  padding: const EdgeInsets.fromLTRB(10, 4, 10, 16),
+                  padding: EdgeInsets.fromLTRB(10.sx, 4.sx, 10.sx, 16.sx),
                   children: [
                     // ① 资产概览
                     PositionDetailsHeroCard(
@@ -1446,10 +1447,10 @@ class _PositionDetailsPageState extends ConsumerState<PositionDetailsPage> {
                     ),
                     // ② 图表卡
                     Container(
-                      margin: const EdgeInsets.only(top: 9), // 18rpx
+                      margin: EdgeInsets.only(top: 9.sx), // 18rpx
                       decoration: BoxDecoration(
                         color: isDark ? AppColors.darkSurface : Colors.white,
-                        borderRadius: BorderRadius.circular(11),
+                        borderRadius: BorderRadius.circular(11.sx),
                       ),
                       clipBehavior: Clip.antiAlias,
                       child: Column(children: [

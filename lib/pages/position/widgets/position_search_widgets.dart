@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../theme/text_styles.dart';
+import '../../../core/utils/screen_adapt.dart';
 
 /// 搜索页分节标题 — 1:1 复刻 uni-app pages/positionv1/search.vue .section-head
 /// 左侧标题(26rpx #767676), 右侧可选操作区(如清空历史垃圾桶)
@@ -13,11 +14,11 @@ class PositionSearchSectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 11), // margin-bottom 22rpx
+      padding: EdgeInsets.only(bottom: 11.sx), // margin-bottom 22rpx
       child: Row(children: [
         Expanded(
           child: Text(title,
-              style: AppTextStyles.cn(13, color: isDark ? const Color(0xFFA7ADB8) : const Color(0xFF767676))), // 26rpx
+              style: AppTextStyles.cn(13.sx, color: isDark ? const Color(0xFFA7ADB8) : const Color(0xFF767676))), // 26rpx
         ),
         ?action,
       ]),
@@ -40,16 +41,16 @@ class PositionSearchHistoryTag extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6), // 22rpx 12rpx
+        padding: EdgeInsets.symmetric(horizontal: 11.sx, vertical: 6.sx), // 22rpx 12rpx
         decoration: BoxDecoration(
           color: isDark ? const Color(0xFF282828) : Colors.white,
-          borderRadius: BorderRadius.circular(999),
+          borderRadius: BorderRadius.circular(999.sx),
         ),
         child: Text(
           text,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: AppTextStyles.cn(12, color: isDark ? const Color(0xFFA7ADB8) : const Color(0xFF767676)), // 24rpx
+          style: AppTextStyles.cn(12.sx, color: isDark ? const Color(0xFFA7ADB8) : const Color(0xFF767676)), // 24rpx
         ),
       ),
     );

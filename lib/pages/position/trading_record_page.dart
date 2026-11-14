@@ -9,6 +9,7 @@ import '../../theme/app_icons.dart';
 import '../../theme/text_styles.dart';
 import 'widgets/trading_record_trade_days.dart';
 import 'widgets/trading_record_widgets.dart';
+import '../../core/utils/screen_adapt.dart';
 
 /// 交易记录页 — 1:1 复刻 uni-app pages/positionv1/trading-record.vue
 /// 类型 Tab 筛选 + z-paging 分页（下拉刷新/上拉加载）+ 搜索选基金过滤
@@ -364,12 +365,12 @@ class _TradingRecordPageState extends State<TradingRecordPage> {
             behavior: HitTestBehavior.opaque,
             onTap: _goSearch,
             child: SizedBox(
-              width: 32, // 64rpx
-              height: 32,
+              width: 32.sx, // 64rpx
+              height: 32.sx,
               child: Center(
                 child: Icon(
                   AppIcons.search,
-                  size: 22, // uni-icons search size=22
+                  size: 22.sx, // uni-icons search size=22
                   color: isDark ? const Color(0xFFD7DAE0) : const Color(0xFF000000),
                 ),
               ),
@@ -390,7 +391,7 @@ class _TradingRecordPageState extends State<TradingRecordPage> {
     final mutedColor = isDark ? const Color(0xFF8F949D) : const Color(0xFF8D8B87);
     // 首次加载中
     if (!_firstLoaded && _loading) {
-      return const Center(child: CupertinoActivityIndicator(radius: 12));
+      return Center(child: CupertinoActivityIndicator(radius: 12.sx));
     }
     // 空列表: 加载失败 → 重试; 否则 → 暂无交易记录
     if (_records.isEmpty) {
@@ -407,7 +408,7 @@ class _TradingRecordPageState extends State<TradingRecordPage> {
               child: Center(
                 child: Text(
                   _loadError ? '加载失败，点击重试' : '暂无交易记录', // empty-view-text
-                  style: AppTextStyles.cn(13, color: mutedColor),
+                  style: AppTextStyles.cn(13.sx, color: mutedColor),
                 ),
               ),
             ),
@@ -422,7 +423,7 @@ class _TradingRecordPageState extends State<TradingRecordPage> {
       titleColor: isDark ? const Color(0xFFA7ADB8) : const Color(0xFF666666),
       slivers: [
         SliverPadding(
-          padding: const EdgeInsets.fromLTRB(12, 9, 12, 20), // 18rpx 24rpx 40rpx
+          padding: EdgeInsets.fromLTRB(12.sx, 9.sx, 12.sx, 20.sx), // 18rpx 24rpx 40rpx
           sliver: SliverList.builder(
             itemCount: _records.length,
             itemBuilder: (context, index) {

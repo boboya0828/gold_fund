@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/text_styles.dart';
 import 'position_details_models.dart';
+import '../../../core/utils/screen_adapt.dart';
 
 /// 持仓详情 — 十大重仓股
 /// uni-app 对应: position-details.vue 的 .heavyweight-stocks
@@ -31,32 +32,32 @@ class PositionDetailsHeavyweight extends StatelessWidget {
     final subColor = isDark ? AppColors.darkTextSecondary : const Color(0xFF999999);
 
     Widget headCell(String t, {bool right = false}) => Expanded(
-          child: Text(t, textAlign: right ? TextAlign.right : TextAlign.center, style: AppTextStyles.cn(11, color: headColor, height: 1.4)),
+          child: Text(t, textAlign: right ? TextAlign.right : TextAlign.center, style: AppTextStyles.cn(11.sx, color: headColor, height: 1.4)),
         );
 
     return Container(
-      margin: const EdgeInsets.only(top: 12), // 24rpx
-      padding: const EdgeInsets.fromLTRB(9, 11, 9, 8), // 22rpx 18rpx 16rpx
+      margin: EdgeInsets.only(top: 12.sx), // 24rpx
+      padding: EdgeInsets.fromLTRB(9.sx, 11.sx, 9.sx, 8.sx), // 22rpx 18rpx 16rpx
       decoration: BoxDecoration(
         color: isDark ? AppColors.darkSurface : const Color(0xFAFFFFFF),
-        borderRadius: BorderRadius.circular(11), // 22rpx
+        borderRadius: BorderRadius.circular(11.sx), // 22rpx
         border: Border.all(color: isDark ? const Color(0xFF2B2D33) : const Color(0xE6F5EEEE), width: 0.5),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('十大重仓股', style: AppTextStyles.cn(15, color: titleColor, weight: FontWeight.w700)),
-          const SizedBox(height: 10),
+          Text('十大重仓股', style: AppTextStyles.cn(15.sx, color: titleColor, weight: FontWeight.w700)),
+          SizedBox(height: 10.sx),
           if (list != null && list!.isNotEmpty) ...[
             Row(children: [
-              Expanded(flex: 3, child: Text('重仓股票', style: AppTextStyles.cn(11, color: headColor, height: 1.4))),
+              Expanded(flex: 3, child: Text('重仓股票', style: AppTextStyles.cn(11.sx, color: headColor, height: 1.4))),
               headCell('涨跌幅'),
               headCell('持仓占比'),
               headCell('较上季度变化', right: true),
             ]),
             for (final item in list!)
               Container(
-                padding: const EdgeInsets.symmetric(vertical: 10),
+                padding: EdgeInsets.symmetric(vertical: 10.sx),
                 decoration: BoxDecoration(
                   border: Border(top: BorderSide(color: isDark ? AppColors.darkBorder : const Color(0xFFF0F0F0), width: 0.5)),
                 ),
@@ -64,32 +65,32 @@ class PositionDetailsHeavyweight extends StatelessWidget {
                   Expanded(
                     flex: 3,
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text(item['stockName']?.toString() ?? '--', style: AppTextStyles.cn(12, color: rowColor)),
-                      Text(item['stockCode']?.toString() ?? '', style: AppTextStyles.num(10, color: subColor)),
+                      Text(item['stockName']?.toString() ?? '--', style: AppTextStyles.cn(12.sx, color: rowColor)),
+                      Text(item['stockCode']?.toString() ?? '', style: AppTextStyles.num(10.sx, color: subColor)),
                     ]),
                   ),
                   Expanded(
                     child: Center(
                       child: Text(_chgRate(item['latestPrice']?['chgRate']),
-                          style: AppTextStyles.num(12, color: pdProfitColor(item['latestPrice']?['chgRate'] is num ? item['latestPrice']['chgRate'] as num : 0))),
+                          style: AppTextStyles.num(12.sx, color: pdProfitColor(item['latestPrice']?['chgRate'] is num ? item['latestPrice']['chgRate'] as num : 0))),
                     ),
                   ),
                   Expanded(
-                    child: Center(child: Text(_ratio(item['navRatio']), style: AppTextStyles.num(12, color: rowColor))),
+                    child: Center(child: Text(_ratio(item['navRatio']), style: AppTextStyles.num(12.sx, color: rowColor))),
                   ),
                   Expanded(
                     child: Align(
                       alignment: Alignment.centerRight,
                       child: Text(_chgRate(item['quarterlyChangeRate']),
-                          style: AppTextStyles.num(12, color: pdProfitColor(item['quarterlyChangeRate'] is num ? item['quarterlyChangeRate'] as num : 0))),
+                          style: AppTextStyles.num(12.sx, color: pdProfitColor(item['quarterlyChangeRate'] is num ? item['quarterlyChangeRate'] as num : 0))),
                     ),
                   ),
                 ]),
               ),
           ] else
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 20),
-              child: Center(child: Text('暂无重仓股数据', style: AppTextStyles.cn(12, color: subColor))),
+              padding: EdgeInsets.symmetric(vertical: 20.sx),
+              child: Center(child: Text('暂无重仓股数据', style: AppTextStyles.cn(12.sx, color: subColor))),
             ),
         ],
       ),

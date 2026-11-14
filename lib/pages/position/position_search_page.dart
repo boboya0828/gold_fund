@@ -9,6 +9,7 @@ import '../../shared/widgets/custom_nav_bar.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/text_styles.dart';
 import 'widgets/position_search_widgets.dart';
+import '../../core/utils/screen_adapt.dart';
 
 /// 持仓搜索页 — 1:1 复刻 uni-app pages/positionv1/search.vue
 /// 搜索历史 + 热搜基金 + 模糊搜索(assetType=3); 选中记录搜索历史后:
@@ -257,7 +258,7 @@ class _PositionSearchPageState extends ConsumerState<PositionSearchPage> {
         ),
         Expanded(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 9), // 18rpx
+            padding: EdgeInsets.symmetric(horizontal: 9.sx), // 18rpx
             child: Column(children: [
               _buildSearchHeader(isDark),
               Expanded(child: _buildBody(isDark)),
@@ -271,15 +272,15 @@ class _PositionSearchPageState extends ConsumerState<PositionSearchPage> {
   /// search-header: 搜索栏(80rpx 圆角白底) + 取消按钮
   Widget _buildSearchHeader(bool isDark) {
     return Padding(
-      padding: const EdgeInsets.only(top: 10, bottom: 8), // padding-top 20rpx / bottom 16rpx
+      padding: EdgeInsets.only(top: 10.sx, bottom: 8.sx), // padding-top 20rpx / bottom 16rpx
       child: Row(children: [
         Expanded(
           child: Container(
-            height: 40, // 80rpx
-            padding: const EdgeInsets.only(left: 17, right: 9), // 34rpx / 18rpx
+            height: 40.sx, // 80rpx
+            padding: EdgeInsets.only(left: 17.sx, right: 9.sx), // 34rpx / 18rpx
             decoration: BoxDecoration(
               color: isDark ? const Color(0xFF282828) : Colors.white,
-              borderRadius: BorderRadius.circular(24), // 48rpx
+              borderRadius: BorderRadius.circular(24.sx), // 48rpx
             ),
             child: Row(children: [
               Expanded(
@@ -288,24 +289,24 @@ class _PositionSearchPageState extends ConsumerState<PositionSearchPage> {
                   textInputAction: TextInputAction.search,
                   onChanged: _onKeywordChanged,
                   onSubmitted: (_) => _onSearchConfirm(),
-                  style: AppTextStyles.cn(14, color: isDark ? const Color(0xFFD7DAE0) : const Color(0xFF4A4A4A)), // 28rpx
+                  style: AppTextStyles.cn(14.sx, color: isDark ? const Color(0xFFD7DAE0) : const Color(0xFF4A4A4A)), // 28rpx
                   cursorColor: const Color(0xFFE05665),
                   decoration: InputDecoration(
                     isCollapsed: true,
                     border: InputBorder.none,
                     hintText: '请输入名称/代码/拼音',
                     hintStyle:
-                        AppTextStyles.cn(14, color: isDark ? const Color(0xFFA7ADB8) : const Color(0xFFB1B1B6)),
+                        AppTextStyles.cn(14.sx, color: isDark ? const Color(0xFFA7ADB8) : const Color(0xFFB1B1B6)),
                   ),
                 ),
               ),
               GestureDetector(
                 onTap: _onSearchConfirm,
                 child: SizedBox(
-                  width: 26, // 52rpx
-                  height: 26,
+                  width: 26.sx, // 52rpx
+                  height: 26.sx,
                   child: Icon(AppIcons.search,
-                      size: 22, color: isDark ? const Color(0xFFA7ADB8) : const Color(0xFFA7A7AB)),
+                      size: 22.sx, color: isDark ? const Color(0xFFA7ADB8) : const Color(0xFFA7A7AB)),
                 ),
               ),
             ]),
@@ -314,9 +315,9 @@ class _PositionSearchPageState extends ConsumerState<PositionSearchPage> {
         GestureDetector(
           onTap: _clearKeyword,
           child: Padding(
-            padding: const EdgeInsets.only(left: 10), // margin-left 20rpx
+            padding: EdgeInsets.only(left: 10.sx), // margin-left 20rpx
             child: Text('取消',
-                style: AppTextStyles.cn(14, color: isDark ? const Color(0xFFA7ADB8) : const Color(0xFF8F8F95))),
+                style: AppTextStyles.cn(14.sx, color: isDark ? const Color(0xFFA7ADB8) : const Color(0xFF8F8F95))),
           ),
         ),
       ]),
@@ -333,10 +334,10 @@ class _PositionSearchPageState extends ConsumerState<PositionSearchPage> {
       }
       // 搜索结果
       return ListView(
-        padding: const EdgeInsets.only(bottom: 12),
+        padding: EdgeInsets.only(bottom: 12.sx),
         children: [
           Padding(
-            padding: const EdgeInsets.only(top: 14), // section-block margin-top 28rpx
+            padding: EdgeInsets.only(top: 14.sx), // section-block margin-top 28rpx
             child: Column(children: [for (final item in _results) _resultItem(item, isDark)]),
           ),
         ],
@@ -344,11 +345,11 @@ class _PositionSearchPageState extends ConsumerState<PositionSearchPage> {
     }
     // 搜索历史 + 热搜基金
     return ListView(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: EdgeInsets.only(bottom: 12.sx),
       children: [
         if (_history.isNotEmpty)
           Padding(
-            padding: const EdgeInsets.only(top: 14),
+            padding: EdgeInsets.only(top: 14.sx),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               PositionSearchSectionHeader(
                 title: '搜索历史',
@@ -356,9 +357,9 @@ class _PositionSearchPageState extends ConsumerState<PositionSearchPage> {
                 action: GestureDetector(
                   onTap: _clearHistory,
                   child: Padding(
-                    padding: const EdgeInsets.all(4), // 8rpx
+                    padding: EdgeInsets.all(4.sx), // 8rpx
                     child: Icon(Icons.delete_outline,
-                        size: 16, color: isDark ? const Color(0xFFA7ADB8) : const Color(0xFFA7A7AB)), // up-icon trash
+                        size: 16.sx, color: isDark ? const Color(0xFFA7ADB8) : const Color(0xFFA7A7AB)), // up-icon trash
                   ),
                 ),
               ),
@@ -377,7 +378,7 @@ class _PositionSearchPageState extends ConsumerState<PositionSearchPage> {
             ]),
           ),
         Padding(
-          padding: const EdgeInsets.only(top: 14),
+          padding: EdgeInsets.only(top: 14.sx),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             PositionSearchSectionHeader(title: '热搜基金', isDark: isDark),
             if (_hot.isEmpty)
@@ -393,9 +394,9 @@ class _PositionSearchPageState extends ConsumerState<PositionSearchPage> {
   /// status-box / empty-text: padding 48rpx 0 12rpx, 24rpx #aaaab0
   Widget _statusBox(String text, bool isDark) {
     return Padding(
-      padding: const EdgeInsets.only(top: 24, bottom: 6),
+      padding: EdgeInsets.only(top: 24.sx, bottom: 6.sx),
       child: Center(
-        child: Text(text, style: AppTextStyles.cn(12, color: isDark ? const Color(0xFFA7ADB8) : const Color(0xFFAAAAB0))),
+        child: Text(text, style: AppTextStyles.cn(12.sx, color: isDark ? const Color(0xFFA7ADB8) : const Color(0xFFAAAAB0))),
       ),
     );
   }
@@ -406,7 +407,7 @@ class _PositionSearchPageState extends ConsumerState<PositionSearchPage> {
       behavior: HitTestBehavior.opaque,
       onTap: () => _handleSelectSymbol(item),
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 9), // 18rpx
+        padding: EdgeInsets.symmetric(vertical: 9.sx), // 18rpx
         decoration: BoxDecoration(
           border: Border(
             bottom: BorderSide(color: isDark ? const Color(0xFF2B2D33) : const Color(0xFFEFEDEF), width: 0.5),
@@ -414,7 +415,7 @@ class _PositionSearchPageState extends ConsumerState<PositionSearchPage> {
         ),
         child: Row(children: [
           Expanded(child: _nameCodeColumn(item, isDark)),
-          Icon(Icons.chevron_right, size: 15, color: isDark ? const Color(0xFFA7ADB8) : const Color(0xFFA7A7AB)), // uni-icons right
+          Icon(Icons.chevron_right, size: 15.sx, color: isDark ? const Color(0xFFA7ADB8) : const Color(0xFFA7A7AB)), // uni-icons right
         ]),
       ),
     );
@@ -427,7 +428,7 @@ class _PositionSearchPageState extends ConsumerState<PositionSearchPage> {
       behavior: HitTestBehavior.opaque,
       onTap: () => _handleSelectSymbol(item),
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 9),
+        padding: EdgeInsets.symmetric(vertical: 9.sx),
         decoration: BoxDecoration(
           border: Border(
             bottom: BorderSide(color: isDark ? const Color(0xFF2B2D33) : const Color(0xFFEFEDEF), width: 0.5),
@@ -435,18 +436,18 @@ class _PositionSearchPageState extends ConsumerState<PositionSearchPage> {
         ),
         child: Row(children: [
           SizedBox(
-            width: 16, // 32rpx
+            width: 16.sx, // 32rpx
             child: Text(
               '$rank',
               textAlign: TextAlign.center,
               style: AppTextStyles.num(
-                14, // 28rpx
+                14.sx, // 28rpx
                 weight: FontWeight.w700,
                 color: rank <= 3 ? const Color(0xFFE05665) : const Color(0xFF9D9DA4), // hot-rank-top
               ),
             ),
           ),
-          const SizedBox(width: 9), // margin-left 18rpx
+          SizedBox(width: 9.sx), // margin-left 18rpx
           Expanded(child: _nameCodeColumn(item, isDark)),
         ]),
       ),
@@ -460,15 +461,15 @@ class _PositionSearchPageState extends ConsumerState<PositionSearchPage> {
         item.displayName,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
-        style: AppTextStyles.cn(14, color: isDark ? const Color(0xFFD7DAE0) : const Color(0xFF3A3A3E), height: 1.4),
+        style: AppTextStyles.cn(14.sx, color: isDark ? const Color(0xFFD7DAE0) : const Color(0xFF3A3A3E), height: 1.4),
       ),
       Padding(
-        padding: const EdgeInsets.only(top: 3), // margin-top 6rpx
+        padding: EdgeInsets.only(top: 3.sx), // margin-top 6rpx
         child: Text(
           item.displayCode,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: AppTextStyles.cn(11, color: isDark ? const Color(0xFFA7ADB8) : const Color(0xFFA5A5AA)),
+          style: AppTextStyles.cn(11.sx, color: isDark ? const Color(0xFFA7ADB8) : const Color(0xFFA5A5AA)),
         ),
       ),
     ]);

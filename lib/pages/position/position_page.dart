@@ -14,6 +14,7 @@ import 'widgets/position_table_mode_menu.dart';
 import 'widgets/position_action_popup.dart';
 import 'widgets/position_delete_dialog.dart';
 import 'widgets/position_asset_visible_dialog.dart';
+import '../../core/utils/screen_adapt.dart';
 
 /// 持仓页面 — 1:1 复刻 uni-app pages/positionv1/index.vue
 /// 主文件只负责编排和状态管理，各 UI 区块拆入 widgets/ 目录
@@ -32,12 +33,12 @@ class _PositionPageState extends ConsumerState<PositionPage> {
 
   // 表格模式菜单锚点：跟随表头模式图标定位（源码 top=rect.bottom+10, right 对齐图标右缘）
   final GlobalKey _modeIconKey = GlobalKey();
-  double _modeMenuTop = 160;
-  double _modeMenuRight = 16;
+  double _modeMenuTop = 160.sx;
+  double _modeMenuRight = 16.sx;
 
   // 长按行的定位数据 (用于操作弹窗跟随)
   Offset _rowOffset = Offset.zero;
-  double _rowHeight = 50;
+  double _rowHeight = 55.sx; // 110rpx 行高（长按后会被实测行高覆盖）
 
   @override
   void initState() {
@@ -62,7 +63,7 @@ class _PositionPageState extends ConsumerState<PositionPage> {
         // 高度 = 状态栏高度 + 导航头自身内容高度(92 = 10+29+10+38+5)，保持底边位置不变，
         // 否则状态栏那一条会露出纯色 Scaffold 背景，跟背景图断层。
         if (!isDark)
-          Positioned(top: 0, left: 0, right: 0, height: topPadding + 92,
+          Positioned(top: 0, left: 0, right: 0, height: topPadding + 92.sx,
             child: Image.asset('assets/images/img/position-bg.png', fit: BoxFit.cover, alignment: Alignment.topCenter,
               errorBuilder: (context, error, stackTrace) => const SizedBox.shrink())),
         SafeArea(
@@ -149,8 +150,8 @@ class _PositionPageState extends ConsumerState<PositionPage> {
             child: Container(color: maskColor),
           ),
           Positioned(
-            right: 12,
-            top: topPadding + 44,
+            right: 12.sx,
+            top: topPadding + 44.sx,
             child: PositionQuickMenu(
               isDark: isDark,
               onSync: _syncHoldings,
@@ -243,7 +244,7 @@ class _PositionPageState extends ConsumerState<PositionPage> {
     final box = _modeIconKey.currentContext?.findRenderObject() as RenderBox?;
     if (box != null) {
       final pos = box.localToGlobal(Offset.zero);
-      _modeMenuTop = pos.dy + box.size.height + 10;
+      _modeMenuTop = pos.dy + box.size.height + 10.sx;
       _modeMenuRight =
           MediaQuery.of(context).size.width - (pos.dx + box.size.width);
     }

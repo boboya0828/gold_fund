@@ -7,6 +7,7 @@ import '../../../theme/text_styles.dart';
 import '../../../features/position/providers/position_provider.dart';
 import '../../../shared/widgets/z_paging_refresh.dart';
 import 'position_holding_row.dart';
+import '../../../core/utils/screen_adapt.dart';
 
 /// 持仓表格容器 — 1:1 复刻 .demo-table-header + .active-box（左固定列 + 右侧横滑 16 列）
 ///
@@ -53,10 +54,10 @@ class PositionHoldingTable extends ConsumerStatefulWidget {
 }
 
 class _PositionHoldingTableState extends ConsumerState<PositionHoldingTable> {
-  static const double fixedWidth = 150; // 300rpx
-  static const double cellWidth = 72; // 144rpx
-  static const double headerHeight = 39; // 78rpx
-  static const double rowHeight = PositionHoldingFixedCell.rowHeight; // 110rpx
+  static double get fixedWidth => 150.sx; // 300rpx
+  static double get cellWidth => 72.sx; // 144rpx
+  static double get headerHeight => 39.sx; // 78rpx
+  static double get rowHeight => PositionHoldingFixedCell.rowHeight; // 110rpx
 
   final ScrollController _headCtrl = ScrollController();
   final ScrollController _bodyCtrl = ScrollController();
@@ -157,13 +158,13 @@ class _PositionHoldingTableState extends ConsumerState<PositionHoldingTable> {
                                 width: fixedWidth,
                                 decoration: BoxDecoration(
                                   boxShadow: _scrolled
-                                      ? const [
+                                      ? [
                                           // 8rpx 0 10rpx -6rpx rgba(31,36,48,0.08)
                                           BoxShadow(
                                             color: Color(0x141F2430),
-                                            blurRadius: 5,
+                                            blurRadius: 5.sx,
                                             spreadRadius: -3,
-                                            offset: Offset(4, 0),
+                                            offset: Offset(4.sx, 0),
                                           ),
                                         ]
                                       : null,
@@ -273,30 +274,30 @@ class _PositionHoldingTableState extends ConsumerState<PositionHoldingTable> {
           // 左固定图标区 .demo-fixed-head
           Container(
             width: fixedWidth,
-            padding: const EdgeInsets.only(left: 16), // padding-left 32rpx
+            padding: EdgeInsets.only(left: 16.sx), // padding-left 32rpx
             child: Row(
               children: [
                 GestureDetector(
                   onTap: widget.onSortManage, // 1:1 hendleSort → 表头管理页
-                  child: Icon(AppIcons.settings, size: 20, color: mutedIconColor),
+                  child: Icon(AppIcons.settings, size: 20.sx, color: mutedIconColor),
                 ),
-                const SizedBox(width: 12), // gap 24rpx
+                SizedBox(width: 12.sx), // gap 24rpx
                 GestureDetector(
                   key: widget.modeIconKey,
                   onTap: widget.onSortToggle, // 1:1 toggleTableModeMenu
                   child: Icon(
                     _tableModeIcon(state.tableMode),
                     key: const Key('position-header-mode-icon'),
-                    size: 20,
+                    size: 20.sx,
                     color: mutedIconColor,
                   ),
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: 12.sx),
                 GestureDetector(
                   onTap: widget.onDataSourceTap, // 估值数据源弹框（未移植时禁用）
                   child: Icon(
                     AppIcons.dataSource,
-                    size: 20,
+                    size: 20.sx,
                     color: mutedIconColor,
                   ),
                 ),
@@ -334,14 +335,14 @@ class _PositionHoldingTableState extends ConsumerState<PositionHoldingTable> {
                 ),
                 // 右端横滑提示箭头（scrollLeft=0 时显示）
                 if (!_scrolled && overflows)
-                  const Positioned(
-                    right: 2, // right 4rpx
+                  Positioned(
+                    right: 2.sx, // right 4rpx
                     top: 0,
                     bottom: 0,
                     child: Center(
                       child: Icon(
                         Icons.chevron_right,
-                        size: 12,
+                        size: 12.sx,
                         color: Color(0xFFB3B0AA),
                       ),
                     ),
@@ -447,11 +448,11 @@ class _PositionHoldingTableState extends ConsumerState<PositionHoldingTable> {
     final mutedIconColor =
         isDark ? const Color(0xFFA7ADB8) : const Color(0xFF8E857E);
     return Padding(
-      padding: const EdgeInsets.only(
-        left: 16,
-        right: 16,
-        top: 10, // margin-top 20rpx
-        bottom: 100, // padding-bottom 200rpx
+      padding: EdgeInsets.only(
+        left: 16.sx,
+        right: 16.sx,
+        top: 10.sx, // margin-top 20rpx
+        bottom: 100.sx, // padding-bottom 200rpx
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -488,12 +489,12 @@ class _PositionHoldingTableState extends ConsumerState<PositionHoldingTable> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 12, color: iconColor),
-          const SizedBox(width: 2), // .addbox view margin-left 4rpx
+          Icon(icon, size: 12.sx, color: iconColor),
+          SizedBox(width: 2.sx), // .addbox view margin-left 4rpx
           Text(
             label,
             style: AppTextStyles.cn(
-              11, // 22rpx
+              11.sx, // 22rpx
               color: isDark ? const Color(0xFF8F949D) : const Color(0xFF7A7A82),
             ),
           ),
@@ -514,13 +515,13 @@ class _PositionHoldingTableState extends ConsumerState<PositionHoldingTable> {
           child: Padding(
             padding: const EdgeInsets.only(bottom: 0),
             child: SizedBox(
-              height: 26, // margin-top 20rpx + 行高，占位避免与 ndata 重叠
+              height: 26.sx, // margin-top 20rpx + 行高，占位避免与 ndata 重叠
               child: Stack(
                 children: [
                   Positioned(
-                    top: 10,
-                    left: 16,
-                    right: 16,
+                    top: 10.sx,
+                    left: 16.sx,
+                    right: 16.sx,
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -553,7 +554,7 @@ class _PositionHoldingTableState extends ConsumerState<PositionHoldingTable> {
         // .ndata：absolute 铺满，padding 120rpx 60rpx 0，内容垂直居中（justify-center）
         Positioned.fill(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(30, 60, 30, 0),
+            padding: EdgeInsets.fromLTRB(30.sx, 60.sx, 30.sx, 0),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -568,17 +569,17 @@ class _PositionHoldingTableState extends ConsumerState<PositionHoldingTable> {
                   },
                   child: Container(
                     width: double.infinity,
-                    constraints: const BoxConstraints(maxWidth: 270), // 540rpx
-                    height: 43, // 86rpx
+                    constraints: BoxConstraints(maxWidth: 270.sx), // 540rpx
+                    height: 43.sx, // 86rpx
                     decoration: BoxDecoration(
                       color: AppColors.primary, // #E15665
-                      borderRadius: BorderRadius.circular(5), // 10rpx
-                      boxShadow: const [
+                      borderRadius: BorderRadius.circular(5.sx), // 10rpx
+                      boxShadow: [
                         // 0 16rpx 36rpx rgba(82,122,248,0.16)
                         BoxShadow(
                           color: Color(0x29527AF8),
-                          blurRadius: 18,
-                          offset: Offset(0, 8),
+                          blurRadius: 18.sx,
+                          offset: Offset(0, 8.sx),
                         ),
                       ],
                     ),
@@ -586,18 +587,18 @@ class _PositionHoldingTableState extends ConsumerState<PositionHoldingTable> {
                     child: Text(
                       '导入我的持有基金',
                       style: AppTextStyles.cn(
-                        15, // 30rpx
+                        15.sx, // 30rpx
                         color: Colors.white,
                         weight: FontWeight.w500,
                       ),
                     ),
                   ),
                 ),
-                const SizedBox(height: 12), // margin-top 24rpx
+                SizedBox(height: 12.sx), // margin-top 24rpx
                 Text(
                   '已支持支付宝、天天基金、腾讯理财通、雪球基金等平台的一键导入',
                   style: AppTextStyles.cn(
-                    12, // 24rpx
+                    12.sx, // 24rpx
                     color: isDark
                         ? const Color(0xFF8F949D)
                         : const Color(0xFF8D8B87),
@@ -605,11 +606,11 @@ class _PositionHoldingTableState extends ConsumerState<PositionHoldingTable> {
                   ),
                   textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 11), // margin-top 22rpx
+                SizedBox(height: 11.sx), // margin-top 22rpx
                 Text(
                   '养基助手应用仅用于数据同步模拟，不涉及任何真实交易',
                   style: AppTextStyles.num(
-                    10, // 20rpx
+                    10.sx, // 20rpx
                     color: isDark
                         ? const Color(0xFF8F949D)
                         : const Color(0xFF8D8B87),
@@ -657,7 +658,7 @@ class _SortHeaderCell extends StatelessWidget {
       child: Container(
         width: _PositionHoldingTableState.cellWidth,
         height: _PositionHoldingTableState.headerHeight,
-        padding: const EdgeInsets.only(right: 4), // 8rpx
+        padding: EdgeInsets.only(right: 4.sx), // 8rpx
         color: Colors.transparent,
         child: Row(
           mainAxisAlignment: MainAxisAlignment.end,
@@ -668,20 +669,20 @@ class _SortHeaderCell extends StatelessWidget {
               children: [
                 Text(
                   column.title,
-                  style: AppTextStyles.cn(11, color: labelColor, height: 1.2),
+                  style: AppTextStyles.cn(11.sx, color: labelColor, height: 1.2),
                 ),
-                const SizedBox(height: 4), // margin-top 8rpx
+                SizedBox(height: 4.sx), // margin-top 8rpx
                 Text(
                   dateLabel,
-                  style: AppTextStyles.num(9, color: dateColor, height: 1),
+                  style: AppTextStyles.num(9.sx, color: dateColor, height: 1),
                 ),
               ],
             ),
-            const SizedBox(width: 3), // gap 6rpx
+            SizedBox(width: 3.sx), // gap 6rpx
             // .navimag：表头横滑列上内联布局（width 14rpx height 22rpx）
             SizedBox(
-              width: 7,
-              height: 11,
+              width: 7.sx,
+              height: 11.sx,
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -717,7 +718,7 @@ class _SortTriangle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return CustomPaint(
-      size: const Size(6, 4),
+      size: Size(6.sx, 4.sx),
       painter: _SortTrianglePainter(pointsUp: pointsUp, color: color),
     );
   }

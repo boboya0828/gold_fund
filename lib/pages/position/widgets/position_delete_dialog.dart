@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/text_styles.dart';
+import '../../../core/utils/screen_adapt.dart';
 
 /// 删除确认弹窗 — 1:1 复刻 uni-app components/delectPopup.vue
 /// 渐变卡片 + 顶部警告图标(tzico.png) + 两枚圆角胶囊按钮
@@ -40,14 +41,14 @@ class PositionDeleteDialog extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: SizedBox(
-          width: 300, // 600rpx
+          width: 300.sx, // 600rpx
           child: Stack(
             clipBehavior: Clip.none,
             alignment: Alignment.topCenter,
             children: [
               // 卡片本体
               Container(
-                width: 300,
+                width: 300.sx,
                 decoration: BoxDecoration(
                   // 源码 linear-gradient(0deg,#FFFFFF 0%,#FEF0F0 100%)（0deg 由下往上）
                   gradient: isDark
@@ -60,40 +61,40 @@ class PositionDeleteDialog extends StatelessWidget {
                   color: isDark ? AppColors.darkSurface : null,
                   border: Border.all(
                     color: isDark ? AppColors.assetDividerDark : Colors.white,
-                    width: 1, // 2rpx
+                    width: 1.sx, // 2rpx
                   ),
-                  borderRadius: BorderRadius.circular(10), // 20rpx
+                  borderRadius: BorderRadius.circular(10.sx), // 20rpx
                 ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     // 图标下半(约32) + 标题上距 20rpx(10)
-                    const SizedBox(height: 42),
+                    SizedBox(height: 42.sx),
                     Text(
                       '确认删除',
                       textAlign: TextAlign.center,
                       style: AppTextStyles.cn(
-                        20, // 40rpx
+                        20.sx, // 40rpx
                         color: titleColor,
                         weight: FontWeight.bold,
                       ),
                     ),
-                    const SizedBox(height: 18), // font2 margin-top 36rpx
+                    SizedBox(height: 18.sx), // font2 margin-top 36rpx
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 21), // 42rpx
+                      padding: EdgeInsets.symmetric(horizontal: 21.sx), // 42rpx
                       child: Text(
                         '确定要删除「$assetName」吗？',
                         textAlign: TextAlign.center,
                         style: AppTextStyles.cn(
-                          15, // 30rpx
+                          15.sx, // 30rpx
                           color: contentColor,
                           height: 1.5, // line-height 45rpx / 30rpx
                         ),
                       ),
                     ),
-                    const SizedBox(height: 23), // btn margin-top 46rpx
+                    SizedBox(height: 23.sx), // btn margin-top 46rpx
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 21),
+                      padding: EdgeInsets.symmetric(horizontal: 21.sx),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -112,7 +113,7 @@ class PositionDeleteDialog extends StatelessWidget {
                         ],
                       ),
                     ),
-                    const SizedBox(height: 20), // margin-bottom 40rpx
+                    SizedBox(height: 20.sx), // margin-bottom 40rpx
                   ],
                 ),
               ),
@@ -124,8 +125,8 @@ class PositionDeleteDialog extends StatelessWidget {
                 child: Center(
                   child: Image.asset(
                     'assets/images/img/tzico.png',
-                    width: 57, // 114rpx
-                    height: 57,
+                    width: 57.sx, // 114rpx
+                    height: 57.sx,
                   ),
                 ),
               ),
@@ -146,20 +147,20 @@ class PositionDeleteDialog extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 124,
-        height: 42,
+        width: 124.sx,
+        height: 42.sx,
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: filled
               ? _accent
               : (isDark ? const Color(0xFF282828) : Colors.transparent),
           border: filled ? null : Border.all(color: _accent, width: 0.5), // 1rpx
-          borderRadius: BorderRadius.circular(21),
+          borderRadius: BorderRadius.circular(21.sx),
         ),
         child: Text(
           text,
           style: AppTextStyles.cn(
-            15, // 30rpx
+            15.sx, // 30rpx
             color: filled ? Colors.white : _accent,
           ),
         ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../theme/text_styles.dart';
 import '../../position/position_provider_types.dart' show PositionState;
+import '../../../core/utils/screen_adapt.dart';
 
 /// 长按操作弹窗 — 1:1 复刻 .popup-content (带方向箭头、跟随按下的行定位)
 class PositionActionPopup extends StatelessWidget {
@@ -31,13 +32,13 @@ class PositionActionPopup extends StatelessWidget {
     required this.onDelete,
   });
 
-  static const double _popupWidth = 300; // 源码 width/min-width 600rpx
-  static const double _popupMaxHeight = 83; // 33 + 50
-  static const double _popupGap = 8; // 源码 popupGap
-  static const double _tabbarReserve = 60; // 源码 uni.upx2px(120)
-  static const double _arrowWidth = 14; // 源码 border-left/right 14rpx
-  static const double _arrowHeight = 8; // 源码 border-bottom 16rpx
-  static const double _arrowCenterFraction = 0.3; // 源码 .popup-arrow left:30%
+  static double get _popupWidth => 300.sx; // 源码 width/min-width 600rpx
+  static double get _popupMaxHeight => 83.sx; // 33 + 50
+  static double get _popupGap => 8.sx; // 源码 popupGap
+  static double get _tabbarReserve => 60.sx; // 源码 uni.upx2px(120)
+  static double get _arrowWidth => 14.sx; // 源码 border-left/right 14rpx
+  static double get _arrowHeight => 8.sx; // 源码 border-bottom 16rpx
+  static double get _arrowCenterFraction => 0.3.sx; // 源码 .popup-arrow left: 30.sx%
 
   @override
   Widget build(BuildContext context) {
@@ -70,25 +71,25 @@ class PositionActionPopup extends StatelessWidget {
       width: _popupWidth,
       decoration: BoxDecoration(
         color: const Color(0xFF383A47),
-        borderRadius: BorderRadius.circular(6),
-        boxShadow: const [BoxShadow(color: Color(0x2E201915), blurRadius: 18, offset: Offset(0, 7))],
+        borderRadius: BorderRadius.circular(6.sx),
+        boxShadow: [BoxShadow(color: Color(0x2E201915), blurRadius: 18.sx, offset: Offset(0, 7.sx))],
       ),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         // popup-title
         Container(
-          height: 33,
+          height: 33.sx,
           alignment: Alignment.center,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
+          padding: EdgeInsets.symmetric(horizontal: 12.sx),
           decoration: const BoxDecoration(
             border: Border(bottom: BorderSide(color: Color(0x1FFFFFFF), width: 0.5)),
           ),
           child: Text(title,
-            style: AppTextStyles.cn(12, color: Colors.white, weight: FontWeight.w700),
+            style: AppTextStyles.cn(12.sx, color: Colors.white, weight: FontWeight.w700),
             maxLines: 1, overflow: TextOverflow.ellipsis),
         ),
         // popup-actions — 1:1 uni-app popupActionList: 置顶/修改持仓/批量编辑/批量加减仓/删除
         SizedBox(
-          height: 50,
+          height: 50.sx,
           child: Row(children: [
             _action('置顶', Icons.arrow_upward, onPinTop),
             _divider(),
@@ -110,7 +111,7 @@ class PositionActionPopup extends StatelessWidget {
       ]),
     );
 
-    // 三角形中心对齐 popup 宽度的 30% 处 (源码 left:30%; transform:translateX(-50%))，
+    // 三角形中心对齐 popup 宽度的 30% 处 (源码 left: 30.sx%; transform:translateX(-50%))，
     // 用 Stack + 负偏移绝对定位，避免依赖 Column 的隐式宽度传导。
     final arrowLeft = _popupWidth * _arrowCenterFraction - _arrowWidth / 2;
     return SizedBox(
@@ -121,7 +122,7 @@ class PositionActionPopup extends StatelessWidget {
           left: arrowLeft,
           top: showAbove ? null : -_arrowHeight,
           bottom: showAbove ? -_arrowHeight : null,
-          child: CustomPaint(size: const Size(_arrowWidth, _arrowHeight), painter: _ArrowPainter(up: !showAbove)),
+          child: CustomPaint(size: Size(_arrowWidth, _arrowHeight), painter: _ArrowPainter(up: !showAbove)),
         ),
       ]),
     );
@@ -133,9 +134,9 @@ class PositionActionPopup extends StatelessWidget {
         onTap: onTap,
         onTapUp: (_) {}, // 防止点击穿透
         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Icon(icon, size: 21, color: Colors.white),
-          const SizedBox(height: 4),
-          Text(label, style: AppTextStyles.cn(10, color: Colors.white, weight: FontWeight.w500)),
+          Icon(icon, size: 21.sx, color: Colors.white),
+          SizedBox(height: 4.sx),
+          Text(label, style: AppTextStyles.cn(10.sx, color: Colors.white, weight: FontWeight.w500)),
         ]),
       ),
     );
@@ -143,7 +144,7 @@ class PositionActionPopup extends StatelessWidget {
 
   Widget _divider() {
     // 源码 .popup-item::before top:0;bottom:0 → 满行高分隔线, rgba(255,255,255,0.14)
-    return Container(width: 0.5, height: 50, color: const Color(0x24FFFFFF));
+    return Container(width: 0.5, height: 50.sx, color: const Color(0x24FFFFFF));
   }
 }
 
