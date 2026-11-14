@@ -58,12 +58,18 @@ void main() {
     );
   }
 
+  /// easy_refresh 挂载时有一个短时初始化延迟任务（Future.delayed），
+  /// pump 1s 让其完成，避免测试结束校验「仍有 pending Timer」误报
+  Future<void> settleRefreshInit(WidgetTester tester) =>
+      tester.pump(const Duration(seconds: 1));
+
   testWidgets('position table renders original uniapp holding list labels', (
     tester,
   ) async {
     final state = positionState();
 
     await tester.pumpWidget(tableHarness(state));
+    await settleRefreshInit(tester);
 
     expect(find.text('当日收益'), findsOneWidget);
     expect(find.text('关联板块'), findsOneWidget);
@@ -108,6 +114,7 @@ void main() {
         ),
       ),
     );
+    await settleRefreshInit(tester);
 
     final assetRect = tester.getRect(
       find.byKey(const Key('position-asset-card')),
@@ -217,6 +224,7 @@ void main() {
     final state = positionState(tableMode: TableShowMode.normal);
 
     await tester.pumpWidget(tableHarness(state));
+    await settleRefreshInit(tester);
 
     final modeIcon = tester.widget<Icon>(
       find.byKey(const Key('position-header-mode-icon')),
@@ -232,6 +240,7 @@ void main() {
     final state = positionState();
 
     await tester.pumpWidget(tableHarness(state));
+    await settleRefreshInit(tester);
 
     double leftOf(String key) => tester.getTopLeft(find.byKey(Key(key))).dx;
 

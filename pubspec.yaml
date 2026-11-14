@@ -33,6 +33,8 @@ dependencies:
 
   cupertino_icons: ^1.0.8
 
+  easy_refresh: ^3.5.1                 # 下拉刷新（替换自研 ZPagingRefresh 内部实现；4.x 需 Dart 3.13+）
+
   # 基础能力
   dio: ^5.7.0                       # 网络请求
   shared_preferences: ^2.3.0        # 本地键值存储

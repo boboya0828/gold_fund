@@ -1,12 +1,11 @@
 import 'dart:async';
 
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:yangji_zhushou/shared/widgets/z_paging_refresh.dart';
 
 void main() {
-  testWidgets('debug 刷新状态流转', (tester) async {
+  testWidgets('debug 刷新状态流转（easy_refresh）', (tester) async {
     final refreshCompleter = Completer<void>();
     var refreshCalled = 0;
 
@@ -37,13 +36,13 @@ void main() {
       ),
     );
 
+    double pixels() => tester
+        .state<ScrollableState>(find.byType(Scrollable).first)
+        .position
+        .pixels;
+
     void dump(String tag) {
-      final texts = tester
-          .widgetList<Text>(find.byType(Text))
-          .map((t) => t.data)
-          .where((d) => d != null && (d.contains('刷新') || d.contains('下拉') || d.contains('松开')))
-          .toList();
-      debugPrint('[$tag] refreshCalled=$refreshCalled texts=$texts');
+      debugPrint('[$tag] refreshCalled=$refreshCalled pixels=${pixels()}');
     }
 
     final gesture = await tester.startGesture(const Offset(200, 300));
@@ -74,5 +73,9 @@ void main() {
 
     await tester.pump(const Duration(seconds: 3));
     dump('完成后 5.6s');
+
+    // easy_refresh 状态机完成全流程后必须回到零偏移（收起）
+    expect(refreshCalled, 1);
+    expect(pixels(), moreOrLessEquals(0, epsilon: 0.5));
   });
 }

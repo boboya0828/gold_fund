@@ -4,10 +4,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:yangji_zhushou/shared/widgets/z_paging_refresh.dart';
 
-/// 「下拉回弹后 刷新成功 提示残留/遮挡」回归测试：
+/// 「下拉回弹后刷新头残留/遮挡」回归测试（easy_refresh 实现）：
 /// 固定表头 + 下方 ZPagingRefresh 列表（与 position_holding_table 结构一致）。
+///
+/// 语义锚点（与替换前一致）：
+/// 1. 下拉超过阈值触发 onRefresh；
+/// 2. 刷新完成后刷新头必须完全收起（offset 归零，不卡半截）。
 void main() {
-  Future<void> pumpPage(WidgetTester tester, Completer<void> completer) {
+  Future<void> pumpPage(WidgetTester tester, Completer<void> completer,
+      {void Function()? onCall}) {
     return tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -25,7 +30,10 @@ void main() {
                   color: const Color(0xFFF5F5F5),
                   child: ZPagingRefresh(
                     isDark: false,
-                    onRefresh: () => completer.future,
+                    onRefresh: () {
+                      onCall?.call();
+                      return completer.future;
+                    },
                     child: Column(
                       children: List.generate(
                         30,
@@ -47,6 +55,9 @@ void main() {
     );
   }
 
+  double pixels(WidgetTester tester) =>
+      tester.state<ScrollableState>(find.byType(Scrollable).first).position.pixels;
+
   Future<void> dragRefresh(WidgetTester tester) async {
     final gesture = await tester.startGesture(const Offset(200, 300));
     for (var i = 0; i < 10; i++) {
@@ -55,52 +66,78 @@ void main() {
     }
     await gesture.up();
     await tester.pump();
-    // 回弹进入「正在刷新...」（armed → refresh 依赖弹簧动画帧，轮询等待）
-    for (var i = 0; i < 20; i++) {
+  }
+
+  Future<void> waitRefreshTriggered(
+      WidgetTester tester, bool Function() triggered) async {
+    for (var i = 0; i < 30 && !triggered(); i++) {
       await tester.pump(const Duration(milliseconds: 100));
-      if (find.text('正在刷新...').evaluate().isNotEmpty) return;
     }
   }
 
-  testWidgets('正常回弹：刷新完成后刷新头应收起', (tester) async {
+  testWidgets('正常回弹：下拉触发刷新，完成后刷新头完全收起', (tester) async {
     final completer = Completer<void>();
-    await pumpPage(tester, completer);
+    var calls = 0;
+    await pumpPage(tester, completer, onCall: () => calls++);
     await dragRefresh(tester);
 
-    expect(find.text('正在刷新...'), findsOneWidget);
+    // 松手后回弹进入刷新中（armed → processing 依赖弹簧动画帧，轮询等待）
+    await waitRefreshTriggered(tester, () => calls > 0);
+    expect(calls, 1, reason: '下拉超过 50px 阈值必须触发一次刷新');
+
     completer.complete();
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
-    expect(find.text('刷新成功'), findsOneWidget);
+    // 完成态（success 对勾）→ 消失动画 → 收起
+    await tester.pumpAndSettle(const Duration(seconds: 5));
 
-    await tester.pump(const Duration(seconds: 2));
-    expect(find.text('刷新成功'), findsNothing, reason: '回弹结束后「刷新成功」必须收起');
+    expect(
+      pixels(tester),
+      moreOrLessEquals(0, epsilon: 0.5),
+      reason: '刷新完成后刷新头必须完全收起，不允许残留 overscroll',
+    );
   });
 
-  testWidgets('卡在残余 overscroll（真机复现场景）：兜底收敛强制收起', (tester) async {
+  testWidgets('处理中偏移被扰动：完成后仍收敛归零，不卡半截', (tester) async {
     final completer = Completer<void>();
-    await pumpPage(tester, completer);
+    var calls = 0;
+    await pumpPage(tester, completer, onCall: () => calls++);
     await dragRefresh(tester);
+    await waitRefreshTriggered(tester, () => calls > 0);
+    expect(calls, 1);
 
-    completer.complete();
-    await tester.pump();
-
-    // 模拟真机/Web 上的卡死：done 态回弹停在 -20px 不再动弹
-    // （框架的 done→inactive 靠滚动活动驱动，没有活动就永远停在这里）
+    // 模拟真机/Web 上的异常：刷新处理中位置被外力卡在残余 overscroll
     tester.state<ScrollableState>(find.byType(Scrollable).first)
         .position
         .correctPixels(-20);
     await tester.pump(const Duration(milliseconds: 100));
 
-    expect(find.text('刷新成功'), findsOneWidget, reason: '复现：卡住时「刷新成功」露出半截');
+    completer.complete();
+    await tester.pump();
+    await tester.pumpAndSettle(const Duration(seconds: 5));
 
-    // 修复兜底：0.8s 后检测到残余负偏移 → 平滑归零 → 强制收起
-    await tester.pump(const Duration(milliseconds: 800));
-    await tester.pump(const Duration(milliseconds: 300)); // animateTo 200ms
-    await tester.pumpAndSettle();
+    expect(
+      pixels(tester),
+      moreOrLessEquals(0, epsilon: 0.5),
+      reason: '即使处理中偏移被扰动，完成后也必须收敛归零，不卡半截',
+    );
+  });
 
-    expect(find.text('刷新成功'), findsNothing, reason: '兜底收敛后「刷新成功」必须消失');
-    expect(find.text('继续下拉刷新'), findsNothing);
-    expect(find.text('正在刷新...'), findsNothing);
+  testWidgets('未达到阈值不触发刷新', (tester) async {
+    final completer = Completer<void>();
+    var calls = 0;
+    await pumpPage(tester, completer, onCall: () => calls++);
+
+    // 只下拉 30px（< 50px 阈值）后松手
+    final gesture = await tester.startGesture(const Offset(200, 300));
+    for (var i = 0; i < 3; i++) {
+      await gesture.moveBy(const Offset(0, 10));
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    await gesture.up();
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(calls, 0, reason: '未达到阈值不允许触发刷新');
+    completer.complete();
   });
 }
