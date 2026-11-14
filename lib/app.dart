@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/network/api_client.dart';
 import 'core/utils/screen_adapt.dart';
+import 'features/position/providers/position_provider.dart';
 import 'router.dart';
 import 'theme/app_theme.dart';
 import 'features/auth/providers/theme_provider.dart';
@@ -60,6 +61,14 @@ class _YangJiAppState extends ConsumerState<YangJiApp> with WidgetsBindingObserv
   @override
   void didChangePlatformBrightness() {
     _updateSystemChrome();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // 1:1 uni-app onHide：退后台立即保存持仓缓存（savePositionCacheNow）
+    if (state == AppLifecycleState.paused) {
+      ref.read(positionProvider.notifier).saveCacheNow();
+    }
   }
 
   void _updateSystemChrome() {

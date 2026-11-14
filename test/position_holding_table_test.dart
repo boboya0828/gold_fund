@@ -135,8 +135,11 @@ void main() {
   testWidgets('position book tabs keep indicator space for every tab', (
     tester,
   ) async {
+    // 显式开启「全部」入口（产品缺省已改为隐藏，对齐用户原版设置），
+    // 本用例验证显示「全部」时每个 tab 的指示条预留
     const state = PositionState(
       isLoggedIn: true,
+      allBookVisible: true,
       books: [BookItem(bookId: 1, bookName: '成长账本')],
     );
 

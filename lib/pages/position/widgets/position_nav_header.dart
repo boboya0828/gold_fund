@@ -170,7 +170,8 @@ class PositionNavHeader extends ConsumerWidget {
                         .read(positionProvider.notifier)
                         .selectTab(state.overviewTabIndex),
                   ),
-                  SizedBox(width: 15.sx), // pages-taber gap 30rpx
+                  // 注意：不要再加 gap SizedBox —— _tabItem 自带 margin-right 30rpx，
+                  // 与源码 .pages-taber{gap:30rpx} 等价；之前额外 +15px 导致间距翻倍
                   Expanded(
                     child: ListView(
                       scrollDirection: Axis.horizontal,

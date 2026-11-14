@@ -6,6 +6,7 @@ import 'widgets/ledger_account_sheet.dart';
 import 'widgets/ledger_book_api.dart';
 import 'widgets/ledger_book_modal.dart';
 import 'widgets/ledger_confirm_dialog.dart';
+import '../../features/position/providers/position_provider.dart';
 
 /// 账本管理页 — 1:1 复刻 uni-app pages/optional/ledger.vue + pages/position/ledger.vue
 /// 两个源码页面结构完全一致, 仅接口族(自选 favorite / 持仓 asset)与「清空」文案不同,
@@ -155,6 +156,8 @@ class _LedgerPageState extends ConsumerState<LedgerPage> {
     try {
       await _api.deleteBook(item.bookId);
       _toast('删除成功');
+      // 清理被删账本的持仓缓存，避免脏数据复用（1:1 uni-app confirmDeleteBook）
+      ref.read(positionProvider.notifier).removeBookHoldingCache(item.bookId);
       await _fetchBookList();
     } catch (_) {
       _toast('删除失败');

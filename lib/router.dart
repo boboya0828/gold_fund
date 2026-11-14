@@ -10,6 +10,7 @@ import 'pages/position/position_page.dart';
 import 'pages/position/position_details_page.dart';
 import 'pages/position/position_sort_page.dart';
 import 'pages/position/position_search_page.dart';
+import 'pages/position/fund_note_page.dart';
 import 'pages/position/batch_adjust_page.dart';
 import 'pages/position/trading_record_page.dart';
 import 'pages/optional/optional_page.dart';
@@ -40,6 +41,7 @@ import 'pages/user/bound_phone_page.dart';
 import 'pages/user/skin_page.dart';
 import 'pages/user/share_page.dart';
 import 'pages/user/settings_page.dart';
+import 'pages/user/feedback_form_page.dart';
 import 'pages/common/webview_page.dart';
 import 'pages/common/privacy_auth_page.dart';
 import 'pages/common/guide_page.dart';
@@ -82,6 +84,19 @@ class AppRouter {
       GlobalKey<NavigatorState>(debugLabel: 'root');
   static final GlobalKey<NavigatorState> _shellNavigatorKey =
       GlobalKey<NavigatorState>(debugLabel: 'shell');
+
+  /// 子页面统一转场：右滑推入（对齐 uni-app navigateTo 观感）
+  /// 配合 parentNavigatorKey: _rootNavigatorKey 在 root navigator 上全屏压栈
+  static Page<void> _slidePage({required Widget child}) => CustomTransitionPage<void>(
+        child: child,
+        transitionDuration: const Duration(milliseconds: 300),
+        reverseTransitionDuration: const Duration(milliseconds: 300),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          final tween = Tween(begin: const Offset(1.0, 0.0), end: Offset.zero)
+              .chain(CurveTween(curve: Curves.easeOutCubic));
+          return SlideTransition(position: animation.drive(tween), child: child);
+        },
+      );
 
   // 单例，避免重复创建导致 GlobalKey 冲突
   static final GoRouter router = GoRouter(
@@ -127,6 +142,491 @@ class AppRouter {
           path: '/guide',
           pageBuilder: (context, state) => const NoTransitionPage(
             child: GuidePage(),
+          ),
+        ),
+
+        // ===== 子页面（root navigator 全屏压栈 + 右滑转场，不显示 TabBar）=====
+        // 持仓详情
+        GoRoute(
+          path: '/position-details',
+          parentNavigatorKey: _rootNavigatorKey,
+          pageBuilder: (context, state) {
+            final q = state.uri.queryParameters;
+            final symbolId = q['symbolId'] ?? '';
+            final assetType = int.tryParse(q['assetType'] ?? '3') ?? 3;
+            final assetId = int.tryParse(q['assetId'] ?? '');
+            return _slidePage(
+              child: PositionDetailsPage(
+                symbolId: symbolId,
+                assetType: assetType,
+                assetId: assetId,
+                bookId: int.tryParse(q['bookId'] ?? ''),
+                fromAllBooks: q['fromAllBooks'] == '1' || q['fromAllBooks'] == 'true',
+              ),
+            );
+          },
+        ),
+        // 持仓排序管理
+        GoRoute(
+          path: '/position-sort',
+          parentNavigatorKey: _rootNavigatorKey,
+          pageBuilder: (context, state) => _slidePage(
+            child: PositionSortPage(
+              bookId: int.tryParse(state.uri.queryParameters['bookId'] ?? ''),
+            ),
+          ),
+        ),
+        // 持仓搜索 (from=trading-record 时 pop 返回选中基金)
+        GoRoute(
+          path: '/position-search',
+          parentNavigatorKey: _rootNavigatorKey,
+          pageBuilder: (context, state) => _slidePage(
+            child: PositionSearchPage(
+              from: state.uri.queryParameters['from'] ?? '',
+              bookId: state.uri.queryParameters['bookId'] ?? '',
+            ),
+          ),
+        ),
+        // 批量加减仓
+        GoRoute(
+          path: '/batch-adjust',
+          parentNavigatorKey: _rootNavigatorKey,
+          pageBuilder: (context, state) => _slidePage(
+            child: BatchAdjustPage(
+              bookId: int.tryParse(state.uri.queryParameters['bookId'] ?? ''),
+              preSelectedAssetId: int.tryParse(
+                  state.uri.queryParameters['preSelectedAssetId'] ?? ''),
+            ),
+          ),
+        ),
+        // 交易记录 (持仓 tab)
+        GoRoute(
+          path: '/trading-record',
+          parentNavigatorKey: _rootNavigatorKey,
+          pageBuilder: (context, state) => _slidePage(
+            child: TradingRecordPage(
+              bookId: int.tryParse(state.uri.queryParameters['bookId'] ?? ''),
+              fundCode: state.uri.queryParameters['fundCode'] ?? '',
+              fundName: state.uri.queryParameters['fundName'] ?? '',
+            ),
+          ),
+        ),
+        // ===== 基金管理子页 (pages/index/fund/*) =====
+        // 添加交易流水 (加仓/减仓/定投/转换)
+        GoRoute(
+          path: '/fund/running-tab',
+          parentNavigatorKey: _rootNavigatorKey,
+          pageBuilder: (context, state) {
+            final q = state.uri.queryParameters;
+            return _slidePage(
+              child: RunningTabPage(
+                activeTab: q['activeTab'] ?? 'buy',
+                uniqueSymbol: q['uniqueSymbol'] ?? '',
+                shortName: q['shortName'] ?? '',
+                symbolId: int.tryParse(q['symbolId'] ?? ''),
+                assetId: q['assetId'] ?? '',
+                bookId: int.tryParse(q['bookId'] ?? '') ?? 0,
+              ),
+            );
+          },
+        ),
+        // 基金设置
+        GoRoute(
+          path: '/fund/settings',
+          parentNavigatorKey: _rootNavigatorKey,
+          pageBuilder: (context, state) => _slidePage(
+            child: FundSettingsPage(
+              symbolId: state.uri.queryParameters['symbolId'],
+              assetId: state.uri.queryParameters['assetId'],
+            ),
+          ),
+        ),
+        // 历史净值
+        GoRoute(
+          path: '/fund/listed-net-value',
+          parentNavigatorKey: _rootNavigatorKey,
+          pageBuilder: (context, state) => _slidePage(
+            child: ListedNetValuePage(
+              symbolId: int.tryParse(
+                  state.uri.queryParameters['symbolId'] ?? ''),
+            ),
+          ),
+        ),
+        // 阶段收益
+        GoRoute(
+          path: '/fund/stage-revenue',
+          parentNavigatorKey: _rootNavigatorKey,
+          pageBuilder: (context, state) => _slidePage(
+            child: StageRevenuePage(
+              symbolId: int.tryParse(
+                  state.uri.queryParameters['symbolId'] ?? ''),
+            ),
+          ),
+        ),
+        // 基金交易记录
+        GoRoute(
+          path: '/fund/trading-record',
+          parentNavigatorKey: _rootNavigatorKey,
+          pageBuilder: (context, state) {
+            final q = state.uri.queryParameters;
+            return _slidePage(
+              child: FundTradingRecordPage(
+                shortName: q['shortName'] ?? '',
+                symbolId: q['symbolId'] ?? '',
+                symbolCode: q['symbolCode'] ?? '',
+                assetId: q['assetId'] ?? '',
+                bookId: int.tryParse(q['bookId'] ?? ''),
+                fromAllBooks:
+                    q['fromAllBooks'] == '1' || q['fromAllBooks'] == 'true',
+              ),
+            );
+          },
+        ),
+        // 贵金属记账
+        GoRoute(
+          path: '/fund/gjs-bookkeeping',
+          parentNavigatorKey: _rootNavigatorKey,
+          pageBuilder: (context, state) {
+            final q = state.uri.queryParameters;
+            return _slidePage(
+              child: GjsBookkeepingPage(
+                activeTab: q['activeTab'] ?? 'buy',
+                uniqueSymbol: q['uniqueSymbol'] ?? '',
+                shortName: q['shortName'] ?? '',
+                symbolId: int.tryParse(q['symbolId'] ?? ''),
+                assetId: q['assetId'] ?? '',
+                bookId: int.tryParse(q['bookId'] ?? '') ?? 0,
+              ),
+            );
+          },
+        ),
+        // 贵金属持仓编辑
+        GoRoute(
+          path: '/fund/gjs-holding-edit',
+          parentNavigatorKey: _rootNavigatorKey,
+          pageBuilder: (context, state) {
+            final q = state.uri.queryParameters;
+            return _slidePage(
+              child: GjsHoldingEditPage(
+                assetId: q['assetId'] ?? '',
+                bookId: q['bookId'] ?? '',
+                symbolId: q['symbolId'] ?? '',
+                uniqueSymbol: q['uniqueSymbol'] ?? '',
+                shortName: q['shortName'] ?? '',
+                holdQuantity: q['holdQuantity'] ?? '',
+                holdCostAmount: q['holdCostAmount'] ?? '',
+                comment: q['comment'] ?? '',
+              ),
+            );
+          },
+        ),
+        // ===== 同步持仓/批量导入 (pages/index/fund/upload/*) =====
+        GoRoute(
+          path: '/fund/upload/mass-upload',
+          parentNavigatorKey: _rootNavigatorKey,
+          pageBuilder: (context, state) => _slidePage(
+            child: MassUploadPage(
+              bookId: state.uri.queryParameters['bookId'],
+            ),
+          ),
+        ),
+        GoRoute(
+          path: '/fund/upload/add-records',
+          parentNavigatorKey: _rootNavigatorKey,
+          pageBuilder: (context, state) {
+            final q = state.uri.queryParameters;
+            return _slidePage(
+              child: AddAccountingRecordsPage(
+                shortName: q['shortName'] ?? '',
+                fromDetails: q['fromDetails'] == '1',
+                mode: q['mode'] ?? 'add',
+                symbolId: int.tryParse(q['symbolId'] ?? ''),
+                marketValue: q['marketValue'] ?? '',
+                holdProfit: q['holdProfit'] ?? '',
+              ),
+            );
+          },
+        ),
+        GoRoute(
+          path: '/fund/upload/search',
+          parentNavigatorKey: _rootNavigatorKey,
+          pageBuilder: (context, state) => _slidePage(
+            child: UploadSearchPage(
+              bookId: state.uri.queryParameters['bookId'],
+              selectMode:
+                  state.uri.queryParameters['selectMode'] ?? 'navigate',
+              entryKey: state.uri.queryParameters['entryKey'] ?? '',
+            ),
+          ),
+        ),
+        GoRoute(
+          path: '/fund/upload/madd',
+          parentNavigatorKey: _rootNavigatorKey,
+          pageBuilder: (context, state) {
+            final q = state.uri.queryParameters;
+            return _slidePage(
+              child: MassUploadMaddPage(
+                bookId: q['bookId'],
+                uniqueSymbol: q['uniqueSymbol'],
+                shortName: q['shortName'],
+                symbolId: q['symbolId'],
+                assetAmount: q['assetAmount'],
+                profitAmount: q['profitAmount'],
+              ),
+            );
+          },
+        ),
+        GoRoute(
+          path: '/fund/upload/maddzx',
+          parentNavigatorKey: _rootNavigatorKey,
+          pageBuilder: (context, state) {
+            final q = state.uri.queryParameters;
+            return _slidePage(
+              child: MassUploadMaddzxPage(
+                mode: q['mode'],
+                shortName: q['shortName'],
+                symbolId: q['symbolId'],
+                bookId: q['bookId'],
+                marketValue: q['marketValue'],
+                holdProfit: q['holdProfit'],
+              ),
+            );
+          },
+        ),
+        GoRoute(
+          path: '/fund/upload/ocr-result',
+          parentNavigatorKey: _rootNavigatorKey,
+          pageBuilder: (context, state) => _slidePage(
+            child: OcrResultPage(
+              bookId: state.uri.queryParameters['bookId'],
+              data: state.uri.queryParameters['data'],
+            ),
+          ),
+        ),
+        // 行情详情
+        GoRoute(
+          path: '/market-details',
+          parentNavigatorKey: _rootNavigatorKey,
+          pageBuilder: (context, state) {
+            final q = state.uri.queryParameters;
+            final symbolId = q['symbolId'] ?? '';
+            final name = q['name'];
+            return _slidePage(
+              child: MarketDetailsPage(
+                symbolId: symbolId,
+                name: name,
+                source: q['source'],
+                initialTab: q['tab'],
+              ),
+            );
+          },
+        ),
+        // 板块排行
+        GoRoute(
+          path: '/plate-ranking',
+          parentNavigatorKey: _rootNavigatorKey,
+          pageBuilder: (context, state) => _slidePage(
+            child: PlateRankingPage(),
+          ),
+        ),
+        // 板块数据
+        GoRoute(
+          path: '/plate-data',
+          parentNavigatorKey: _rootNavigatorKey,
+          pageBuilder: (context, state) => _slidePage(
+            child: PlateDataPage(),
+          ),
+        ),
+        // 精选榜单 (tab=hot/selected/holding/rise/streak)
+        GoRoute(
+          path: '/selected-list',
+          parentNavigatorKey: _rootNavigatorKey,
+          pageBuilder: (context, state) => _slidePage(
+            child: SelectedListPage(
+              initialTab: state.uri.queryParameters['tab'],
+            ),
+          ),
+        ),
+        // 自选搜索
+        GoRoute(
+          path: '/optional-search',
+          parentNavigatorKey: _rootNavigatorKey,
+          pageBuilder: (context, state) => _slidePage(
+            child: OptionalSearchPage(
+              bookId: int.tryParse(state.uri.queryParameters['bookId'] ?? '') ?? 0,
+            ),
+          ),
+        ),
+        // 分组/账本管理 (type=asset 时为持仓账本)
+        GoRoute(
+          path: '/ledger',
+          parentNavigatorKey: _rootNavigatorKey,
+          pageBuilder: (context, state) => _slidePage(
+            child: LedgerPage(
+              bookType: state.uri.queryParameters['type'] == 'asset'
+                  ? LedgerBookType.asset
+                  : LedgerBookType.favorite,
+            ),
+          ),
+        ),
+        // 会员子页
+        GoRoute(
+          path: '/member/morning-news',
+          parentNavigatorKey: _rootNavigatorKey,
+          pageBuilder: (context, state) => _slidePage(
+            child: MorningNewsPage(),
+          ),
+        ),
+        GoRoute(
+          path: '/member/closing-news',
+          parentNavigatorKey: _rootNavigatorKey,
+          pageBuilder: (context, state) => _slidePage(
+            child: ClosingNewsPage(),
+          ),
+        ),
+        GoRoute(
+          path: '/member/details',
+          parentNavigatorKey: _rootNavigatorKey,
+          pageBuilder: (context, state) => _slidePage(
+            child: MemberDetailsPage(
+              type: state.uri.queryParameters['type'] ?? 'morning',
+              id: state.uri.queryParameters['id'] ?? '',
+            ),
+          ),
+        ),
+        GoRoute(
+          path: '/member/contrast',
+          parentNavigatorKey: _rootNavigatorKey,
+          pageBuilder: (context, state) => _slidePage(
+            child: ContrastPage(),
+          ),
+        ),
+        GoRoute(
+          path: '/member/rising-chart',
+          parentNavigatorKey: _rootNavigatorKey,
+          pageBuilder: (context, state) => _slidePage(
+            child: RisingChartPage(
+              period: state.uri.queryParameters['period'] ?? 'today',
+              detailId: state.uri.queryParameters['id'] ?? '',
+            ),
+          ),
+        ),
+        GoRoute(
+          path: '/member/open-member',
+          parentNavigatorKey: _rootNavigatorKey,
+          pageBuilder: (context, state) => _slidePage(
+            child: OpenMemberPage(),
+          ),
+        ),
+        // 用户子页
+        GoRoute(
+          path: '/user/curve',
+          parentNavigatorKey: _rootNavigatorKey,
+          pageBuilder: (context, state) => _slidePage(
+            child: UserCurvePage(
+              bookId: state.uri.queryParameters['bookId'],
+            ),
+          ),
+        ),
+        GoRoute(
+          path: '/user/distribution',
+          parentNavigatorKey: _rootNavigatorKey,
+          pageBuilder: (context, state) => _slidePage(
+            child: DistributionPage(
+              bookId: state.uri.queryParameters['bookId'],
+              type: state.uri.queryParameters['type'],
+            ),
+          ),
+        ),
+        GoRoute(
+          path: '/user/profit-detail',
+          parentNavigatorKey: _rootNavigatorKey,
+          pageBuilder: (context, state) => _slidePage(
+            child: ProfitDetailPage(
+              bookId: state.uri.queryParameters['bookId'],
+              date: state.uri.queryParameters['date'],
+            ),
+          ),
+        ),
+        GoRoute(
+          path: '/user/nickname',
+          parentNavigatorKey: _rootNavigatorKey,
+          pageBuilder: (context, state) => _slidePage(
+            child: NicknamePage(),
+          ),
+        ),
+        GoRoute(
+          path: '/user/bound-phone',
+          parentNavigatorKey: _rootNavigatorKey,
+          pageBuilder: (context, state) => _slidePage(
+            child: BoundPhonePage(),
+          ),
+        ),
+        GoRoute(
+          path: '/user/skin',
+          parentNavigatorKey: _rootNavigatorKey,
+          pageBuilder: (context, state) => _slidePage(
+            child: SkinPage(),
+          ),
+        ),
+        GoRoute(
+          path: '/user/profile',
+          parentNavigatorKey: _rootNavigatorKey,
+          pageBuilder: (context, state) => _slidePage(
+            child: ProfileEditPage(),
+          ),
+        ),
+        GoRoute(
+          path: '/user/share',
+          parentNavigatorKey: _rootNavigatorKey,
+          pageBuilder: (context, state) => _slidePage(
+            child: SharePage(),
+          ),
+        ),
+        GoRoute(
+          path: '/user/settings',
+          parentNavigatorKey: _rootNavigatorKey,
+          pageBuilder: (context, state) => _slidePage(
+            child: SettingsPage(),
+          ),
+        ),
+        // 基金笔记（占位页，入口：持仓长按弹框）
+        GoRoute(
+          path: '/fund-note',
+          parentNavigatorKey: _rootNavigatorKey,
+          pageBuilder: (context, state) => _slidePage(
+            child: FundNotePage(
+              symbolId: state.uri.queryParameters['symbolId'] ?? '',
+              symbolCode: state.uri.queryParameters['symbolCode'] ?? '',
+              fundName: state.uri.queryParameters['fundName'] ?? '',
+            ),
+          ),
+        ),
+        // 意见反馈（占位页，入口：持仓长按弹框「基金反馈」type=sector）
+        GoRoute(
+          path: '/user/feedback-form',
+          parentNavigatorKey: _rootNavigatorKey,
+          pageBuilder: (context, state) => _slidePage(
+            child: FeedbackFormPage(
+              type: state.uri.queryParameters['type'] ?? '',
+              fundCode: state.uri.queryParameters['fundCode'] ?? '',
+              fundName: state.uri.queryParameters['fundName'] ?? '',
+            ),
+          ),
+        ),
+        // 公关页面
+        GoRoute(
+          path: '/privacy',
+          parentNavigatorKey: _rootNavigatorKey,
+          pageBuilder: (context, state) => _slidePage(
+            child: WebViewPage(title: '隐私政策'),
+          ),
+        ),
+        GoRoute(
+          path: '/agreement',
+          parentNavigatorKey: _rootNavigatorKey,
+          pageBuilder: (context, state) => _slidePage(
+            child: WebViewPage(title: '用户协议'),
           ),
         ),
 
@@ -194,425 +694,6 @@ class AppRouter {
               ),
             ),
 
-            // ===== 子页面 (带 TabBar) =====
-            // 持仓详情
-            GoRoute(
-              path: '/position-details',
-              pageBuilder: (context, state) {
-                final q = state.uri.queryParameters;
-                final symbolId = q['symbolId'] ?? '';
-                final assetType = int.tryParse(q['assetType'] ?? '3') ?? 3;
-                final assetId = int.tryParse(q['assetId'] ?? '');
-                return NoTransitionPage(
-                  child: PositionDetailsPage(
-                    symbolId: symbolId,
-                    assetType: assetType,
-                    assetId: assetId,
-                    bookId: int.tryParse(q['bookId'] ?? ''),
-                    fromAllBooks: q['fromAllBooks'] == '1' || q['fromAllBooks'] == 'true',
-                  ),
-                );
-              },
-            ),
-            // 持仓排序管理
-            GoRoute(
-              path: '/position-sort',
-              pageBuilder: (context, state) => NoTransitionPage(
-                child: PositionSortPage(
-                  bookId: int.tryParse(state.uri.queryParameters['bookId'] ?? ''),
-                ),
-              ),
-            ),
-            // 持仓搜索 (from=trading-record 时 pop 返回选中基金)
-            GoRoute(
-              path: '/position-search',
-              pageBuilder: (context, state) => NoTransitionPage(
-                child: PositionSearchPage(
-                  from: state.uri.queryParameters['from'] ?? '',
-                  bookId: state.uri.queryParameters['bookId'] ?? '',
-                ),
-              ),
-            ),
-            // 批量加减仓
-            GoRoute(
-              path: '/batch-adjust',
-              pageBuilder: (context, state) => NoTransitionPage(
-                child: BatchAdjustPage(
-                  bookId: int.tryParse(state.uri.queryParameters['bookId'] ?? ''),
-                  preSelectedAssetId: int.tryParse(
-                      state.uri.queryParameters['preSelectedAssetId'] ?? ''),
-                ),
-              ),
-            ),
-            // 交易记录 (持仓 tab)
-            GoRoute(
-              path: '/trading-record',
-              pageBuilder: (context, state) => NoTransitionPage(
-                child: TradingRecordPage(
-                  bookId: int.tryParse(state.uri.queryParameters['bookId'] ?? ''),
-                  fundCode: state.uri.queryParameters['fundCode'] ?? '',
-                  fundName: state.uri.queryParameters['fundName'] ?? '',
-                ),
-              ),
-            ),
-            // ===== 基金管理子页 (pages/index/fund/*) =====
-            // 添加交易流水 (加仓/减仓/定投/转换)
-            GoRoute(
-              path: '/fund/running-tab',
-              pageBuilder: (context, state) {
-                final q = state.uri.queryParameters;
-                return NoTransitionPage(
-                  child: RunningTabPage(
-                    activeTab: q['activeTab'] ?? 'buy',
-                    uniqueSymbol: q['uniqueSymbol'] ?? '',
-                    shortName: q['shortName'] ?? '',
-                    symbolId: int.tryParse(q['symbolId'] ?? ''),
-                    assetId: q['assetId'] ?? '',
-                    bookId: int.tryParse(q['bookId'] ?? '') ?? 0,
-                  ),
-                );
-              },
-            ),
-            // 基金设置
-            GoRoute(
-              path: '/fund/settings',
-              pageBuilder: (context, state) => NoTransitionPage(
-                child: FundSettingsPage(
-                  symbolId: state.uri.queryParameters['symbolId'],
-                  assetId: state.uri.queryParameters['assetId'],
-                ),
-              ),
-            ),
-            // 历史净值
-            GoRoute(
-              path: '/fund/listed-net-value',
-              pageBuilder: (context, state) => NoTransitionPage(
-                child: ListedNetValuePage(
-                  symbolId: int.tryParse(
-                      state.uri.queryParameters['symbolId'] ?? ''),
-                ),
-              ),
-            ),
-            // 阶段收益
-            GoRoute(
-              path: '/fund/stage-revenue',
-              pageBuilder: (context, state) => NoTransitionPage(
-                child: StageRevenuePage(
-                  symbolId: int.tryParse(
-                      state.uri.queryParameters['symbolId'] ?? ''),
-                ),
-              ),
-            ),
-            // 基金交易记录
-            GoRoute(
-              path: '/fund/trading-record',
-              pageBuilder: (context, state) {
-                final q = state.uri.queryParameters;
-                return NoTransitionPage(
-                  child: FundTradingRecordPage(
-                    shortName: q['shortName'] ?? '',
-                    symbolId: q['symbolId'] ?? '',
-                    symbolCode: q['symbolCode'] ?? '',
-                    assetId: q['assetId'] ?? '',
-                    bookId: int.tryParse(q['bookId'] ?? ''),
-                    fromAllBooks:
-                        q['fromAllBooks'] == '1' || q['fromAllBooks'] == 'true',
-                  ),
-                );
-              },
-            ),
-            // 贵金属记账
-            GoRoute(
-              path: '/fund/gjs-bookkeeping',
-              pageBuilder: (context, state) {
-                final q = state.uri.queryParameters;
-                return NoTransitionPage(
-                  child: GjsBookkeepingPage(
-                    activeTab: q['activeTab'] ?? 'buy',
-                    uniqueSymbol: q['uniqueSymbol'] ?? '',
-                    shortName: q['shortName'] ?? '',
-                    symbolId: int.tryParse(q['symbolId'] ?? ''),
-                    assetId: q['assetId'] ?? '',
-                    bookId: int.tryParse(q['bookId'] ?? '') ?? 0,
-                  ),
-                );
-              },
-            ),
-            // 贵金属持仓编辑
-            GoRoute(
-              path: '/fund/gjs-holding-edit',
-              pageBuilder: (context, state) {
-                final q = state.uri.queryParameters;
-                return NoTransitionPage(
-                  child: GjsHoldingEditPage(
-                    assetId: q['assetId'] ?? '',
-                    bookId: q['bookId'] ?? '',
-                    symbolId: q['symbolId'] ?? '',
-                    uniqueSymbol: q['uniqueSymbol'] ?? '',
-                    shortName: q['shortName'] ?? '',
-                    holdQuantity: q['holdQuantity'] ?? '',
-                    holdCostAmount: q['holdCostAmount'] ?? '',
-                    comment: q['comment'] ?? '',
-                  ),
-                );
-              },
-            ),
-            // ===== 同步持仓/批量导入 (pages/index/fund/upload/*) =====
-            GoRoute(
-              path: '/fund/upload/mass-upload',
-              pageBuilder: (context, state) => NoTransitionPage(
-                child: MassUploadPage(
-                  bookId: state.uri.queryParameters['bookId'],
-                ),
-              ),
-            ),
-            GoRoute(
-              path: '/fund/upload/add-records',
-              pageBuilder: (context, state) {
-                final q = state.uri.queryParameters;
-                return NoTransitionPage(
-                  child: AddAccountingRecordsPage(
-                    shortName: q['shortName'] ?? '',
-                    fromDetails: q['fromDetails'] == '1',
-                    mode: q['mode'] ?? 'add',
-                    symbolId: int.tryParse(q['symbolId'] ?? ''),
-                    marketValue: q['marketValue'] ?? '',
-                    holdProfit: q['holdProfit'] ?? '',
-                  ),
-                );
-              },
-            ),
-            GoRoute(
-              path: '/fund/upload/search',
-              pageBuilder: (context, state) => NoTransitionPage(
-                child: UploadSearchPage(
-                  bookId: state.uri.queryParameters['bookId'],
-                  selectMode:
-                      state.uri.queryParameters['selectMode'] ?? 'navigate',
-                  entryKey: state.uri.queryParameters['entryKey'] ?? '',
-                ),
-              ),
-            ),
-            GoRoute(
-              path: '/fund/upload/madd',
-              pageBuilder: (context, state) {
-                final q = state.uri.queryParameters;
-                return NoTransitionPage(
-                  child: MassUploadMaddPage(
-                    bookId: q['bookId'],
-                    uniqueSymbol: q['uniqueSymbol'],
-                    shortName: q['shortName'],
-                    symbolId: q['symbolId'],
-                    assetAmount: q['assetAmount'],
-                    profitAmount: q['profitAmount'],
-                  ),
-                );
-              },
-            ),
-            GoRoute(
-              path: '/fund/upload/maddzx',
-              pageBuilder: (context, state) {
-                final q = state.uri.queryParameters;
-                return NoTransitionPage(
-                  child: MassUploadMaddzxPage(
-                    mode: q['mode'],
-                    shortName: q['shortName'],
-                    symbolId: q['symbolId'],
-                    bookId: q['bookId'],
-                    marketValue: q['marketValue'],
-                    holdProfit: q['holdProfit'],
-                  ),
-                );
-              },
-            ),
-            GoRoute(
-              path: '/fund/upload/ocr-result',
-              pageBuilder: (context, state) => NoTransitionPage(
-                child: OcrResultPage(
-                  bookId: state.uri.queryParameters['bookId'],
-                  data: state.uri.queryParameters['data'],
-                ),
-              ),
-            ),
-            // 行情详情
-            GoRoute(
-              path: '/market-details',
-              pageBuilder: (context, state) {
-                final q = state.uri.queryParameters;
-                final symbolId = q['symbolId'] ?? '';
-                final name = q['name'];
-                return NoTransitionPage(
-                  child: MarketDetailsPage(
-                    symbolId: symbolId,
-                    name: name,
-                    source: q['source'],
-                    initialTab: q['tab'],
-                  ),
-                );
-              },
-            ),
-            // 板块排行
-            GoRoute(
-              path: '/plate-ranking',
-              pageBuilder: (context, state) => const NoTransitionPage(
-                child: PlateRankingPage(),
-              ),
-            ),
-            // 板块数据
-            GoRoute(
-              path: '/plate-data',
-              pageBuilder: (context, state) => const NoTransitionPage(
-                child: PlateDataPage(),
-              ),
-            ),
-            // 精选榜单 (tab=hot/selected/holding/rise/streak)
-            GoRoute(
-              path: '/selected-list',
-              pageBuilder: (context, state) => NoTransitionPage(
-                child: SelectedListPage(
-                  initialTab: state.uri.queryParameters['tab'],
-                ),
-              ),
-            ),
-            // 自选搜索
-            GoRoute(
-              path: '/optional-search',
-              pageBuilder: (context, state) => NoTransitionPage(
-                child: OptionalSearchPage(
-                  bookId: int.tryParse(state.uri.queryParameters['bookId'] ?? '') ?? 0,
-                ),
-              ),
-            ),
-            // 分组/账本管理 (type=asset 时为持仓账本)
-            GoRoute(
-              path: '/ledger',
-              pageBuilder: (context, state) => NoTransitionPage(
-                child: LedgerPage(
-                  bookType: state.uri.queryParameters['type'] == 'asset'
-                      ? LedgerBookType.asset
-                      : LedgerBookType.favorite,
-                ),
-              ),
-            ),
-            // 会员子页
-            GoRoute(
-              path: '/member/morning-news',
-              pageBuilder: (context, state) => const NoTransitionPage(
-                child: MorningNewsPage(),
-              ),
-            ),
-            GoRoute(
-              path: '/member/closing-news',
-              pageBuilder: (context, state) => const NoTransitionPage(
-                child: ClosingNewsPage(),
-              ),
-            ),
-            GoRoute(
-              path: '/member/details',
-              pageBuilder: (context, state) => NoTransitionPage(
-                child: MemberDetailsPage(
-                  type: state.uri.queryParameters['type'] ?? 'morning',
-                  id: state.uri.queryParameters['id'] ?? '',
-                ),
-              ),
-            ),
-            GoRoute(
-              path: '/member/contrast',
-              pageBuilder: (context, state) => const NoTransitionPage(
-                child: ContrastPage(),
-              ),
-            ),
-            GoRoute(
-              path: '/member/rising-chart',
-              pageBuilder: (context, state) => NoTransitionPage(
-                child: RisingChartPage(
-                  period: state.uri.queryParameters['period'] ?? 'today',
-                  detailId: state.uri.queryParameters['id'] ?? '',
-                ),
-              ),
-            ),
-            GoRoute(
-              path: '/member/open-member',
-              pageBuilder: (context, state) => const NoTransitionPage(
-                child: OpenMemberPage(),
-              ),
-            ),
-            // 用户子页
-            GoRoute(
-              path: '/user/curve',
-              pageBuilder: (context, state) => NoTransitionPage(
-                child: UserCurvePage(
-                  bookId: state.uri.queryParameters['bookId'],
-                ),
-              ),
-            ),
-            GoRoute(
-              path: '/user/distribution',
-              pageBuilder: (context, state) => NoTransitionPage(
-                child: DistributionPage(
-                  bookId: state.uri.queryParameters['bookId'],
-                  type: state.uri.queryParameters['type'],
-                ),
-              ),
-            ),
-            GoRoute(
-              path: '/user/profit-detail',
-              pageBuilder: (context, state) => NoTransitionPage(
-                child: ProfitDetailPage(
-                  bookId: state.uri.queryParameters['bookId'],
-                  date: state.uri.queryParameters['date'],
-                ),
-              ),
-            ),
-            GoRoute(
-              path: '/user/nickname',
-              pageBuilder: (context, state) => const NoTransitionPage(
-                child: NicknamePage(),
-              ),
-            ),
-            GoRoute(
-              path: '/user/bound-phone',
-              pageBuilder: (context, state) => const NoTransitionPage(
-                child: BoundPhonePage(),
-              ),
-            ),
-            GoRoute(
-              path: '/user/skin',
-              pageBuilder: (context, state) => const NoTransitionPage(
-                child: SkinPage(),
-              ),
-            ),
-            GoRoute(
-              path: '/user/profile',
-              pageBuilder: (context, state) => const NoTransitionPage(
-                child: ProfileEditPage(),
-              ),
-            ),
-            GoRoute(
-              path: '/user/share',
-              pageBuilder: (context, state) => const NoTransitionPage(
-                child: SharePage(),
-              ),
-            ),
-            GoRoute(
-              path: '/user/settings',
-              pageBuilder: (context, state) => const NoTransitionPage(
-                child: SettingsPage(),
-              ),
-            ),
-            // 公关页面
-            GoRoute(
-              path: '/privacy',
-              pageBuilder: (context, state) => const NoTransitionPage(
-                child: WebViewPage(title: '隐私政策'),
-              ),
-            ),
-            GoRoute(
-              path: '/agreement',
-              pageBuilder: (context, state) => const NoTransitionPage(
-                child: WebViewPage(title: '用户协议'),
-              ),
-            ),
           ],
         ),
       ],

@@ -13,6 +13,8 @@ import 'widgets/position_quick_menu.dart';
 import 'widgets/position_table_mode_menu.dart';
 import 'widgets/position_action_popup.dart';
 import 'widgets/position_delete_dialog.dart';
+import 'widgets/position_move_group_dialog.dart';
+import 'widgets/position_estimate_source_dialog.dart';
 import 'widgets/position_asset_visible_dialog.dart';
 import '../../core/utils/screen_adapt.dart';
 
@@ -31,10 +33,10 @@ class _PositionPageState extends ConsumerState<PositionPage> {
   bool _showPopup = false;
   int _selectedIndex = -1;
 
-  // 表格模式菜单锚点：跟随表头模式图标定位（源码 top=rect.bottom+10, right 对齐图标右缘）
+  // 表格模式菜单锚点：跟随表头模式图标定位（源码 top=rect.bottom+10, left=max(rect.right-164,12)）
   final GlobalKey _modeIconKey = GlobalKey();
   double _modeMenuTop = 160.sx;
-  double _modeMenuRight = 16.sx;
+  double _modeMenuLeft = 12;
 
   // 长按行的定位数据 (用于操作弹窗跟随)
   Offset _rowOffset = Offset.zero;
@@ -137,6 +139,7 @@ class _PositionPageState extends ConsumerState<PositionPage> {
                   onSortManage: _goSortManage,
                   onSyncTap: _syncHoldings,
                   onBatchTap: _openBatchAdjustFromAddbox,
+                  onDataSourceTap: () => _openEstimateSourceDialog(state),
                 ),
               ),
             ],
@@ -170,7 +173,7 @@ class _PositionPageState extends ConsumerState<PositionPage> {
             child: Container(color: maskColor),
           ),
           Positioned(
-            right: _modeMenuRight,
+            left: _modeMenuLeft,
             top: _modeMenuTop,
             child: PositionTableModeMenu(
               isDark: isDark,
@@ -217,6 +220,11 @@ class _PositionPageState extends ConsumerState<PositionPage> {
               setState(() { _showPopup = false; _selectedIndex = -1; });
               if (target != null) _pinToTop(target.assetId);
             },
+            onMoveGroup: () {
+              final target = _getSelectedItem(state);
+              setState(() { _showPopup = false; _selectedIndex = -1; });
+              if (target != null) _openMoveGroup(state, target);
+            },
             onDelete: (assetName) {
               final target = _getSelectedItem(state);
               setState(() { _showPopup = false; _selectedIndex = -1; });
@@ -239,14 +247,16 @@ class _PositionPageState extends ConsumerState<PositionPage> {
     setState(() { _showQuickMenu = false; _showTableModeMenu = false; });
   }
 
-  // 模式菜单切换：按表头模式图标的实际位置锚定（源码 top=rect.bottom+10，菜单右缘对齐图标右缘）
+  // 模式菜单切换：1:1 源码 toggleTableModeMenu 定位
+  // top = rect.bottom + 10（设备 px，不缩放）；
+  // left = max(rect.right - 164, 12)（源码写死 164px 而非 164rpx 的"特性"，照抄对齐）
   void _toggleTableModeMenu() {
     final box = _modeIconKey.currentContext?.findRenderObject() as RenderBox?;
     if (box != null) {
       final pos = box.localToGlobal(Offset.zero);
-      _modeMenuTop = pos.dy + box.size.height + 10.sx;
-      _modeMenuRight =
-          MediaQuery.of(context).size.width - (pos.dx + box.size.width);
+      _modeMenuTop = pos.dy + box.size.height + 10;
+      final left = pos.dx + box.size.width - 164;
+      _modeMenuLeft = left < 12 ? 12 : left;
     }
     setState(() {
       _showQuickMenu = false;
@@ -312,6 +322,47 @@ class _PositionPageState extends ConsumerState<PositionPage> {
       return;
     }
     // linkType=2 外部链接：源码走微信打开，Flutter 端暂不处理
+  }
+
+  /// 估值数据源切换弹框 (1:1 uni-app openEstimateSourcePopup)
+  void _openEstimateSourceDialog(PositionState state) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    PositionEstimateSourceDialog.show(
+      context,
+      isDark: isDark,
+      bookId: state.currentBookId,
+      onSaved: () => ref.read(positionProvider.notifier).loadData(),
+    );
+  }
+
+  /// 移动分组 (1:1 uni-app openMoveGroupModal)
+  /// 校验：仅基金持仓 / assetId>0 / 需具体源账本；候选列表排除源账本；
+  /// 弹框内提交 POST /asset/api/Asset/funds/move，成功后刷新持仓列表
+  Future<void> _openMoveGroup(PositionState state, PositionItem item) async {
+    if (item.assetType != 3) {
+      _showToast('仅基金持仓支持移动分组');
+      return;
+    }
+    if (item.assetId <= 0) {
+      _showToast('当前持仓不支持移动');
+      return;
+    }
+    final sourceBookId = item.bookId ?? state.currentBookId;
+    if (sourceBookId == null || sourceBookId == -1) {
+      _showToast('请选择具体账本后操作');
+      return;
+    }
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final moved = await PositionMoveGroupDialog.show(
+      context,
+      isDark: isDark,
+      assetIds: [item.assetId],
+      sourceBookId: sourceBookId,
+      books: state.books.where((b) => b.bookId != sourceBookId).toList(),
+    );
+    if (moved != null && mounted) {
+      ref.read(positionProvider.notifier).loadData();
+    }
   }
 
   /// 批量加减仓 (1:1 uni-app openBatchAdjust)：需具体账本

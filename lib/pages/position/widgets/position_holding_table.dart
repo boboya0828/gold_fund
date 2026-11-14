@@ -379,19 +379,23 @@ class _PositionHoldingTableState extends ConsumerState<PositionHoldingTable> {
     final isLast = index == widget.state.sortedItems.length - 1;
     final isSelected = widget.selectedIndex == index;
     final cells = buildHoldingCells(item, columns, widget.state, isDark);
-    return GestureDetector(
-      onTap: () => _handleRowTap(context, index, item),
-      onLongPressStart: (_) {
-        final box = context.findRenderObject() as RenderBox?;
-        if (box != null) {
-          final cb = widget.onLongSelect;
-          if (cb != null) {
-            cb(index, box.localToGlobal(Offset.zero), box.size.height);
-          } else {
-            widget.onSelect(index);
+    // 注意：必须用行自身的 context 量取位置（Builder 包住 GestureDetector）。
+    // 直接用外层传入的 context 会量到整个表格组件的 RenderBox，
+    // 导致长按弹框拿到错误 rowOffset/rowHeight 而"飘到页面顶部"（已踩坑修复）。
+    return Builder(
+      builder: (rowContext) => GestureDetector(
+        onTap: () => _handleRowTap(context, index, item),
+        onLongPressStart: (_) {
+          final box = rowContext.findRenderObject() as RenderBox?;
+          if (box != null) {
+            final cb = widget.onLongSelect;
+            if (cb != null) {
+              cb(index, box.localToGlobal(Offset.zero), box.size.height);
+            } else {
+              widget.onSelect(index);
+            }
           }
-        }
-      },
+        },
       child: Container(
         height: rowHeight,
         decoration: BoxDecoration(
@@ -414,6 +418,7 @@ class _PositionHoldingTableState extends ConsumerState<PositionHoldingTable> {
               ),
           ],
         ),
+      ),
       ),
     );
   }

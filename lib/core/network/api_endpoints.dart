@@ -78,6 +78,8 @@ class ApiEndpoints {
   static const assetListV2 = '/asset/api/Asset';                       // GET ?bookId=
   static const assetReload = '/asset/api/Asset/reload';                // POST
   static const assetOrder = '/asset/api/Asset/order';                  // PUT
+  static const assetFundsMove = '/asset/api/Asset/funds/move';         // POST 移动分组 {sourceBookId,targetBookId,assetIds,keepSource,requestId}
+  static const assetBatchDelete = '/asset/api/Asset/batch-delete';     // POST 批量删除 {assetIds:[...]}
   static const assetBatchInput = '/asset/api/Asset/batchinput';        // POST
   static const assetBatchCorrect = '/asset/api/Asset/batchcorrect';    // POST
   static const assetOcr = '/asset/api/Asset/ocrSource';               // POST
@@ -87,6 +89,9 @@ class ApiEndpoints {
   static const assetExtendedColumns = '/asset/api/Asset/extended-columns'; // GET ?bookId= 重仓均涨幅/本周/本月/今年
   static const assetOverviewCards = '/asset/api/Asset/overview/cards'; // GET 账户汇总卡片
   static const holdingColumns = '/usercenter/api/User/holding-columns'; // GET 持仓表头管理配置
+  static const holdingColumnsSave = '/usercenter/api/User/holding-columns'; // PUT 保存表头配置 {showHoldingAmount,showFundCode,columns:[{key,visible}]}
+  static const estimateSourceOptions = '/usercenter/api/User/estimate-source/options'; // GET ?bookId= 估值数据源选项
+  static const estimateSource = '/usercenter/api/User/estimate-source'; // GET 当前模式 / PUT 保存 {mode, bookId?}
   static const scrollContentCurrent = '/asset/api/ScrollContent/current'; // GET ?slotCode= 滚动通知条
   static const announcement = '/asset/api/Announcement';               // GET ?position=&limit= 公告开关
   static const communityGroupCount = '/asset/api/CommunityGroup/count'; // GET 基金群人数（匿名）

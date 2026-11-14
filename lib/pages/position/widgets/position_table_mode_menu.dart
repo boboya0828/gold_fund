@@ -61,16 +61,17 @@ class PositionTableModeMenu extends StatelessWidget {
     return GestureDetector(
       onTap: () => onSelect(mode),
       child: Container(
-        height: 36.sx,
-        padding: EdgeInsets.symmetric(horizontal: 10.sx),
+        height: 36.sx, // 72rpx
+        padding: EdgeInsets.symmetric(horizontal: 10.sx), // 0 20rpx
         child: Row(
           children: [
-            Icon(icon, size: 18.sx, color: iconColor),
-            SizedBox(width: 7.sx),
+            // uni-icons size 单位是 px，不缩放（1:1 源码 size="18"）
+            Icon(icon, size: 18, color: iconColor),
+            SizedBox(width: 7.sx), // .table-mode-menu__text margin-left 14rpx
             Text(
               label,
               style: AppTextStyles.cn(
-                14.sx,
+                14.sx, // 28rpx
                 color: textColor,
                 weight: isActive ? FontWeight.w600 : FontWeight.w400,
               ),

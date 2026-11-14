@@ -9,22 +9,27 @@ class PositionDeleteDialog extends StatelessWidget {
   final String assetName;
   final bool isDark;
 
+  /// 自定义内容文案（批量删除等场景）；不传则用「确定要删除「assetName」吗？」
+  final String? content;
+
   const PositionDeleteDialog({
     super.key,
     required this.assetName,
     required this.isDark,
+    this.content,
   });
 
   static Future<bool?> show(
     BuildContext context, {
     required String assetName,
     required bool isDark,
+    String? content,
   }) {
     return showDialog<bool>(
       context: context,
       barrierColor: Colors.black54,
       builder: (_) =>
-          PositionDeleteDialog(assetName: assetName, isDark: isDark),
+          PositionDeleteDialog(assetName: assetName, isDark: isDark, content: content),
     );
   }
 
@@ -83,7 +88,7 @@ class PositionDeleteDialog extends StatelessWidget {
                     Padding(
                       padding: EdgeInsets.symmetric(horizontal: 21.sx), // 42rpx
                       child: Text(
-                        '确定要删除「$assetName」吗？',
+                        content ?? '确定要删除「$assetName」吗？',
                         textAlign: TextAlign.center,
                         style: AppTextStyles.cn(
                           15.sx, // 30rpx

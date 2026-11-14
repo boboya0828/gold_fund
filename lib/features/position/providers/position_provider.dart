@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_endpoints.dart';
@@ -160,6 +162,44 @@ class PositionItem {
     );
   }
 
+  /// 序列化（持仓首页缓存用，字段与 fromJson 读取键一一对应）
+  Map<String, dynamic> toJson() => {
+        'assetId': assetId,
+        'symbolId': symbolId,
+        'assetType': assetType,
+        'shortName': shortName,
+        'marketValue': marketValue,
+        'dayProfit': dayProfit,
+        'dayChangeRatio': dayChangeRatio,
+        'holdProfit': holdProfit,
+        'holdChangeRatio': holdChangeRatio,
+        'isLatestNav': isLatestNav,
+        if (indicatorList != null)
+          'indicators': indicatorList!.map((e) => e.toJson()).toList(),
+        if (latestPrice != null) 'latestPrice': latestPrice!.toJson(),
+        if (bookId != null) 'bookId': bookId,
+        'uniqueSymbol': uniqueSymbol,
+        'holdQuantity': holdQuantity,
+        'holdCostAmount': holdCostAmount,
+        'comment': comment,
+        'symbolCode': symbolCode,
+        'hasDcaPlan': hasDcaPlan,
+        'hasNote': hasNote,
+        'fundTypeName': fundTypeName,
+        if (increaseRatio != null) 'increaseRatio': increaseRatio,
+        if (holdingRatio != null) 'holdingRatio': holdingRatio,
+        if (holdDay != null) 'holdDay': holdDay,
+        if (breakEvenRate != null) 'breakEvenRate': breakEvenRate,
+        if (topHoldingsAvgChangeRate != null)
+          'topHoldingsAvgChangeRate': topHoldingsAvgChangeRate,
+        if (weekProfit != null) 'weekProfit': weekProfit,
+        if (weekProfitRate != null) 'weekProfitRate': weekProfitRate,
+        if (monthProfit != null) 'monthProfit': monthProfit,
+        if (monthProfitRate != null) 'monthProfitRate': monthProfitRate,
+        if (yearProfit != null) 'yearProfit': yearProfit,
+        if (yearProfitRate != null) 'yearProfitRate': yearProfitRate,
+      };
+
   /// 最新涨跌幅 (1:1 uni-app getLatestChgRate: chgRate ?? changeRatio ?? increaseRatio)
   double get latestChgRate => latestChgRateOrNull ?? dayChangeRatio;
 
@@ -264,6 +304,12 @@ class IndicatorItem {
     );
   }
 
+  Map<String, dynamic> toJson() => {
+        if (name != null) 'name': name,
+        if (shortName != null) 'shortName': shortName,
+        if (changeRatio != null) 'changeRatio': changeRatio,
+      };
+
   static double? _toNum(dynamic v) {
     if (v == null) return null;
     if (v is num) return v.toDouble();
@@ -315,6 +361,17 @@ class LatestPriceInfo {
     );
   }
 
+  Map<String, dynamic> toJson() => {
+        if (latestPrice != null) 'latestPrice': latestPrice,
+        if (preClose != null) 'preClose': preClose,
+        if (chgRate != null) 'chgRate': chgRate,
+        if (priceType != null) 'priceType': priceType,
+        if (latestTime != null) 'latestTime': latestTime,
+        if (latestNavDate != null) 'latestNavDate': latestNavDate,
+        if (indicatorList != null)
+          'indicatorList': indicatorList!.map((e) => e.toJson()).toList(),
+      };
+
   static double? _toNum(dynamic v) {
     if (v == null) return null;
     if (v is num) return v.toDouble();
@@ -327,6 +384,15 @@ class BookItem {
   final int bookId;
   final String bookName;
   const BookItem({required this.bookId, required this.bookName});
+
+  factory BookItem.fromJson(Map<String, dynamic> json) => BookItem(
+        bookId: (json['bookId'] is num)
+            ? (json['bookId'] as num).toInt()
+            : int.tryParse('${json['bookId']}') ?? 0,
+        bookName: (json['bookName'] ?? json['name'] ?? '').toString(),
+      );
+
+  Map<String, dynamic> toJson() => {'bookId': bookId, 'bookName': bookName};
 }
 
 /// 账户汇总卡片（GET /asset/api/Asset/overview/cards）
@@ -388,6 +454,20 @@ class OverviewCard {
     if (v is num) return v.toInt();
     return int.tryParse(v.toString());
   }
+
+  Map<String, dynamic> toJson() => {
+        'bookId': bookId,
+        'bookName': bookName,
+        'iconKey': iconKey,
+        'assetAmount': assetAmount,
+        'holdingProfit': holdingProfit,
+        'holdingProfitRate': holdingProfitRate,
+        'dayProfit': dayProfit,
+        'dayProfitRate': dayProfitRate,
+        'riseCount': riseCount,
+        'fallCount': fallCount,
+        'trend': trend.map((e) => e.toJson()).toList(),
+      };
 }
 
 /// 汇总卡片迷你走势点
@@ -420,6 +500,13 @@ class OverviewTrendPoint {
       assetAmount: numOf(json['assetAmount']),
     );
   }
+
+  Map<String, dynamic> toJson() => {
+        'time': time,
+        'timestamp': timestamp,
+        if (dayProfitRate != null) 'dayProfitRate': dayProfitRate,
+        if (assetAmount != null) 'assetAmount': assetAmount,
+      };
 }
 
 /// 滚动通知条单条内容（GET /asset/api/ScrollContent/current items[]）
@@ -515,7 +602,7 @@ class PositionFontScale {
     navDate: 7, // 14rpx
   );
 
-  /// fontSizeMode：0=标准，其余（含缺失）=大号（对齐 uni-app normalizeFontSizeMode）
+  /// fontSizeMode：0=标准，1=大号；缺失按标准（用户原版 App 实测跑标准档）
   static PositionFontScale of(bool standard) =>
       standard ? PositionFontScale.standard : PositionFontScale.large;
 }
@@ -580,7 +667,7 @@ class PositionState {
     this.sortOrder = 'desc',
     this.isLoggedIn = false,
     this.errorMessage,
-    this.allBookVisible = true,
+    this.allBookVisible = true, // 缺省显示「全部」（对齐原版；restorePrefs 后按存储键）
     this.overviewCards = const [],
     this.overviewLoading = false,
     this.overviewTotalMarketValue = 0,
@@ -835,6 +922,7 @@ class PositionNotifier extends StateNotifier<PositionState> {
     final mode = prefs.getInt('tableShowMode') ?? 0;
     // 1:1 uni-app positionShowProfitRatio 缓存
     final showRatio = prefs.getBool('positionShowProfitRatio') ?? false;
+    // 1:1 原版 readPositionAllBookVisible（!== false）：缺省显示「全部」tab
     final allBookVisible = prefs.getBool('positionAllBookVisible') ?? true;
     // 1:1 uni-app positionHoldingSort {field, order} 持久化
     final sortField = prefs.getString('positionHoldingSortField') ?? '';
@@ -856,6 +944,260 @@ class PositionNotifier extends StateNotifier<PositionState> {
   Future<void> _saveTableMode(TableShowMode mode) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt('tableShowMode', mode.index);
+  }
+
+  // ==================== 持仓首页缓存（1:1 uni-app position_page_cache_v1）====================
+  // stale-while-revalidate：进页先恢复缓存立即渲染，再并行拉新数据覆盖
+  static const _cacheKeyPrefix = 'position_page_cache_v1';
+  static const _cacheBoxName = 'positionCache';
+
+  /// 每个账本的持仓/统计缓存：切换账本时先用该账本缓存过渡（1:1 bookHoldingCache）
+  Map<String, Map<String, dynamic>> _holdingsByBook = {};
+  List<String> _loadedBookKeys = [];
+  String? _restoredCacheKey;
+  Timer? _cacheSaveTimer;
+
+  /// 当前账本缓存键（1:1 getCurrentHoldingKey）
+  String _currentHoldingKey() => '${state.currentBookId ?? 'all'}';
+
+  Box get _cacheBox => Hive.box(_cacheBoxName);
+
+  /// 1:1 uni-app getPositionCacheUserKey
+  /// （userInfo.userId/id/phone/openId，无则 token；无 token/userInfo → 'guest'）
+  Future<String> _cacheUserKey() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token');
+    final infoJson = prefs.getString('userInfo');
+    if (token == null || token.isEmpty || infoJson == null) return 'guest';
+    try {
+      final user = jsonDecode(infoJson);
+      final v = (user is Map)
+          ? (user['userId'] ??
+              user['id'] ??
+              user['phone'] ??
+              user['openId'] ??
+              token)
+          : token;
+      final s = '$v';
+      return s.length > 80 ? s.substring(0, 80) : s;
+    } catch (_) {
+      return token;
+    }
+  }
+
+  Future<String> _cacheKey() async =>
+      '${_cacheKeyPrefix}_${await _cacheUserKey()}';
+
+  /// 1:1 uni-app getPositionCachePayload
+  Map<String, dynamic> _cachePayload() {
+    final currentHolding = _holdingsByBook[_currentHoldingKey()];
+    return {
+      'bookList': state.books.map((b) => b.toJson()).toList(),
+      'taberList': state.bookNames,
+      'taberIndex': state.tabIndex,
+      'allBookVisible': state.allBookVisible,
+      'holdings': (currentHolding?['list'] as List?) ??
+          state.items.map((e) => e.toJson()).toList(),
+      'holdingsByBook': _holdingsByBook,
+      'loadedBookKeys': _loadedBookKeys,
+      'bookStatsData': {
+        'totalMarketAmount': state.totalMarketValue,
+        'totalDayProfit': state.totalDayProfit,
+        'totalDayChangeRatio': state.totalDayChangeRatio,
+      },
+      'overviewCards': state.overviewCards.map((e) => e.toJson()).toList(),
+      'overviewStatsData': {
+        'totalMarketAmount': state.overviewTotalMarketValue,
+        'totalDayProfit': state.overviewTotalDayProfit,
+        'totalDayChangeRatio': state.overviewTotalDayChangeRatio,
+      },
+      'curTradeDate': state.curTradeDate,
+      'latestNavDate': state.latestNavDate,
+      'extendedCurTradeDate': state.extendedCurTradeDate,
+      'cacheTime': DateTime.now().millisecondsSinceEpoch,
+    };
+  }
+
+  Future<bool> _hasToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token');
+    return token != null && token.isNotEmpty;
+  }
+
+  /// 1:1 uni-app savePositionCache（防抖 80ms；游客不写防串号）
+  void _savePositionCache() {
+    _cacheSaveTimer?.cancel();
+    _cacheSaveTimer = Timer(const Duration(milliseconds: 80), () async {
+      // 游客不写持仓缓存：guest 桶没有值得缓存的数据，且退出登录的时序里
+      // 自动保存会把内存中的持仓写进 guest 桶造成串号（源码注释，已实测复现）
+      if (!await _hasToken()) return;
+      if (!mounted) return;
+      try {
+        await _cacheBox.put(await _cacheKey(), _cachePayload());
+      } catch (_) {}
+    });
+  }
+
+  /// 1:1 uni-app savePositionCacheNow（onHide/退后台立即保存）
+  Future<void> saveCacheNow() async {
+    _cacheSaveTimer?.cancel();
+    _cacheSaveTimer = null;
+    if (!await _hasToken()) return;
+    try {
+      await _cacheBox.put(await _cacheKey(), _cachePayload());
+    } catch (_) {}
+  }
+
+  /// 删除账本同步清该书缓存键（1:1 confirmDeleteBook 的缓存清理）
+  void removeBookHoldingCache(int bookId) {
+    final key = '$bookId';
+    _holdingsByBook.remove(key);
+    _loadedBookKeys.remove(key);
+    if (state.currentBookId == bookId) {
+      state = state.copyWith(tabIndex: 0);
+    }
+    _savePositionCache();
+  }
+
+  /// stale-while-revalidate 恢复（1:1 uni-app restorePositionCache）
+  /// 恢复一次守卫：同一 userKey 只恢复一次（用户切换后 key 变化会再恢复）
+  Future<bool> restorePositionCache() async {
+    final key = await _cacheKey();
+    if (_restoredCacheKey == key) return false;
+    final raw = _cacheBox.get(key);
+    _restoredCacheKey = key;
+    final hasToken = await _hasToken();
+    if (raw is! Map) {
+      // 无缓存（含游客首次进入）也要初始化 tab 列表，否则「全部」tab 不渲染
+      _holdingsByBook = {};
+      _loadedBookKeys = [];
+      state = state.copyWith(
+        books: const [],
+        tabIndex: 0,
+        items: const [],
+        overviewCards: const [],
+        totalMarketValue: 0,
+        totalDayProfit: 0,
+        totalDayChangeRatio: 0,
+        overviewTotalMarketValue: 0,
+        overviewTotalDayProfit: 0,
+        overviewTotalDayChangeRatio: 0,
+        curTradeDate: '',
+        latestNavDate: '',
+        extendedCurTradeDate: '',
+      );
+      return false;
+    }
+
+    final cache = Map<String, dynamic>.from(raw);
+    final bookList = cache['bookList'] is List
+        ? (cache['bookList'] as List)
+            .whereType<Map>()
+            .map((e) => BookItem.fromJson(Map<String, dynamic>.from(e)))
+            .toList()
+        : <BookItem>[];
+    // allBookVisible 以本地存储为准（源码 refreshAllBookTabVisible），
+    // 缓存值仅用于可见性变化时的 tabIndex ±1 调整
+    final prefs = await SharedPreferences.getInstance();
+    final visible = prefs.getBool('positionAllBookVisible') ?? true;
+    final cachedVisible = cache['allBookVisible'] != false;
+    final visibilityChanged = cachedVisible != visible;
+    var tabIdx = cache['taberIndex'] is num
+        ? (cache['taberIndex'] as num).toInt()
+        : 0;
+    if (visibilityChanged) {
+      tabIdx = cachedVisible ? (tabIdx == 0 ? 0 : tabIdx - 1) : tabIdx + 1;
+    }
+    final overviewIdx = bookList.length + (visible ? 1 : 0);
+    tabIdx = tabIdx.clamp(0, overviewIdx);
+    // 游客始终落「全部」tab，忽略缓存里保存的账户汇总 tab
+    if (!hasToken && tabIdx == overviewIdx && visible) tabIdx = 0;
+
+    _holdingsByBook = {};
+    if (cache['holdingsByBook'] is Map) {
+      (cache['holdingsByBook'] as Map).forEach((k, v) {
+        if (v is Map) _holdingsByBook['$k'] = Map<String, dynamic>.from(v);
+      });
+    }
+    _loadedBookKeys = cache['loadedBookKeys'] is List
+        ? (cache['loadedBookKeys'] as List).map((e) => '$e').toList()
+        : [];
+
+    final overviewCards = cache['overviewCards'] is List
+        ? (cache['overviewCards'] as List)
+            .whereType<Map>()
+            .map((e) => OverviewCard.fromJson(Map<String, dynamic>.from(e)))
+            .toList()
+        : <OverviewCard>[];
+    final overviewStats = cache['overviewStatsData'] is Map
+        ? Map<String, dynamic>.from(cache['overviewStatsData'] as Map)
+        : <String, dynamic>{};
+    final bookStats = cache['bookStatsData'] is Map
+        ? Map<String, dynamic>.from(cache['bookStatsData'] as Map)
+        : <String, dynamic>{};
+
+    state = state.copyWith(
+      books: bookList,
+      tabIndex: tabIdx,
+      allBookVisible: visible,
+      overviewCards: overviewCards,
+      totalMarketValue: _toNum(bookStats['totalMarketAmount']) ?? 0,
+      totalDayProfit: _toNum(bookStats['totalDayProfit']) ?? 0,
+      totalDayChangeRatio: _toNum(bookStats['totalDayChangeRatio']) ?? 0,
+      overviewTotalMarketValue:
+          _toNum(overviewStats['totalMarketAmount']) ?? 0,
+      overviewTotalDayProfit: _toNum(overviewStats['totalDayProfit']) ?? 0,
+      overviewTotalDayChangeRatio:
+          _toNum(overviewStats['totalDayChangeRatio']) ?? 0,
+      curTradeDate: '${cache['curTradeDate'] ?? ''}',
+      latestNavDate: '${cache['latestNavDate'] ?? ''}',
+      extendedCurTradeDate: '${cache['extendedCurTradeDate'] ?? ''}',
+    );
+
+    // 恢复当前 tab 的持仓（优先 per-book 缓存，兜底顶层 holdings 快照）
+    if (tabIdx != overviewIdx) {
+      final holding = _holdingsByBook[_currentHoldingKey()];
+      if (holding != null) {
+        _applyBookHolding(holding);
+      } else if (cache['holdings'] is List) {
+        state = state.copyWith(
+          items: (cache['holdings'] as List)
+              .whereType<Map>()
+              .map((e) =>
+                  PositionItem.fromJson(Map<String, dynamic>.from(e)))
+              .toList(),
+        );
+      } else {
+        state = state.copyWith(items: const []);
+      }
+    }
+    return true;
+  }
+
+  /// 1:1 uni-app applyBookHolding：把 per-book 缓存应用到 state
+  void _applyBookHolding(Map<String, dynamic> holding) {
+    final list = holding['list'] is List ? holding['list'] as List : const [];
+    final stats = holding['bookStatsData'] is Map
+        ? Map<String, dynamic>.from(holding['bookStatsData'] as Map)
+        : <String, dynamic>{};
+    state = state.copyWith(
+      items: list
+          .whereType<Map>()
+          .map((e) => PositionItem.fromJson(Map<String, dynamic>.from(e)))
+          .toList(),
+      totalMarketValue: _toNum(stats['totalMarketAmount']) ?? 0,
+      totalDayProfit: _toNum(stats['totalDayProfit']) ?? 0,
+      totalDayChangeRatio: _toNum(stats['totalDayChangeRatio']) ?? 0,
+      curTradeDate: '${holding['curTradeDate'] ?? ''}',
+      latestNavDate: '${holding['latestNavDate'] ?? ''}',
+      extendedCurTradeDate: '${holding['extendedCurTradeDate'] ?? ''}',
+    );
+  }
+
+  @override
+  void dispose() {
+    _cacheSaveTimer?.cancel();
+    super.dispose();
   }
 
   // ==================== API 调用 ====================
@@ -912,14 +1254,34 @@ class PositionNotifier extends StateNotifier<PositionState> {
       final curTradeDate = payload['curTradeDate'] as String? ?? '';
       final latestNavDate = payload['latestNavDate'] as String? ?? '';
 
-      state = state.copyWith(
-        items: items,
-        totalMarketValue: totalMarketValue,
-        totalDayProfit: totalDayProfit,
-        totalDayChangeRatio: totalDayChangeRatio,
-        curTradeDate: curTradeDate,
-        latestNavDate: latestNavDate,
-      );
+      // 1:1 uni-app setBookHoldingCache：按账本缓存持仓/统计
+      final holdingKey = bookId == null ? 'all' : '$bookId';
+      _holdingsByBook[holdingKey] = <String, dynamic>{
+        'list': items.map((e) => e.toJson()).toList(),
+        'bookStatsData': {
+          'totalMarketAmount': totalMarketValue,
+          'totalDayProfit': totalDayProfit,
+          'totalDayChangeRatio': totalDayChangeRatio,
+        },
+        'curTradeDate': curTradeDate,
+        'latestNavDate': latestNavDate,
+        'extendedCurTradeDate': state.extendedCurTradeDate,
+      };
+      if (!_loadedBookKeys.contains(holdingKey)) {
+        _loadedBookKeys = [..._loadedBookKeys, holdingKey];
+      }
+      // 快速连切时只更新缓存，展示以当前账本的数据为准
+      if (holdingKey == _currentHoldingKey()) {
+        state = state.copyWith(
+          items: items,
+          totalMarketValue: totalMarketValue,
+          totalDayProfit: totalDayProfit,
+          totalDayChangeRatio: totalDayChangeRatio,
+          curTradeDate: curTradeDate,
+          latestNavDate: latestNavDate,
+        );
+      }
+      _savePositionCache();
       // 扩展列合并（重仓均涨幅/本周/本月/今年）
       unawaited(_fetchExtendedColumns(bookId));
     } catch (_) {}
@@ -940,8 +1302,18 @@ class PositionNotifier extends StateNotifier<PositionState> {
           (payload['list'] as List?)?.cast<Map<String, dynamic>>() ?? [];
       final extDate = payload['curTradeDate'] as String? ?? '';
       if (!mounted) return;
-      final current = List<PositionItem>.from(state.items);
-      final merged = current.map((item) {
+      final holdingKey = bookId == null ? 'all' : '$bookId';
+      // 以该账本缓存中的列表为合并基准（连切后不把数据合到别的账本上）
+      final holding = _holdingsByBook[holdingKey];
+      final baseList = holding?['list'] is List
+          ? holding!['list'] as List
+          : const <dynamic>[];
+      final baseItems = baseList
+          .whereType<Map>()
+          .map((e) => PositionItem.fromJson(Map<String, dynamic>.from(e)))
+          .toList();
+      final sourceItems = baseItems.isNotEmpty ? baseItems : state.items;
+      final merged = sourceItems.map((item) {
         Map<String, dynamic>? ext;
         for (final e in list) {
           final matched = bookId != null
@@ -954,13 +1326,23 @@ class PositionNotifier extends StateNotifier<PositionState> {
         }
         return ext == null ? item : item.mergeExtended(ext);
       }).toList();
-      state = state.copyWith(items: merged, extendedCurTradeDate: extDate);
+      if (holding != null) {
+        holding['list'] = merged.map((e) => e.toJson()).toList();
+        holding['extendedCurTradeDate'] = extDate;
+      }
+      if (holdingKey == _currentHoldingKey()) {
+        state = state.copyWith(items: merged, extendedCurTradeDate: extDate);
+      }
+      _savePositionCache();
     } catch (_) {}
   }
 
   /// 表头管理配置（显隐 + 顺序 + 基金代码/持有金额开关）
-  Future<void> _fetchHoldingColumns() async {
-    try {
+  /// 公开版：账本设置页保存后刷新持仓页配置（sort.vue saveHoldingColumns 后持仓页生效）
+  Future<void> refreshHoldingColumns() => _fetchHoldingColumns();
+
+  /// 表头管理配置（显隐 + 顺序 + 基金代码/持有金额开关）
+  Future<void> _fetchHoldingColumns() async {    try {
       final res = await _api.get(ApiEndpoints.holdingColumns);
       final data = res.data;
       final payload = (data is Map && data['data'] is Map)
@@ -1004,6 +1386,7 @@ class PositionNotifier extends StateNotifier<PositionState> {
           .toList();
       if (!mounted) return;
       state = state.copyWith(overviewCards: cards, overviewLoading: false);
+      _savePositionCache();
     } catch (_) {
       if (!mounted) return;
       state = state.copyWith(overviewLoading: false);
@@ -1026,6 +1409,7 @@ class PositionNotifier extends StateNotifier<PositionState> {
         overviewTotalDayChangeRatio:
             _toNum(payload['totalDayChangeRatio']) ?? 0,
       );
+      _savePositionCache();
     } catch (_) {}
   }
 
@@ -1134,6 +1518,10 @@ class PositionNotifier extends StateNotifier<PositionState> {
     unawaited(_loadMarketCubeSwitch());
     unawaited(_loadFeedNotice());
 
+    // stale-while-revalidate：先恢复缓存立即渲染（每个 userKey 只恢复一次），
+    // 再并行拉新数据覆盖（1:1 uni-app onLoad/onShow restorePositionCache）
+    await restorePositionCache();
+
     // 检查登录
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('token');
@@ -1153,7 +1541,8 @@ class PositionNotifier extends StateNotifier<PositionState> {
 
     try {
       final books = await _fetchBooks();
-      final allBookVisible = prefs.getBool('positionAllBookVisible') ?? true;
+      // 1:1 原版 readPositionAllBookVisible（!== false）：缺省显示「全部」tab
+    final allBookVisible = prefs.getBool('positionAllBookVisible') ?? true;
 
       // 初始化/矫正 tabIndex
       var tabIdx = state.tabIndex;
@@ -1167,7 +1556,8 @@ class PositionNotifier extends StateNotifier<PositionState> {
         isLoggedIn: true,
         allBookVisible: allBookVisible,
         // 1:1 uni-app fontSizeModeChanged：页面存活期间档位变化随下次加载生效
-        listFontStandard: (prefs.getInt('fontSizeMode') ?? 1) == 0,
+        // 缺省按「标准」档（用户原版 App 实测跑标准档，与 _restorePrefs 一致）
+        listFontStandard: (prefs.getInt('fontSizeMode') ?? 0) == 0,
       );
 
       final currentBook = state.currentBookId;
@@ -1215,16 +1605,24 @@ class PositionNotifier extends StateNotifier<PositionState> {
     await loadData(showRefreshTip: true);
   }
 
-  /// 切换账本 — 1:1 uni-app watch(taberIndex)：汇总 tab 拉汇总数据，其余只重拉资产列表
+  /// 切换账本 — 1:1 uni-app watch(taberIndex)：
+  /// 汇总 tab 拉汇总数据；普通 tab 先用该账本缓存过渡（bookHoldingCache），再拉新数据替换
   void selectTab(int index) {
     if (index == state.tabIndex) return;
     state = state.copyWith(tabIndex: index);
     if (state.isOverviewTab) {
       _fetchOverviewCards();
       _fetchOverviewStats();
-    } else {
-      _fetchAssets(state.currentBookId);
+      return;
     }
+    final holdingKey = _currentHoldingKey();
+    final cached = _holdingsByBook[holdingKey];
+    if (cached != null) {
+      _applyBookHolding(cached);
+    } else {
+      state = state.copyWith(items: const []);
+    }
+    _fetchAssets(state.currentBookId);
   }
 
   /// 汇总卡片点击 → 切换到对应账本 tab（1:1 uni-app handleOverviewCardSelect）
