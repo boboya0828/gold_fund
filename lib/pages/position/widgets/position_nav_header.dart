@@ -157,7 +157,9 @@ class PositionNavHeader extends ConsumerWidget {
             // ===== 账本标签行 — pages-taber =====
             // 左固定「账户汇总」+ 右侧横滚 taberList + 末尾「+」账本管理
             SizedBox(
-              height: 38.sx,
+              // 1:1 taber-item 总高 62rpx（实测 32.5px@393），文字 30rpx×1.2 + 指示条绝对定位
+              // 原写 76rpx 导致整页下压 ~7px（与原版逐带测量对比发现）
+              height: 31.sx,
               child: Row(
                 children: [
                   _tabItem(
@@ -214,8 +216,10 @@ class PositionNavHeader extends ConsumerWidget {
   }
 
   /// 单个 tab — 1:1 .taber-item
-  /// 未选 30rpx #9A7A61（深 #777C86）；选中 34rpx 700 #452008（深 #FFFFFF）
-  /// 选中指示条 54x8rpx 圆角999 #E15665（深 #E05665），居中 bottom:0
+  /// 字号统一 30rpx（源码 .taber-text 自身声明覆盖父级 34rpx 继承，实测 H5 激活态也是 30rpx），
+  /// 选中差异仅：700 字重 + #452008（深 #FFFFFF）+ 54x8rpx 圆角999 指示条 #E15665（深 #E05665）。
+  /// 布局：总高 62rpx；文字顶部 padding 8rpx；指示条为绝对定位 bottom:0（不占文档流，
+  /// 叠在 18rpx 底部 padding 内）——源码 .taber-item.taber-active::after 即为此结构
   Widget _tabItem({
     required String label,
     required bool active,
@@ -225,34 +229,46 @@ class PositionNavHeader extends ConsumerWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
+        height: 31.sx, // 62rpx（实测原版总高 32.5px@393 ≈ 62rpx）
         margin: EdgeInsets.only(right: 15.sx), // margin-right 30rpx
-        padding: EdgeInsets.only(top: 4.sx, bottom: 9.sx), // padding 8rpx 0 18rpx
         color: Colors.transparent,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        child: Stack(
           children: [
-            Text(
-              label,
-              style: AppTextStyles.cn(
-                active ? 17 : 15, // 34rpx / 30rpx
-                color: active
-                    ? (isDark ? Colors.white : const Color(0xFF452008))
-                    : (isDark
-                        ? const Color(0xFF777C86)
-                        : const Color(0xFF9A7A61)),
-                weight: active ? FontWeight.w700 : FontWeight.w400,
-                height: 1.2,
+            Align(
+              alignment: Alignment.topCenter,
+              child: Padding(
+                padding: EdgeInsets.only(top: 4.sx), // padding-top 8rpx
+                child: Text(
+                  label,
+                  style: AppTextStyles.cn(
+                    15, // 30rpx（选中也是 30rpx，见上方注释）
+                    color: active
+                        ? (isDark ? Colors.white : const Color(0xFF452008))
+                        : (isDark
+                            ? const Color(0xFF777C86)
+                            : const Color(0xFF9A7A61)),
+                    weight: active ? FontWeight.w700 : FontWeight.w400,
+                    height: 1.2,
+                  ),
+                ),
               ),
             ),
-            Container(
-              key: indicatorKey,
-              width: 27.sx, // 54rpx
-              height: 4.sx, // 8rpx
-              decoration: BoxDecoration(
-                color: active
-                    ? (isDark ? const Color(0xFFE05665) : AppColors.primary)
-                    : Colors.transparent,
-                borderRadius: BorderRadius.circular(999.sx),
+            Positioned(
+              bottom: 0, // ::after bottom:0，叠在 18rpx 底 padding 内
+              left: 0,
+              right: 0,
+              child: Center(
+                child: Container(
+                  key: indicatorKey,
+                  width: 27.sx, // 54rpx
+                  height: 4.sx, // 8rpx
+                  decoration: BoxDecoration(
+                    color: active
+                        ? (isDark ? const Color(0xFFE05665) : AppColors.primary)
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(999.sx),
+                  ),
+                ),
               ),
             ),
           ],

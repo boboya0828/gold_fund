@@ -839,8 +839,10 @@ class PositionNotifier extends StateNotifier<PositionState> {
     // 1:1 uni-app positionHoldingSort {field, order} 持久化
     final sortField = prefs.getString('positionHoldingSortField') ?? '';
     final sortOrder = prefs.getString('positionHoldingSortOrder') ?? 'desc';
-    // 1:1 uni-app fontSizeMode（0=标准 1=大号；缺失/非法按大号）+ fontSizeModeChanged 事件
-    final listFontStandard = (prefs.getInt('fontSizeMode') ?? 1) == 0;
+    // 1:1 uni-app fontSizeMode（0=标准 1=大号）。原版默认大号，但用户原版 App 实测
+    // 跑在「标准」档（副行 20rpx 带状测量 8px vs 大号 22rpx 10px），本地缺省按标准对齐；
+    // 显示设置页移植后用户可自行切换（存储键一致）
+    final listFontStandard = (prefs.getInt('fontSizeMode') ?? 0) == 0;
     state = state.copyWith(
       tableMode: TableShowMode.values[mode.clamp(0, 2)],
       showProfitRatio: showRatio,
