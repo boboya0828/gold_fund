@@ -45,6 +45,7 @@ import 'pages/user/feedback_form_page.dart';
 import 'pages/common/webview_page.dart';
 import 'pages/common/privacy_auth_page.dart';
 import 'pages/common/guide_page.dart';
+import 'pages/common/simple_placeholder_page.dart';
 import 'pages/fund/running_tab_page.dart';
 import 'pages/fund/fund_settings_page.dart';
 import 'pages/fund/listed_net_value_page.dart';
@@ -162,6 +163,8 @@ class AppRouter {
                 assetId: assetId,
                 bookId: int.tryParse(q['bookId'] ?? ''),
                 fromAllBooks: q['fromAllBooks'] == '1' || q['fromAllBooks'] == 'true',
+                switchToken: q['switchToken'] ?? '',
+                itemJson: q['item'] ?? '',
               ),
             );
           },
@@ -611,6 +614,74 @@ class AppRouter {
               type: state.uri.queryParameters['type'] ?? '',
               fundCode: state.uri.queryParameters['fundCode'] ?? '',
               fundName: state.uri.queryParameters['fundName'] ?? '',
+            ),
+          ),
+        ),
+        // ===== 持仓详情页依赖的未移植子页（占位 + TODO）=====
+        // 资金流向详情 (uni-app pages/index/fund/fund-flow-details) TODO 移植
+        GoRoute(
+          path: '/fund/fund-flow-details',
+          parentNavigatorKey: _rootNavigatorKey,
+          pageBuilder: (context, state) => _slidePage(
+            child: SimplePlaceholderPage(title: '资金详情'),
+          ),
+        ),
+        // 基金收益排行 (uni-app pages/market/sub/fund-return-ranking) TODO 移植
+        GoRoute(
+          path: '/fund/fund-return-ranking',
+          parentNavigatorKey: _rootNavigatorKey,
+          pageBuilder: (context, state) => _slidePage(
+            child: SimplePlaceholderPage(
+              title: '基金收益排行',
+              message: '收益排行页面建设中',
+            ),
+          ),
+        ),
+        // 个股详情 (uni-app pages/market/sub/stock-detail) TODO 移植
+        GoRoute(
+          path: '/market/stock-detail',
+          parentNavigatorKey: _rootNavigatorKey,
+          pageBuilder: (context, state) => _slidePage(
+            child: SimplePlaceholderPage(
+              title: state.uri.queryParameters['name']?.isNotEmpty == true
+                  ? state.uri.queryParameters['name']!
+                  : '个股详情',
+            ),
+          ),
+        ),
+        // 诊基报告 (uni-app pages/market/sub/fund-analysis-demo) TODO 移植
+        GoRoute(
+          path: '/market/fund-analysis',
+          parentNavigatorKey: _rootNavigatorKey,
+          pageBuilder: (context, state) => _slidePage(
+            child: SimplePlaceholderPage(title: '诊基报告', message: 'AI 诊基报告建设中'),
+          ),
+        ),
+        // 积分中心 (uni-app pages/user/sub/points) TODO 移植
+        GoRoute(
+          path: '/user/points',
+          parentNavigatorKey: _rootNavigatorKey,
+          pageBuilder: (context, state) => _slidePage(
+            child: SimplePlaceholderPage(title: '积分中心'),
+          ),
+        ),
+        // 指数设置 (uni-app pages/positionv1/sub/index-settings) TODO 移植
+        GoRoute(
+          path: '/position/index-settings',
+          parentNavigatorKey: _rootNavigatorKey,
+          pageBuilder: (context, state) => _slidePage(
+            child: SimplePlaceholderPage(title: '指数设置'),
+          ),
+        ),
+        // 板块详情 (uni-app pages/market/sub/sector-details) TODO 移植
+        GoRoute(
+          path: '/market/sector-details',
+          parentNavigatorKey: _rootNavigatorKey,
+          pageBuilder: (context, state) => _slidePage(
+            child: SimplePlaceholderPage(
+              title: state.uri.queryParameters['name']?.isNotEmpty == true
+                  ? state.uri.queryParameters['name']!
+                  : '板块详情',
             ),
           ),
         ),

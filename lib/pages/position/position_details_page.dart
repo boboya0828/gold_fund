@@ -12,26 +12,37 @@ import '../../core/network/api_endpoints.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/text_styles.dart';
+import 'widgets/position_delete_dialog.dart';
 import 'widgets/position_details_bottom_actions.dart';
 import 'widgets/position_details_chart_card.dart';
+import 'widgets/position_details_drawdown.dart';
+import 'widgets/position_details_fund_flow.dart';
 import 'widgets/position_details_heavyweight.dart';
 import 'widgets/position_details_hero_card.dart';
 import 'widgets/position_details_history.dart';
+import 'widgets/position_details_hold_day_picker.dart';
 import 'widgets/position_details_models.dart';
 import 'widgets/position_details_profit_calendar.dart';
+import 'widgets/position_details_ranking.dart';
+import 'widgets/position_details_skeleton.dart';
 import '../../core/utils/screen_adapt.dart';
+import '../../core/utils/stock_switch_list.dart';
+import 'dart:convert' as convert;
 
 /// 持仓详情页
-/// uni-app 对应: pages/index/fund/position-details.vue（5396 行，按优先级迁移核心区块）
+/// uni-app 对应: pages/index/fund/position-details.vue（9631 行，按优先级迁移核心区块）
 ///
 /// 平台专有能力（未迁移）：微信小程序条件编译、umeng 埋点 trackUmengEvent、
-/// chinese-days 节假日库（日历「休」标记暂以周末跳过代替）。
+/// chinese-days 节假日库（日历「休」标记暂以周末跳过代替）、
+/// echarts（图表以 CustomPainter 自绘替代）。
 class PositionDetailsPage extends ConsumerStatefulWidget {
   final String symbolId;
   final int assetType;
   final int? assetId;
   final int? bookId;
   final bool fromAllBooks;
+  final String switchToken;
+  final String itemJson; // options.item（JSON 串兜底）
 
   const PositionDetailsPage({
     super.key,
@@ -40,6 +51,8 @@ class PositionDetailsPage extends ConsumerStatefulWidget {
     this.assetId,
     this.bookId,
     this.fromAllBooks = false,
+    this.switchToken = '',
+    this.itemJson = '',
   });
 
   @override
@@ -60,13 +73,19 @@ class _PositionDetailsPageState extends ConsumerState<PositionDetailsPage> {
   final _api = ApiClient();
 
   // ===== 页面状态 =====
-  bool _loading = true;
+  bool _heroLoading = true; // heroLoading：骨架只包 hero 卡
   bool _navbarScrolled = false;
   Map<String, dynamic> _info = {};
   String _shortName = '';
   String _symbol = '';
   String _fundTypeName = '';
-  int? _assetType; // 实际资产类型（7=贵金属）
+  int? _assetType; // 接口返回的资产类型（currentAssetType 候选之一）
+
+  // 路由归一化后的生效参数（item JSON 兜底）
+  late String _effSymbolId = widget.symbolId;
+  late int? _effAssetId = widget.assetId;
+  late int? _effBookId = widget.bookId;
+  late int _effAssetType = widget.assetType;
 
   // 持仓
   List<Map<String, dynamic>> _assets = [];
@@ -76,16 +95,64 @@ class _PositionDetailsPageState extends ConsumerState<PositionDetailsPage> {
   int _selectedBookId = -1;
   bool _bookDropdownOpen = false;
   bool _isFavorite = false;
+  bool _metricsCollapsed = false; // 9 宫格折叠（纯本地）
 
   // 图表
-  String _activeChartTab = 'sector';
+  String _activeChartTab = 'fundFlow'; // 默认资金流向（1:1 uni-app）
   List<PdSectorSeries> _sectorSeries = [];
+  bool _sectorLoaded = false;
   String _sectorTooltipTime = '';
   String _activeTrendRange = '6m';
   List<PdTrendPoint> _trendPoints = [];
   final Map<String, List<PdTrendPoint>> _trendCache = {};
   bool _trendLoading = false;
   int _trendHoverIndex = -1;
+  String _activeMoneyTab = 'sevenDay'; // 货币基金：七日年化/万份收益
+
+  // 资金流向（1:1 fundFlow* 状态）
+  String _fundFlowView = 'round';
+  bool _fundFlowLoading = false;
+  Map<String, dynamic> _fundFlowRounds = {};
+  String _fundFlowRoundLoadedForCode = '';
+  Map<String, dynamic> _fundFlowDailyDetails = {};
+  String _fundFlowDailyLoadedForCode = '';
+  bool _fundFlowRoundsExpanded = false;
+  bool _fundFlowDailyExpanded = false;
+
+  // 回撤修复
+  bool _drawdownLoading = false;
+  bool _drawdownLoadError = false;
+  String _drawdownStatus = 'noData';
+  double? _drawdownMaxRate;
+  int? _drawdownRecoveryDays;
+  List<double> _drawdownSeries = [];
+  int _drawdownPeakIndex = -1;
+  int _drawdownTroughIndex = -1;
+  int _drawdownRecoveryIndex = -1;
+  String _drawdownPeriod = '1y';
+  static const _drawdownPeriodTabs = <Map<String, String>>[
+    {'label': '近3月', 'value': '3m'},
+    {'label': '近6月', 'value': '6m'},
+    {'label': '近1年', 'value': '1y'},
+    {'label': '近3年', 'value': '3y'},
+    {'label': '全部', 'value': 'all'},
+  ];
+
+  // 收益排行（债/货）
+  String _rankingPeriod = 'day';
+  static const _rankingPeriodTabs = <Map<String, String>>[
+    {'label': '日', 'value': 'day'},
+    {'label': '月', 'value': 'month'},
+    {'label': '年', 'value': 'year'},
+  ];
+  List<Map<String, dynamic>>? _rankingList;
+  bool _rankingLoading = false;
+  bool _rankingLoadError = false;
+  String _rankingDataDate = '';
+  String _rankingRateBasis = 'nav'; // money → 货币口径
+
+  // 历史视图（1:1 history-card 内部视图切换）
+  String _activeHistoryView = 'history'; // history | stage
 
   static const _trendRangeTabs = <Map<String, Object>>[
     {'label': '近1月', 'value': '1m', 'days': 30},
@@ -133,9 +200,79 @@ class _PositionDetailsPageState extends ConsumerState<PositionDetailsPage> {
   int _barrageRise = 0;
   int _barrageFall = 0;
 
-  bool get _isPreciousMetal => _assetType == 7 || widget.assetType == 7;
+  bool get _isPreciousMetal => _currentAssetType == 7;
   bool get _hasPosition => _positionDetail.isNotEmpty;
-  int get _fundId => int.tryParse('${_info['symbolId'] ?? widget.symbolId}') ?? 0;
+  int get _fundId => int.tryParse('${_info['symbolId'] ?? _effSymbolId}') ?? 0;
+
+  /// 1:1 uni-app isFromAllBooks：fromAllBooks==='1' || bookId===-1 || assetId===-1
+  bool get _isFromAllBooks =>
+      widget.fromAllBooks || _effBookId == -1 || _effAssetId == -1;
+
+  /// 1:1 uni-app currentAssetType：候选含 7 → 贵金属；否则取第一个有效值，默认 3
+  int get _currentAssetType {
+    final candidates = <int?>[
+      _effAssetType,
+      _asInt(_positionDetail['assetType']),
+      for (final a in _assets) _asInt(a['assetType']),
+      _asInt(_info['assetType']),
+    ];
+    if (candidates.any((v) => v == 7)) return 7;
+    return candidates.firstWhere((v) => v != null, orElse: () => 3)!;
+  }
+
+  /// 1:1 uni-app fundRankingType：名称含「货币」→ money，含「债」→ bond，其他 ''
+  String get _fundRankingType {
+    if (_fundTypeName.contains('货币')) return 'money';
+    if (_fundTypeName.contains('债')) return 'bond';
+    return '';
+  }
+
+  bool get _isMoneyFund => _fundRankingType == 'money';
+  bool get _isQdiiFund => _info['isOverseasFund'] == true;
+  bool get _hasRelatedSectorData => !_sectorLoaded || _sectorSeries.isNotEmpty;
+  bool get _noHeavyweightConfirmed =>
+      _heavyweight != null && _heavyweight!.isEmpty;
+
+  /// 1:1 uni-app chartTabs 可见性（默认 fundFlow）
+  List<Map<String, String>> get _chartTabs {
+    final tabs = <Map<String, String>>[
+      {'label': '资金流向', 'value': 'fundFlow'},
+      {'label': '关联涨跌', 'value': 'sector'},
+      {'label': '业绩走势', 'value': 'trend'},
+      {'label': '回撤修复', 'value': 'drawdown'},
+      {'label': '我的收益', 'value': 'profit'},
+    ];
+    return tabs.where((t) {
+      final v = t['value'];
+      if (v == 'profit' && !_hasPosition) return false;
+      if (v == 'fundFlow' && (_isQdiiFund || _noHeavyweightConfirmed)) {
+        return false;
+      }
+      if (v == 'sector' &&
+          _fundRankingType.isNotEmpty &&
+          !_hasRelatedSectorData) {
+        return false;
+      }
+      if (v == 'drawdown' && (_isPreciousMetal || _isMoneyFund)) return false;
+      return true;
+    }).toList();
+  }
+
+  /// 当前 tab 被隐藏时落到第一个非当前 tab（1:1 resolveFallbackChartTab）
+  String get _effectiveChartTab {
+    final tabs = _chartTabs;
+    if (tabs.any((t) => t['value'] == _activeChartTab)) return _activeChartTab;
+    return tabs.isNotEmpty ? tabs.first['value']! : 'trend';
+  }
+
+  /// 1:1 showReturnRankingCard：债/货且在 sector/fundFlow，
+  /// 或无关联数据且在 trend 时显示排行卡
+  bool get _showRankingCard {
+    if (_fundRankingType.isEmpty) return false;
+    final tab = _effectiveChartTab;
+    if (tab == 'sector' || tab == 'fundFlow') return true;
+    return !_hasRelatedSectorData && tab == 'trend';
+  }
 
   List<PdDanmuItem> get _visibleDanmu =>
       [..._serverDanmu, ..._userDanmu].where((e) => !_hiddenDanmuIds.contains(e.id)).toList();
@@ -143,8 +280,33 @@ class _PositionDetailsPageState extends ConsumerState<PositionDetailsPage> {
   @override
   void initState() {
     super.initState();
+    _normalizeRouteItem();
     _loadDanmuState();
     _loadAll();
+  }
+
+  /// 1:1 uni-app parseRouteItem：options.item 可为 JSON 字符串
+  /// （先原样 parse，失败再 decodeURIComponent 后 parse）
+  void _normalizeRouteItem() {
+    if (widget.itemJson.isEmpty) return;
+    Map<String, dynamic>? item;
+    try {
+      final parsed = convert.jsonDecode(widget.itemJson);
+      if (parsed is Map<String, dynamic>) item = parsed;
+    } catch (_) {
+      try {
+        final parsed = convert.jsonDecode(
+            Uri.decodeComponent(widget.itemJson));
+        if (parsed is Map<String, dynamic>) item = parsed;
+      } catch (_) {}
+    }
+    if (item == null) return;
+    if (_effSymbolId.isEmpty) _effSymbolId = '${item['symbolId'] ?? ''}';
+    _effAssetId ??= _asInt(item['assetId']);
+    _effBookId ??= _asInt(item['bookId']);
+    if (widget.assetType == 3 && item['assetType'] is num) {
+      _effAssetType = (item['assetType'] as num).toInt();
+    }
   }
 
   // ===================== 数据加载 =====================
@@ -161,8 +323,12 @@ class _PositionDetailsPageState extends ConsumerState<PositionDetailsPage> {
   }
 
   Future<void> _loadAll() async {
-    final sid = widget.symbolId;
-    if (sid.isEmpty) return;
+    final sid = _effSymbolId;
+    if (sid.isEmpty) {
+      // 无 symbolId：直接结束骨架（页面只剩骨架外的空壳）
+      if (mounted) setState(() => _heroLoading = false);
+      return;
+    }
     try {
       await _loadPosition(sid);
       // 标的详情
@@ -176,8 +342,8 @@ class _PositionDetailsPageState extends ConsumerState<PositionDetailsPage> {
         _symbol = data['code']?.toString() ?? '';
         _assetType ??= data['assetType'] is num ? (data['assetType'] as num).toInt() : null;
       }
-      if (mounted) setState(() => _loading = false);
-      // 并行加载次级数据（失败各自忽略）
+      if (mounted) setState(() => _heroLoading = false);
+      // 并行加载次级数据（失败各自忽略）— 1:1 首帧优先后台任务包
       unawaited(_syncFavoriteStatus(sid));
       unawaited(_loadBarrages());
       unawaited(_loadBarrageTrend());
@@ -187,8 +353,11 @@ class _PositionDetailsPageState extends ConsumerState<PositionDetailsPage> {
       unawaited(_loadHistory(sid));
       unawaited(_loadTrend(_activeTrendRange));
       unawaited(_loadCalendar());
+      unawaited(_loadFundFlowRoundData());
+      if (_fundRankingType.isNotEmpty) unawaited(_loadRanking());
     } catch (_) {
-      if (mounted) setState(() => _loading = false);
+      // 主链路异常：仅结束骨架，保证 onShow 可重试
+      if (mounted) setState(() => _heroLoading = false);
     }
   }
 
@@ -232,11 +401,25 @@ class _PositionDetailsPageState extends ConsumerState<PositionDetailsPage> {
       seen.add(bid);
       _positionBooks.add({...item, 'bookName': bookNames[bid] ?? '账本$bid'});
     }
+    // 1:1 源码：无汇总行且满足"全部账本+账本数>1"时，
+    // 用第一个账本复制一个 bookId=-1/assetId=-1 的「全部」伪行
+    final hasSummaryRow = _assets.any((a) =>
+        (a['assetId'] as num?)?.toInt() == -1 &&
+        (a['bookId'] as num?)?.toInt() == -1);
+    if (!hasSummaryRow && _isFromAllBooks && _positionBooks.length > 1) {
+      _assets.insert(0, {
+        ..._positionBooks.first,
+        'bookId': -1,
+        'assetId': -1,
+      });
+    }
     _bookTabs = [
-      if (widget.fromAllBooks && _positionBooks.length > 1) const PdBookTab(-1, '全部'),
-      ..._positionBooks.map((b) => PdBookTab((b['bookId'] as num).toInt(), b['bookName']?.toString() ?? '账本')),
+      if (_isFromAllBooks && _positionBooks.length > 1)
+        const PdBookTab(-1, '全部'),
+      ..._positionBooks.map((b) => PdBookTab(
+          (b['bookId'] as num).toInt(), b['bookName']?.toString() ?? '账本')),
     ];
-    _selectPositionDetail(widget.bookId);
+    _selectPositionDetail(_effBookId);
   }
 
   /// uni-app selectPositionDetail
@@ -334,9 +517,12 @@ class _PositionDetailsPageState extends ConsumerState<PositionDetailsPage> {
         setState(() {
           _sectorSeries = result;
           _sectorTooltipTime = tooltipTime;
+          _sectorLoaded = true;
         });
       }
-    } catch (_) {}
+    } catch (_) {
+      if (mounted) setState(() => _sectorLoaded = true);
+    }
   }
 
   Future<void> _loadHeavyweight(String sid) async {
@@ -392,7 +578,7 @@ class _PositionDetailsPageState extends ConsumerState<PositionDetailsPage> {
 
   /// 业绩走势 — uni-app loadTrendChartData
   Future<void> _loadTrend(String range, {bool force = false}) async {
-    final sid = '${_info['symbolId'] ?? widget.symbolId}';
+    final sid = '${_info['symbolId'] ?? _effSymbolId}';
     if (sid.isEmpty) return;
     final cacheKey = '$sid-$range';
     if (!force && _trendCache.containsKey(cacheKey)) {
@@ -420,18 +606,35 @@ class _PositionDetailsPageState extends ConsumerState<PositionDetailsPage> {
       }
 
       final points = <PdTrendPoint>[];
-      for (final item in list) {
-        if (item['tradeDate'] == null) continue;
-        final v = valueOf(item);
-        base ??= v;
-        if (base == null || v == null) continue;
-        final date = '${item['tradeDate']}';
-        points.add(PdTrendPoint(
-          tradeDate: date.length >= 10 ? date.substring(0, 10) : date,
-          value: v,
-          close: pdNum(item['close']) ?? v,
-          percent: (v - base) / base * 100,
-        ));
+      if (_isMoneyFund) {
+        // 货币基金：七日年化(day7YearRate)/万份收益(per10000Income) 原值单线（4 位）
+        for (final item in list) {
+          if (item['tradeDate'] == null) continue;
+          final v = pdNum(_activeMoneyTab == 'sevenDay'
+              ? item['day7YearRate']
+              : item['per10000Income']);
+          final date = '${item['tradeDate']}';
+          points.add(PdTrendPoint(
+            tradeDate: date.length >= 10 ? date.substring(0, 10) : date,
+            value: v ?? double.nan,
+            close: v ?? double.nan,
+            percent: v ?? double.nan,
+          ));
+        }
+      } else {
+        for (final item in list) {
+          if (item['tradeDate'] == null) continue;
+          final v = valueOf(item);
+          base ??= v;
+          if (base == null || v == null) continue;
+          final date = '${item['tradeDate']}';
+          points.add(PdTrendPoint(
+            tradeDate: date.length >= 10 ? date.substring(0, 10) : date,
+            value: v,
+            close: pdNum(item['close']) ?? v,
+            percent: (v - base) / base * 100,
+          ));
+        }
       }
       _trendCache[cacheKey] = points;
       if (mounted) setState(() => _trendPoints = points);
@@ -442,12 +645,16 @@ class _PositionDetailsPageState extends ConsumerState<PositionDetailsPage> {
     }
   }
 
-  /// 收益日历 — uni-app fetchCalendarData
+  /// 收益日历 — uni-app fetchCalendarData（bookId>0 时带 ?bookId=，「全部」不传）
   Future<void> _loadCalendar() async {
-    final sid = '${_info['symbolId'] ?? widget.symbolId}';
+    final sid = '${_info['symbolId'] ?? _effSymbolId}';
     if (sid.isEmpty) return;
     try {
-      final res = await _api.get('${ApiEndpoints.profitCalendarSymbol}/$sid');
+      final res = await _api.get(
+        '${ApiEndpoints.profitCalendarSymbol}/$sid',
+        queryParameters:
+            _selectedBookId > 0 ? {'bookId': _selectedBookId} : null,
+      );
       final data = _unwrap(res.data);
       if (data is! Map) return;
       final monthly = <int, String>{};
@@ -519,6 +726,306 @@ class _PositionDetailsPageState extends ConsumerState<PositionDetailsPage> {
     }
     final blanks = firstWeekday > 0 ? firstWeekday - 1 : 0;
     return [...List.generate(blanks, (_) => const PdCalendarDay()), ...result];
+  }
+
+  // ===================== 资金流向 =====================
+
+  String get _fundCode => _symbol.isNotEmpty
+      ? _symbol
+      : '${_info['code'] ?? ''}';
+
+  /// 1:1 loadFundFlowRoundData（同 code 不重复请求）
+  Future<void> _loadFundFlowRoundData({bool force = false}) async {
+    final code = _fundCode.trim();
+    if (code.isEmpty ||
+        _fundFlowLoading ||
+        (!force && _fundFlowRoundLoadedForCode == code)) {
+      return;
+    }
+    setState(() => _fundFlowLoading = true);
+    try {
+      final res = await _api.get(
+        ApiEndpoints.fundStockFundFlowRoundSummaries,
+        queryParameters: {'fundCode': code},
+      );
+      _fundFlowRounds = _unwrap(res.data) is Map
+          ? _unwrap(res.data) as Map<String, dynamic>
+          : {};
+      _fundFlowRoundLoadedForCode = code;
+    } catch (_) {
+      _fundFlowRounds = {};
+    } finally {
+      if (mounted) setState(() => _fundFlowLoading = false);
+    }
+  }
+
+  /// 1:1 loadFundFlowDailyData（PageIndex 1 / PageSize 20）
+  Future<void> _loadFundFlowDailyData({bool force = false}) async {
+    final code = _fundCode.trim();
+    if (code.isEmpty ||
+        _fundFlowLoading ||
+        (!force && _fundFlowDailyLoadedForCode == code)) {
+      return;
+    }
+    setState(() => _fundFlowLoading = true);
+    try {
+      final res = await _api.get(
+        ApiEndpoints.fundStockFundFlowDailyDetails,
+        queryParameters: {'FundCode': code, 'PageIndex': 1, 'PageSize': 20},
+      );
+      _fundFlowDailyDetails = _unwrap(res.data) is Map
+          ? _unwrap(res.data) as Map<String, dynamic>
+          : {};
+      _fundFlowDailyLoadedForCode = code;
+    } catch (_) {
+      _fundFlowDailyDetails = {};
+    } finally {
+      if (mounted) setState(() => _fundFlowLoading = false);
+    }
+  }
+
+  /// 1:1 fundFlowRoundItems：过滤+按 roundTime 倒序
+  List<Map<String, dynamic>> get _fundFlowRoundItems {
+    final payload = _fundFlowRounds;
+    List items;
+    if (payload['items'] is List) {
+      items = payload['items'] as List;
+    } else if (payload['roundId'] != null ||
+        payload['roundTime'] != null ||
+        payload['mainNetInflowAmount'] != null ||
+        payload['retailNetInflowAmount'] != null) {
+      items = [payload];
+    } else {
+      items = const [];
+    }
+    bool visible(dynamic v) {
+      if (v == null || v == '') return false;
+      final n = v is num ? v.toDouble() : double.tryParse('$v');
+      return n != null && n != 0;
+    }
+
+    final result = items
+        .whereType<Map<String, dynamic>>()
+        .where((item) =>
+            visible(item['mainNetInflowAmount']) ||
+            visible(item['retailNetInflowAmount']))
+        .toList();
+    result.sort((a, b) => '${b['roundTime']}'.compareTo('${a['roundTime']}'));
+    return result;
+  }
+
+  /// 1:1 fundFlowDailyItems：过滤净额非空非 0
+  List<Map<String, dynamic>> get _fundFlowDailyItems {
+    final items = _fundFlowDailyDetails['items'];
+    if (items is! List) return const [];
+    bool nonZero(dynamic v) {
+      if (v == null || v == '') return false;
+      final n = v is num ? v.toDouble() : double.tryParse('$v');
+      return n != null && n != 0;
+    }
+
+    return items.whereType<Map<String, dynamic>>().where((item) {
+      return nonZero(item['netInflowAmountYi']) ||
+          nonZero(item['netInflowAmount']);
+    }).toList();
+  }
+
+  String get _fundFlowRoundDate {
+    if ('${_fundFlowRounds['tradeDate'] ?? ''}'.isNotEmpty) {
+      return '${_fundFlowRounds['tradeDate']}';
+    }
+    return _fundFlowRoundItems.isNotEmpty
+        ? '${_fundFlowRoundItems.first['roundTime'] ?? ''}'
+        : '';
+  }
+
+  // ===================== 回撤修复 =====================
+
+  /// 1:1 loadDrawdownData：GET drawdownRecovery/{symbolId}?period=
+  Future<void> _loadDrawdownData({bool force = false}) async {
+    final sid = '${_info['symbolId'] ?? _effSymbolId}';
+    if (sid.isEmpty || _drawdownLoading) return;
+    setState(() {
+      _drawdownLoading = true;
+      _drawdownLoadError = false;
+    });
+    try {
+      final res = await _api.get(
+        '${ApiEndpoints.assetSymbolDrawdownRecovery}/$sid',
+        queryParameters: {'period': _drawdownPeriod},
+      );
+      final data = _unwrap(res.data);
+      if (data is! Map) throw StateError('invalid drawdown payload');
+      final status = '${data['status'] ?? 'noData'}';
+      final seriesRaw = data['series'] is List ? data['series'] as List : const [];
+      final navs = <double>[];
+      for (final p in seriesRaw) {
+        if (p is! Map) continue;
+        final v = pdNum(p['adjustedNav'] ?? p['nav'] ?? p['close']);
+        navs.add(v ?? double.nan);
+      }
+      // 相对区间首点涨跌幅（%），跳过无效点
+      final series = <double>[];
+      double? base;
+      for (final v in navs) {
+        if (v.isNaN || v <= 0) {
+          if (base != null) series.add(double.nan);
+          continue;
+        }
+        base ??= v;
+        series.add((v - base) / base * 100);
+      }
+      if (!mounted) return;
+      setState(() {
+        _drawdownStatus = status;
+        _drawdownMaxRate = pdNum(data['maxDrawdownRate']);
+        _drawdownRecoveryDays =
+            data['recoveryDays'] is num ? (data['recoveryDays'] as num).toInt() : null;
+        _drawdownSeries = series;
+        // peak/trough：payload 带 index 优先，否则取最大/最小点
+        var peak = data['peak'] is Map ? pdNum((data['peak'] as Map)['index'])?.toInt() : null;
+        var trough = data['trough'] is Map ? pdNum((data['trough'] as Map)['index'])?.toInt() : null;
+        if (series.isNotEmpty) {
+          var maxI = 0, minI = 0;
+          for (var i = 0; i < series.length; i++) {
+            if (series[i].isNaN) continue;
+            if (series[i] > series[maxI]) maxI = i;
+            if (series[i] < series[minI]) minI = i;
+          }
+          peak ??= maxI;
+          trough ??= minI;
+        }
+        _drawdownPeakIndex = peak ?? -1;
+        _drawdownTroughIndex = trough ?? -1;
+        // recoveryIndex：recovering 时取末点，否则按 recoveryDate 定位
+        var recovery = series.length - 1;
+        final recoveryDate = '${data['recoveryDate'] ?? ''}';
+        if (recoveryDate.isNotEmpty && seriesRaw.isNotEmpty) {
+          for (var i = 0; i < seriesRaw.length; i++) {
+            if (seriesRaw[i] is Map &&
+                '${seriesRaw[i]['navDate'] ?? ''}'.startsWith(recoveryDate)) {
+              recovery = i;
+            }
+          }
+        }
+        _drawdownRecoveryIndex = recovery;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _drawdownLoadError = true);
+    } finally {
+      if (mounted) setState(() => _drawdownLoading = false);
+    }
+  }
+
+  // ===================== 收益排行（债/货）=====================
+
+  /// 1:1 fetchFundReturnRanking：GET FundReturnRanking
+  Future<void> _loadRanking({bool force = false}) async {
+    if (_rankingLoading) return;
+    setState(() {
+      _rankingLoading = true;
+      _rankingLoadError = false;
+    });
+    try {
+      final res = await _api.get(
+        ApiEndpoints.fundReturnRanking,
+        queryParameters: {
+          'type': _fundRankingType,
+          'period': _rankingPeriod,
+          'market': 'all',
+          'pageIndex': 1,
+          'pageSize': 10,
+        },
+      );
+      final data = _unwrap(res.data);
+      final payload = data is Map ? data : const <String, dynamic>{};
+      final items = payload['items'] is List ? payload['items'] as List : const [];
+      final rateBasis = '${payload['rateBasis'] ?? 'nav'}';
+      // 口径：rateBasis==='money' → 货币（万份收益4位/28日年化/7日年化），否则净值口径
+      String displayValue(Map<String, dynamic> item) {
+        double? field(String key) => pdNum(item[key]);
+        String pct(double? v) => v == null ? '--' : '${v >= 0 ? '+' : ''}${v.toStringAsFixed(2)}%';
+        if (rateBasis == 'money') {
+          switch (_rankingPeriod) {
+            case 'day':
+              final v = field('per10000Income');
+              return v == null ? '--' : v.toStringAsFixed(4);
+            case 'month':
+              return pct(field('monthRate'));
+            default:
+              return pct(field('yearRate'));
+          }
+        }
+        switch (_rankingPeriod) {
+          case 'day':
+            return pct(field('dayRate'));
+          case 'month':
+            return pct(field('monthRate'));
+          default:
+            return pct(field('yearRate'));
+        }
+      }
+
+      final list = items.whereType<Map<String, dynamic>>().map((e) {
+        return {...e, '_displayValue': displayValue(e)};
+      }).toList();
+      if (!mounted) return;
+      setState(() {
+        _rankingList = list;
+        _rankingRateBasis = rateBasis;
+        _rankingDataDate = _formatRankingDataDate(payload['dataDate']);
+      });
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _rankingLoadError = true;
+          _rankingList = null;
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _rankingLoading = false);
+    }
+  }
+
+  /// 1:1 formatRankingDataDate：输出「数据截至 MM-DD」
+  String _formatRankingDataDate(dynamic dataDate) {
+    if (dataDate == null || '$dataDate'.isEmpty) return '';
+    final m = RegExp(r'\d{4}[-/](\d{2})[-/](\d{2})').firstMatch('$dataDate');
+    return m != null ? '数据截至 ${m.group(1)}-${m.group(2)}' : '';
+  }
+
+  String get _rankingValueLabel {
+    if (_rankingRateBasis == 'money') {
+      switch (_rankingPeriod) {
+        case 'day':
+          return '万份收益';
+        case 'month':
+          return '28日年化';
+        default:
+          return '7日年化';
+      }
+    }
+    switch (_rankingPeriod) {
+      case 'day':
+        return '日涨幅';
+      case 'month':
+        return '近1月';
+      default:
+        return '近1年';
+    }
+  }
+
+  /// 排行行点击 → 该基金详情（全部账本视图）
+  void _goRankingDetail(Map<String, dynamic> item) {
+    final sid = '${item['symbolId'] ?? ''}';
+    if (sid.isEmpty || sid == '0') return;
+    context.push(Uri(path: '/position-details', queryParameters: {
+      'symbolId': sid,
+      'bookId': '-1',
+      'assetId': '-1',
+      'assetType': '3',
+      'fromAllBooks': '1',
+    }).toString());
   }
 
   // ===================== 弹幕 =====================
@@ -711,7 +1218,7 @@ class _PositionDetailsPageState extends ConsumerState<PositionDetailsPage> {
     );
     if (confirmed != true) return;
     try {
-      await _api.delete('$_epFavoriteRemoveBySymbol/${widget.symbolId}');
+      await _api.delete('$_epFavoriteRemoveBySymbol/$_effSymbolId');
       if (mounted) {
         setState(() => _isFavorite = false);
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('已删除自选'), duration: Duration(seconds: 1)));
@@ -998,6 +1505,10 @@ class _PositionDetailsPageState extends ConsumerState<PositionDetailsPage> {
     );
   }
 
+  void _toast(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), duration: const Duration(seconds: 1)));
+  }
+
   void _todo(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), duration: const Duration(seconds: 1)));
   }
@@ -1040,7 +1551,7 @@ class _PositionDetailsPageState extends ConsumerState<PositionDetailsPage> {
       PdMetricItem('持有收益率', pdFmtSigned(d['holdChangeRatio'], 2, '%'), valueColor: pdProfitColor(pdNum(d['holdChangeRatio']))),
       PdMetricItem('持仓占比', pdFmt(d['holdingRatio'], 2, '%')),
       PdMetricItem('当日收益', pdFmtSigned(d['dayProfit']), valueColor: pdProfitColor(pdNum(d['dayProfit']))),
-      const PdMetricItem('昨日收益', '--'),
+      PdMetricItem('昨日收益', pdFmtSigned(d['yesterdayProfit']), valueColor: pdProfitColor(pdNum(d['yesterdayProfit']))),
       PdMetricItem('持有天数', holdDay is num ? '$holdDay' : '--'),
     ];
   }
@@ -1092,12 +1603,6 @@ class _PositionDetailsPageState extends ConsumerState<PositionDetailsPage> {
     ];
   }
 
-  List<Map<String, String>> get _chartTabs => [
-        {'label': '关联涨跌', 'value': 'sector'},
-        {'label': '业绩走势', 'value': 'trend'},
-        if (_hasPosition) {'label': '我的收益', 'value': 'profit'},
-      ];
-
   String get _calendarSwitchLabel {
     if (_activeCalendarView == '日') return '$_calendarYear年$_calendarMonth月';
     if (_activeCalendarView == '月') return '$_calendarYear年';
@@ -1120,20 +1625,28 @@ class _PositionDetailsPageState extends ConsumerState<PositionDetailsPage> {
 
   // ===================== 底部操作 =====================
 
+  /// 1:1 uni-app actionList：
+  /// 有持仓 → 交易记录(带未读角标)/加自选|删自选/修改持仓/定投(sell)/加减仓(buy)
+  /// 无持仓 → 加自选/反馈/诊基(sell)/添加持有(add)
   List<PdActionItem> get _actions {
     final fav = _isFavorite
         ? const PdActionItem(label: '删自选', icon: AppIcons.addSuccess, iconSize: 18)
         : const PdActionItem(label: '加自选', icon: AppIcons.addAlt, iconSize: 18);
-    final base = [fav, const PdActionItem(label: '修改持仓', icon: AppIcons.manualInput, iconSize: 18)];
     if (_hasPosition) {
       return [
         const PdActionItem(label: '交易记录', icon: AppIcons.record, iconSize: 22),
-        ...base,
-        const PdActionItem(label: '减仓', type: 'button', accent: 'sell'),
-        const PdActionItem(label: '加仓', type: 'button', accent: 'buy'),
+        fav,
+        const PdActionItem(label: '修改持仓', icon: AppIcons.manualInput, iconSize: 18),
+        const PdActionItem(label: '定投', type: 'button', accent: 'sell'),
+        const PdActionItem(label: '加减仓', type: 'button', accent: 'buy'),
       ];
     }
-    return [...base, const PdActionItem(label: '添加持有', type: 'button', accent: 'add')];
+    return [
+      fav,
+      const PdActionItem(label: '反馈', icon: AppIcons.note, iconSize: 18),
+      const PdActionItem(label: '诊基', type: 'button', accent: 'sell'),
+      const PdActionItem(label: '添加持有', type: 'button', accent: 'add'),
+    ];
   }
 
   // ===================== 页面跳转（uni-app hendlbtnNavto）=====================
@@ -1145,7 +1658,98 @@ class _PositionDetailsPageState extends ConsumerState<PositionDetailsPage> {
 
   bool get _isAllDetailSelected => _selectedBookId == -1;
 
-  String get _routeSymbolId => '${_info['symbolId'] ?? widget.symbolId}';
+  String get _routeSymbolId => '${_info['symbolId'] ?? _effSymbolId}';
+
+  // ===================== 持有天数修改 =====================
+
+  /// 1:1 openHoldDayPopup：汇总视图（assetId 无效）toast 拒绝
+  void _openHoldDayPopup() {
+    final assetId = _asInt(_positionDetail['assetId']);
+    if (assetId == null || assetId <= 0) {
+      _toast('汇总视图不支持修改持有天数');
+      return;
+    }
+    final holdDay = _asInt(_positionDetail['holdDay']) ?? 0;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    PositionDetailsHoldDayPicker.show(
+      context,
+      holdDay: holdDay,
+      isDark: isDark,
+      onConfirm: (years, months, days) =>
+          _setAssetHoldDay(assetId, years, months, days),
+    );
+  }
+
+  /// 1:1 setAssetHoldDay：PUT /asset/api/Asset/{assetId}/hold-day {holdDay}
+  Future<void> _setAssetHoldDay(
+      int assetId, int years, int months, int days) async {
+    // 源码换算口径：360 天/年 + 30 天/月
+    final totalDays = years * 360 + months * 30 + days;
+    try {
+      await _api.put(
+        '${ApiEndpoints.assetHoldDay}/$assetId/hold-day',
+        data: {'holdDay': totalDays},
+      );
+      if (!mounted) return;
+      setState(() => _positionDetail = {..._positionDetail, 'holdDay': totalDays});
+      _toast('修改成功');
+    } catch (_) {
+      _toast('修改失败，请稍后重试');
+    }
+  }
+
+  // ===================== 诊基 =====================
+
+  /// 1:1 openDiagnosisPopup：代码须 6 位数字 → 积分检查 → 确认弹框 → 报告页
+  Future<void> _openDiagnosisPopup() async {
+    final code = _symbol;
+    if (!RegExp(r'^\d{6}$').hasMatch(code)) {
+      _toast('暂不支持该基金诊基');
+      return;
+    }
+    double balance = 0;
+    double cost = 0;
+    var canStart = false;
+    try {
+      final res = await _api.post(
+        ApiEndpoints.pointsAiDiagnosisAccess,
+        data: {'businessNo': code},
+      );
+      final data = _unwrap(res.data);
+      if (data is Map) {
+        balance = pdNum(data['balance']) ?? 0;
+        cost = pdNum(data['pointsCost']) ?? 0;
+        canStart = data['canStart'] == true;
+      }
+    } catch (_) {
+      // 失败兜底：getPointsStatus 查余额
+      try {
+        final res = await _api.get(ApiEndpoints.pointsStatus);
+        final data = _unwrap(res.data);
+        if (data is Map) balance = pdNum(data['balance']) ?? 0;
+      } catch (_) {}
+    }
+    if (!canStart && balance < cost) {
+      _toast('积分不足，请先获取积分');
+      if (!mounted) return;
+      context.push('/user/points');
+      return;
+    }
+    if (!mounted) return;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final confirmed = await PositionDeleteDialog.show(
+      context,
+      assetName: '',
+      isDark: isDark,
+      content: cost > 0 ? '本次分析将消耗 ${cost.toStringAsFixed(0)} 积分，确认分析？' : '确认开始诊基分析？',
+    );
+    if (confirmed == true && mounted) {
+      context.push(Uri(
+        path: '/market/fund-analysis',
+        queryParameters: {'autoStart': '1', 'businessNo': code},
+      ).toString());
+    }
+  }
 
   /// uni-app resolveCurrentAssetId：按目标账本解析 assetId
   String _resolveCurrentAssetId(int? targetBookId) {
@@ -1165,7 +1769,7 @@ class _PositionDetailsPageState extends ConsumerState<PositionDetailsPage> {
         }
       }
     }
-    final routeAssetId = widget.assetId;
+    final routeAssetId = _effAssetId;
     if (routeAssetId != null) {
       if (targetBookId == null) return '$routeAssetId';
       for (final item in list) {
@@ -1191,7 +1795,7 @@ class _PositionDetailsPageState extends ConsumerState<PositionDetailsPage> {
       return bid != null && aid != null && bid != -1 && aid != -1;
     }).toList();
     Map<String, dynamic>? matchedAssetRow;
-    final currentAssetId = widget.assetId;
+    final currentAssetId = _effAssetId;
     if (currentAssetId != null && currentAssetId != -1) {
       for (final r in rows) {
         if (_asInt(r['assetId']) == currentAssetId) {
@@ -1203,7 +1807,7 @@ class _PositionDetailsPageState extends ConsumerState<PositionDetailsPage> {
     int? targetBookId;
     for (final c in [
       _selectedBookId,
-      widget.bookId,
+      _effBookId,
       _asInt(_positionDetail['bookId']),
       _asInt(matchedAssetRow?['bookId']),
     ]) {
@@ -1249,7 +1853,7 @@ class _PositionDetailsPageState extends ConsumerState<PositionDetailsPage> {
       'symbolId': _routeSymbolId,
       'assetId': _resolveCurrentAssetId(targetBookId),
       'bookId': '${targetBookId ?? ''}',
-      'assetType': '${_assetType ?? widget.assetType}',
+      'assetType': '$_currentAssetType',
     }).toString());
   }
 
@@ -1261,7 +1865,7 @@ class _PositionDetailsPageState extends ConsumerState<PositionDetailsPage> {
     }
     final int? targetBookId = _isAllDetailSelected
         ? (_asInt(_positionBooks.isNotEmpty ? _positionBooks.first['bookId'] : null) ??
-            (widget.bookId == -1 ? null : widget.bookId))
+            (_effBookId == -1 ? null : _effBookId))
         : _selectedBookId;
     _goTradePage(tradeType, targetBookId);
   }
@@ -1365,10 +1969,10 @@ class _PositionDetailsPageState extends ConsumerState<PositionDetailsPage> {
       case '删自选':
         _removeFavorite();
         break;
-      case '减仓':
-        _handleTrade('sell');
+      case '定投':
+        _handleTrade('plan');
         break;
-      case '加仓':
+      case '加减仓':
         _handleTrade('buy');
         break;
       case '交易记录':
@@ -1376,6 +1980,16 @@ class _PositionDetailsPageState extends ConsumerState<PositionDetailsPage> {
         break;
       case '修改持仓':
         _goEditHolding();
+        break;
+      case '反馈':
+        context.push(Uri(path: '/user/feedback-form', queryParameters: {
+          'type': 'sector',
+          'fundCode': _symbol,
+          'fundName': _shortName,
+        }).toString());
+        break;
+      case '诊基':
+        _openDiagnosisPopup();
         break;
       case '添加持有':
         _goAddHolding();
@@ -1385,11 +1999,49 @@ class _PositionDetailsPageState extends ConsumerState<PositionDetailsPage> {
 
   // ===================== Build =====================
 
+  /// 导航栏左右切换列表（switchToken 校验 + 含当前 symbolId）
+  List<int> get _switchList {
+    final list = getStockSwitchList(widget.switchToken);
+    if (list.length <= 1) return const [];
+    if (!list.contains(_fundId)) return const [];
+    return list;
+  }
+
+  /// 1:1 switchFund(±1)：redirectTo 本页，query 原样带 switchToken（移除 item）
+  void _switchFund(int direction) {
+    final list = _switchList;
+    final index = list.indexOf(_fundId);
+    final target = index + direction;
+    if (target < 0) {
+      _toast('已经是第一只');
+      return;
+    }
+    if (target >= list.length) {
+      _toast('已经是最后一只');
+      return;
+    }
+    context.pushReplacement(Uri(path: '/position-details', queryParameters: {
+      'symbolId': '${list[target]}',
+      'assetType': '$_effAssetType',
+      'assetId': '${_effAssetId ?? ''}',
+      'bookId': '${_effBookId ?? ''}',
+      'fromAllBooks': widget.fromAllBooks ? '1' : '',
+      'switchToken': widget.switchToken,
+    }).toString());
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bg = isDark ? AppColors.darkBg : const Color(0xFFF6F6F8);
     final textColor = isDark ? AppColors.darkText : AppColors.lightText;
+    final chartTab = _effectiveChartTab;
+    // 当前 tab 被动态隐藏时同步状态（resolveFallbackChartTab）
+    if (chartTab != _activeChartTab) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() => _activeChartTab = chartTab);
+      });
+    }
 
     final sectorValues = [for (final s in _sectorSeries) ...s.values.whereType<double>()];
     final maxPct = sectorValues.isEmpty ? '--' : '${sectorValues.reduce(max).toStringAsFixed(2)}%';
@@ -1403,10 +2055,50 @@ class _PositionDetailsPageState extends ConsumerState<PositionDetailsPage> {
         elevation: 0,
         scrolledUnderElevation: 0,
         iconTheme: IconThemeData(color: textColor),
-        title: Text(
-          _navbarScrolled && _shortName.isNotEmpty ? _shortName : '养基助手',
-          style: AppTextStyles.cn(16.sx, color: textColor, weight: FontWeight.w600),
-        ),
+        title: _navbarScrolled && _shortName.isNotEmpty
+            ? Row(mainAxisSize: MainAxisSize.min, children: [
+                // 导航栏左右切换器（switchList 有效才渲染）
+                if (_switchList.isNotEmpty) ...[
+                  GestureDetector(
+                    onTap: () => _switchFund(-1),
+                    child: Padding(
+                      padding: EdgeInsets.only(right: 4.sx),
+                      child: Icon(Icons.chevron_left, size: 20, color: textColor),
+                    ),
+                  ),
+                ],
+                Flexible(
+                  child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    Text(
+                      _shortName,
+                      style: AppTextStyles.cn(15.sx, color: textColor, weight: FontWeight.w600),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Text(_symbol,
+                        style: AppTextStyles.num(10.sx,
+                            color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary)),
+                  ]),
+                ),
+                if (_switchList.isNotEmpty) ...[
+                  GestureDetector(
+                    onTap: () => _switchFund(1),
+                    child: Padding(
+                      padding: EdgeInsets.only(left: 4.sx),
+                      child: Icon(Icons.chevron_right, size: 20, color: textColor),
+                    ),
+                  ),
+                ],
+              ])
+            : Text('养基助手',
+                style: AppTextStyles.cn(16.sx, color: textColor, weight: FontWeight.w600)),
+        actions: [
+          // 搜索按钮 → ./sub/search
+          IconButton(
+            icon: Icon(AppIcons.search, size: 20, color: textColor),
+            onPressed: () => context.push('/position-search'),
+          ),
+        ],
       ),
       body: NotificationListener<ScrollNotification>(
         onNotification: (n) {
@@ -1418,158 +2110,322 @@ class _PositionDetailsPageState extends ConsumerState<PositionDetailsPage> {
           onTap: () {
             if (_bookDropdownOpen) setState(() => _bookDropdownOpen = false);
           },
-          child: _loading
-              ? const Center(child: CircularProgressIndicator(color: AppColors.upColor))
-              : ListView(
-                  padding: EdgeInsets.fromLTRB(10.sx, 4.sx, 10.sx, 16.sx),
-                  children: [
-                    // ① 资产概览
-                    PositionDetailsHeroCard(
+          child: ListView(
+            padding: EdgeInsets.fromLTRB(10.sx, 4.sx, 10.sx, 16.sx),
+            children: [
+              // ① 资产概览（骨架只包 hero 卡）
+              if (_heroLoading)
+                PositionDetailsHeroSkeleton(isDark: isDark)
+              else
+                PositionDetailsHeroCard(
+                  isDark: isDark,
+                  shortName: _shortName,
+                  symbol: _symbol,
+                  assetTypeLabel: _isPreciousMetal
+                      ? '贵金属'
+                      : (_fundTypeName.isNotEmpty ? _fundTypeName : '基金'),
+                  summaryTop: _summaryTop,
+                  showBookSelect: _bookTabs.length > 1,
+                  selectedBookName: _bookTabs
+                      .where((t) => t.bookId == _selectedBookId)
+                      .map((t) => t.bookName)
+                      .fold('全部', (a, b) => b),
+                  bookDropdownOpen: _bookDropdownOpen,
+                  bookTabs: _bookTabs,
+                  selectedBookId: _selectedBookId,
+                  onToggleBookDropdown: () =>
+                      setState(() => _bookDropdownOpen = !_bookDropdownOpen),
+                  onSelectBook: (tab) {
+                    setState(() => _bookDropdownOpen = false);
+                    _selectPositionDetail(tab.bookId == -1 ? null : tab.bookId);
+                    // 切账本纯前端切换；仅 profit tab 补拉日历（1:1 源码）
+                    if (chartTab == 'profit') unawaited(_loadCalendar());
+                  },
+                  positionMetrics: _metricsCollapsed ? const [] : _positionMetrics,
+                  showCollapse: _hasPosition,
+                  collapsed: _metricsCollapsed,
+                  onToggleCollapse: () =>
+                      setState(() => _metricsCollapsed = !_metricsCollapsed),
+                  onHoldDayTap: _openHoldDayPopup,
+                ),
+              // ② 图表卡
+              Container(
+                margin: EdgeInsets.only(top: 9.sx), // 18rpx
+                decoration: BoxDecoration(
+                  color: isDark ? AppColors.darkSurface : Colors.white,
+                  borderRadius: BorderRadius.circular(11.sx),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: Column(children: [
+                  PositionDetailsChartTabs(
+                    tabs: _chartTabs,
+                    activeTab: chartTab,
+                    isDark: isDark,
+                    onChanged: (v) {
+                      setState(() {
+                        _activeChartTab = v;
+                        _trendHoverIndex = -1;
+                      });
+                      // 按 tab 懒加载（1:1 handleChartTabChange）
+                      if (v == 'trend' && _trendPoints.isEmpty) {
+                        unawaited(_loadTrend(_activeTrendRange));
+                      } else if (v == 'drawdown' && _drawdownSeries.isEmpty) {
+                        unawaited(_loadDrawdownData());
+                      } else if (v == 'fundFlow') {
+                        unawaited(_loadFundFlowRoundData());
+                      }
+                    },
+                  ),
+                  if (chartTab == 'fundFlow')
+                    PositionDetailsFundFlowPanel(
                       isDark: isDark,
-                      shortName: _shortName,
-                      symbol: _symbol,
-                      assetTypeLabel: _isPreciousMetal ? '贵金属' : (_fundTypeName.isNotEmpty ? _fundTypeName : '基金'),
-                      summaryTop: _summaryTop,
-                      showBookSelect: _bookTabs.length > 1,
-                      selectedBookName: _bookTabs
-                          .where((t) => t.bookId == _selectedBookId)
-                          .map((t) => t.bookName)
-                          .fold('全部', (a, b) => b),
-                      bookDropdownOpen: _bookDropdownOpen,
-                      bookTabs: _bookTabs,
-                      selectedBookId: _selectedBookId,
-                      onToggleBookDropdown: () => setState(() => _bookDropdownOpen = !_bookDropdownOpen),
-                      onSelectBook: (tab) {
-                        setState(() => _bookDropdownOpen = false);
-                        _selectPositionDetail(tab.bookId == -1 ? null : tab.bookId);
+                      view: _fundFlowView,
+                      loading: _fundFlowLoading,
+                      rounds: _fundFlowRoundItems,
+                      roundDate: _fundFlowRoundDate,
+                      roundsExpanded: _fundFlowRoundsExpanded,
+                      canExpandRounds: _fundFlowRoundItems.length > 2,
+                      onToggleRounds: () => setState(
+                          () => _fundFlowRoundsExpanded = !_fundFlowRoundsExpanded),
+                      dailyItems: _fundFlowDailyItems,
+                      dailyExpanded: _fundFlowDailyExpanded,
+                      canExpandDaily: _fundFlowDailyItems.length > 6,
+                      onToggleDaily: () => setState(
+                          () => _fundFlowDailyExpanded = !_fundFlowDailyExpanded),
+                      onViewChange: (v) {
+                        setState(() => _fundFlowView = v);
+                        if (v == 'daily') unawaited(_loadFundFlowDailyData());
                       },
-                      positionMetrics: _positionMetrics,
+                      onOpenDetails: () => context.push(Uri(
+                        path: '/fund/fund-flow-details',
+                        queryParameters: {
+                          'fundCode': _fundCode,
+                          'shortName': _shortName,
+                        },
+                      ).toString()),
+                    )
+                  else if (chartTab == 'sector')
+                    PositionDetailsSectorPanel(
+                      isDark: isDark,
+                      seriesList: _sectorSeries,
+                      tooltipTime:
+                          _sectorTooltipTime.isEmpty ? '--' : _sectorTooltipTime,
+                      maxPct: maxPct,
+                      minPct: minPct,
+                      danmuOn: _isDanmuOn,
+                      danmuRenderKey: _danmuRenderKey,
+                      danmuItems: _visibleDanmu,
+                      riseText: '看涨${_formatBarrageCount(_barrageRise)}',
+                      fallText: '看跌${_formatBarrageCount(_barrageFall)}',
+                      onToggleDanmu: _toggleDanmu,
+                      onOpenDanmuPanel: _openDanmuPanel,
+                      onVote: _voteBarrageTrend,
+                      onReportDanmu: _reportDanmu,
+                    )
+                  else if (chartTab == 'trend')
+                    PositionDetailsTrendPanel(
+                      isDark: isDark,
+                      points: _trendPoints,
+                      hoveredIndex: _trendHoverIndex,
+                      onHover: (i) => setState(() => _trendHoverIndex = i),
+                      rangeTabs: _trendRangeTabs,
+                      activeRange: _activeTrendRange,
+                      onRangeChange: (v) {
+                        if (v == _activeTrendRange) return;
+                        setState(() {
+                          _activeTrendRange = v;
+                          _trendHoverIndex = -1;
+                        });
+                        unawaited(_loadTrend(v));
+                      },
+                      loading: _trendLoading,
+                      moneyMode: _isMoneyFund,
+                      activeMoneyTab: _activeMoneyTab,
+                      onMoneyTabChange: (v) {
+                        setState(() => _activeMoneyTab = v);
+                        _trendCache.clear(); // 口径变化后重新拉取
+                        unawaited(_loadTrend(_activeTrendRange, force: true));
+                      },
+                    )
+                  else if (chartTab == 'drawdown')
+                    PositionDetailsDrawdownPanel(
+                      isDark: isDark,
+                      loading: _drawdownLoading,
+                      loadError: _drawdownLoadError,
+                      onRetry: () => _loadDrawdownData(force: true),
+                      status: _drawdownStatus,
+                      maxDrawdownRate: _drawdownMaxRate,
+                      recoveryDays: _drawdownRecoveryDays,
+                      series: _drawdownSeries,
+                      peakIndex: _drawdownPeakIndex,
+                      troughIndex: _drawdownTroughIndex,
+                      recoveryIndex: _drawdownRecoveryIndex,
+                      periodTabs: _drawdownPeriodTabs,
+                      activePeriod: _drawdownPeriod,
+                      onPeriodChange: (v) {
+                        if (v == _drawdownPeriod) return;
+                        setState(() => _drawdownPeriod = v);
+                        unawaited(_loadDrawdownData(force: true));
+                      },
+                    )
+                  else
+                    PositionDetailsProfitCalendar(
+                      isDark: isDark,
+                      showPercent: _showCalendarPercent,
+                      onToggleMode: () => setState(
+                          () => _showCalendarPercent = !_showCalendarPercent),
+                      views: const ['日', '月', '年'],
+                      activeView: _activeCalendarView,
+                      onViewChange: (v) => setState(() {
+                        _activeCalendarView = v;
+                        _selectedMonthCard = null;
+                        _selectedYearCard = null;
+                      }),
+                      switchLabel: _calendarSwitchLabel,
+                      onOpenMonthPicker: _openMonthPicker,
+                      days: _calendarDays,
+                      selectedDay: _selectedCalendarDay,
+                      onDayTap: (d) {
+                        if (d.day == null || d.type.isEmpty) return;
+                        setState(() => _selectedCalendarDay = d.day);
+                      },
+                      monthCells: [
+                        for (var m = 1; m <= 12; m++)
+                          PdCalendarCell(m, _monthlyProfitMap[m] ?? '',
+                              isActive: (_monthlyProfitMap[m] ?? '').isNotEmpty &&
+                                  _selectedMonthCard == m),
+                      ],
+                      yearCells: [
+                        for (final y
+                            in List.generate(6, (i) => DateTime.now().year - 5 + i))
+                          PdCalendarCell(y, _yearlyProfitMap[y] ?? '',
+                              isActive: (_yearlyProfitMap[y] ?? '').isNotEmpty &&
+                                  _selectedYearCard == y),
+                      ],
+                      onMonthTap: (c) {
+                        if (c.value.isEmpty) return;
+                        setState(() => _selectedMonthCard =
+                            _selectedMonthCard == c.keyValue ? null : c.keyValue);
+                      },
+                      onYearTap: (c) {
+                        if (c.value.isEmpty) return;
+                        setState(() => _selectedYearCard =
+                            _selectedYearCard == c.keyValue ? null : c.keyValue);
+                      },
+                      footerLabel: _calendarFooterLabel,
+                      footerProfitText: _calendarFooterProfitText,
+                      summary: _calendarSummary,
                     ),
-                    // ② 图表卡
-                    Container(
-                      margin: EdgeInsets.only(top: 9.sx), // 18rpx
-                      decoration: BoxDecoration(
-                        color: isDark ? AppColors.darkSurface : Colors.white,
-                        borderRadius: BorderRadius.circular(11.sx),
+                ]),
+              ),
+              // ③ 收益排行卡（债/货）或十大重仓股
+              if (_showRankingCard)
+                PositionDetailsRanking(
+                  isDark: isDark,
+                  periodTabs: _rankingPeriodTabs,
+                  activePeriod: _rankingPeriod,
+                  onPeriodChange: (v) {
+                    if (v == _rankingPeriod) return;
+                    setState(() => _rankingPeriod = v);
+                    unawaited(_loadRanking(force: true));
+                  },
+                  items: _rankingList,
+                  loading: _rankingLoading,
+                  loadError: _rankingLoadError,
+                  onRetry: () => _loadRanking(force: true),
+                  valueLabel: _rankingValueLabel,
+                  dataDateText: _rankingDataDate,
+                  onMore: () => context.push(Uri(
+                    path: '/fund/fund-return-ranking',
+                    queryParameters: {
+                      'type': _fundRankingType,
+                      'period': _rankingPeriod,
+                    },
+                  ).toString()),
+                  onRowTap: _goRankingDetail,
+                )
+              else if (chartTab == 'sector' || chartTab == 'fundFlow')
+                PositionDetailsHeavyweight(isDark: isDark, list: _heavyweight),
+              // ④ 历史卡（业绩走势 tab；货币基金整卡隐藏）
+              if (chartTab == 'trend' && !_isMoneyFund)
+                Container(
+                  margin: EdgeInsets.only(top: 9.sx), // 18rpx
+                  decoration: BoxDecoration(
+                    color: isDark ? AppColors.darkSurface : Colors.white,
+                    borderRadius: BorderRadius.circular(11.sx),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: Column(children: [
+                    // history-view-tabs：历史净值 / 阶段涨幅
+                    Padding(
+                      padding: EdgeInsets.only(top: 8.sx),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          for (final tab in [('history', '历史净值'), ('stage', '阶段涨幅')])
+                            GestureDetector(
+                              onTap: () => setState(() => _activeHistoryView = tab.$1),
+                              child: Container(
+                                margin: EdgeInsets.symmetric(horizontal: 20.sx), // gap 80rpx
+                                padding: EdgeInsets.only(bottom: 4.sx),
+                                decoration: BoxDecoration(
+                                  border: Border(
+                                    bottom: BorderSide(
+                                      color: _activeHistoryView == tab.$1
+                                          ? const Color(0xFFF5465C)
+                                          : Colors.transparent,
+                                      width: 3.sx, // 6rpx
+                                    ),
+                                  ),
+                                ),
+                                child: Text(
+                                  tab.$2,
+                                  style: AppTextStyles.cn(
+                                    13.sx, // 26rpx
+                                    color: _activeHistoryView == tab.$1
+                                        ? (isDark
+                                            ? AppColors.darkText
+                                            : const Color(0xFF242424))
+                                        : (isDark
+                                            ? AppColors.darkTextSecondary
+                                            : const Color(0xFF8F8F8F)),
+                                    weight: _activeHistoryView == tab.$1
+                                        ? FontWeight.w700
+                                        : FontWeight.w400,
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
-                      clipBehavior: Clip.antiAlias,
-                      child: Column(children: [
-                        PositionDetailsChartTabs(
-                          tabs: _chartTabs,
-                          activeTab: _activeChartTab,
-                          isDark: isDark,
-                          onChanged: (v) {
-                            setState(() {
-                              _activeChartTab = v;
-                              _trendHoverIndex = -1;
-                            });
-                            if (v == 'trend' && _trendPoints.isEmpty) unawaited(_loadTrend(_activeTrendRange));
-                          },
-                        ),
-                        if (_activeChartTab == 'sector')
-                          PositionDetailsSectorPanel(
-                            isDark: isDark,
-                            seriesList: _sectorSeries,
-                            tooltipTime: _sectorTooltipTime.isEmpty ? '--' : _sectorTooltipTime,
-                            maxPct: maxPct,
-                            minPct: minPct,
-                            danmuOn: _isDanmuOn,
-                            danmuRenderKey: _danmuRenderKey,
-                            danmuItems: _visibleDanmu,
-                            riseText: '看涨${_formatBarrageCount(_barrageRise)}',
-                            fallText: '看跌${_formatBarrageCount(_barrageFall)}',
-                            onToggleDanmu: _toggleDanmu,
-                            onOpenDanmuPanel: _openDanmuPanel,
-                            onVote: _voteBarrageTrend,
-                            onReportDanmu: _reportDanmu,
-                          )
-                        else if (_activeChartTab == 'trend')
-                          PositionDetailsTrendPanel(
-                            isDark: isDark,
-                            points: _trendPoints,
-                            hoveredIndex: _trendHoverIndex,
-                            onHover: (i) => setState(() => _trendHoverIndex = i),
-                            rangeTabs: _trendRangeTabs,
-                            activeRange: _activeTrendRange,
-                            onRangeChange: (v) {
-                              if (v == _activeTrendRange) return;
-                              setState(() {
-                                _activeTrendRange = v;
-                                _trendHoverIndex = -1;
-                              });
-                              unawaited(_loadTrend(v));
-                            },
-                            loading: _trendLoading,
-                          )
-                        else
-                          PositionDetailsProfitCalendar(
-                            isDark: isDark,
-                            showPercent: _showCalendarPercent,
-                            onToggleMode: () => setState(() => _showCalendarPercent = !_showCalendarPercent),
-                            views: const ['日', '月', '年'],
-                            activeView: _activeCalendarView,
-                            onViewChange: (v) => setState(() {
-                              _activeCalendarView = v;
-                              _selectedMonthCard = null;
-                              _selectedYearCard = null;
-                            }),
-                            switchLabel: _calendarSwitchLabel,
-                            onOpenMonthPicker: _openMonthPicker,
-                            days: _calendarDays,
-                            selectedDay: _selectedCalendarDay,
-                            onDayTap: (d) {
-                              if (d.day == null || d.type.isEmpty) return;
-                              setState(() => _selectedCalendarDay = d.day);
-                            },
-                            monthCells: [
-                              for (var m = 1; m <= 12; m++)
-                                PdCalendarCell(m, _monthlyProfitMap[m] ?? '',
-                                    isActive: (_monthlyProfitMap[m] ?? '').isNotEmpty && _selectedMonthCard == m),
-                            ],
-                            yearCells: [
-                              for (final y in List.generate(6, (i) => DateTime.now().year - 5 + i))
-                                PdCalendarCell(y, _yearlyProfitMap[y] ?? '',
-                                    isActive: (_yearlyProfitMap[y] ?? '').isNotEmpty && _selectedYearCard == y),
-                            ],
-                            onMonthTap: (c) {
-                              if (c.value.isEmpty) return;
-                              setState(() => _selectedMonthCard = _selectedMonthCard == c.keyValue ? null : c.keyValue);
-                            },
-                            onYearTap: (c) {
-                              if (c.value.isEmpty) return;
-                              setState(() => _selectedYearCard = _selectedYearCard == c.keyValue ? null : c.keyValue);
-                            },
-                            footerLabel: _calendarFooterLabel,
-                            footerProfitText: _calendarFooterProfitText,
-                            summary: _calendarSummary,
-                          ),
-                      ]),
                     ),
-                    // ③ 十大重仓股（关联涨跌 tab）
-                    if (_activeChartTab == 'sector') PositionDetailsHeavyweight(isDark: isDark, list: _heavyweight),
-                    // ④⑤ 收益/历史（业绩走势 tab）
-                    if (_activeChartTab == 'trend') ...[
+                    if (_activeHistoryView == 'stage')
                       PositionDetailsStageCard(
                         isDark: isDark,
                         tabs: _stageTabs,
                         activeTab: _activeStageTab,
                         onTabChange: (v) => setState(() => _activeStageTab = v),
                         rows: _stageRows,
-                        onMore: () => context.push('/fund/stage-revenue?symbolId=$_routeSymbolId'),
-                      ),
+                        onMore: () => context
+                            .push('/fund/stage-revenue?symbolId=$_routeSymbolId'),
+                      )
+                    else
                       PositionDetailsHistoryCard(
                         isDark: isDark,
                         title: _isPreciousMetal ? '历史克价' : '历史净值',
                         unitLabel: _isPreciousMetal ? '克价' : '单位净值',
                         rows: _historyRows,
-                        onMore: () => context.push('/fund/listed-net-value?symbolId=$_routeSymbolId'),
+                        onMore: () => context
+                            .push('/fund/listed-net-value?symbolId=$_routeSymbolId'),
                       ),
-                    ],
-                  ],
+                  ]),
                 ),
+            ],
+          ),
         ),
       ),
-      bottomNavigationBar: PositionDetailsBottomActions(isDark: isDark, actions: _actions, onTap: _handleAction),
+      bottomNavigationBar:
+          PositionDetailsBottomActions(isDark: isDark, actions: _actions, onTap: _handleAction),
     );
   }
 }

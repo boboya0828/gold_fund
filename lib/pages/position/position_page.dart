@@ -7,6 +7,8 @@ import '../../features/position/providers/position_provider.dart';
 import 'widgets/position_nav_header.dart';
 import 'widgets/position_asset_card.dart';
 import 'widgets/position_feed_notice.dart';
+import 'widgets/position_index_carousel.dart';
+import 'widgets/position_index_carousel_sheet.dart';
 import 'widgets/position_holding_table.dart';
 import 'widgets/position_overview_content.dart';
 import 'widgets/position_quick_menu.dart';
@@ -47,7 +49,16 @@ class _PositionPageState extends ConsumerState<PositionPage> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(positionProvider.notifier).loadData();
+      // 指数轮播：页面可见语义（positionPageActive=true）启动 60s 静默刷新
+      ref.read(positionProvider.notifier).startIndexCarouselLoop();
     });
+  }
+
+  @override
+  void dispose() {
+    // 页面隐藏/销毁：停止轮播刷新循环（1:1 clearIndexCarouselTimer）
+    ref.read(positionProvider.notifier).stopIndexCarouselLoop();
+    super.dispose();
   }
 
   @override
@@ -232,6 +243,24 @@ class _PositionPageState extends ConsumerState<PositionPage> {
                 _showDeleteDialog(target);
               }
             },
+          ),
+
+        // 指数轮播条（fixed 悬浮于 tabbar 上方，1:1 IndexCarouselBar）
+        if (state.showIndexCarousel)
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: PositionIndexCarousel(
+              items: state.indexCarouselItems,
+              mode: state.indexCarouselMode,
+              isDark: isDark,
+              onSelect: (item) => PositionIndexCarouselSheet.show(
+                context,
+                item: item,
+                isDark: isDark,
+              ),
+            ),
           ),
       ]),
     );

@@ -50,8 +50,9 @@ class PositionOverviewContent extends ConsumerWidget {
                       hideIncomeRate: state.hideIncomeRate,
                       onTap: () => _handleCardTap(context, ref, cards[i]),
                     ),
-                  // .overview-list padding-bottom 140rpx（无指数轮播条）
-                  SizedBox(height: 70.sx),
+                  // .overview-list padding-bottom 140rpx；有指数轮播条时
+                  // 额外 +96rpx（80rpx 条高 + 16rpx 间距，1:1 overview-list--carousel）
+                  SizedBox(height: state.showIndexCarousel ? 118.sx : 70.sx),
                 ],
               ),
       ),

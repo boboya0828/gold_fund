@@ -25,6 +25,14 @@ class PositionDetailsHeroCard extends StatelessWidget {
   /// 持仓 9 指标（无持仓时为空）
   final List<PdMetricItem> positionMetrics;
 
+  /// 9 宫格折叠（1:1 metrics-collapse：hasPosition 时显示箭头）
+  final bool showCollapse;
+  final bool collapsed;
+  final VoidCallback? onToggleCollapse;
+
+  /// 持有天数格点击（metric-value--link 下划线入口）
+  final VoidCallback? onHoldDayTap;
+
   const PositionDetailsHeroCard({
     super.key,
     required this.isDark,
@@ -40,6 +48,10 @@ class PositionDetailsHeroCard extends StatelessWidget {
     required this.onToggleBookDropdown,
     required this.onSelectBook,
     required this.positionMetrics,
+    this.showCollapse = false,
+    this.collapsed = false,
+    this.onToggleCollapse,
+    this.onHoldDayTap,
   });
 
   @override
@@ -155,7 +167,7 @@ class PositionDetailsHeroCard extends StatelessWidget {
                 ],
               ),
             ),
-          // 持仓 9 指标
+          // 持仓 9 指标（metrics-collapse 折叠开关）
           if (positionMetrics.isNotEmpty)
             Padding(
               padding: EdgeInsets.only(top: 12.sx),
@@ -171,7 +183,9 @@ class PositionDetailsHeroCard extends StatelessWidget {
                 itemCount: positionMetrics.length,
                 itemBuilder: (_, i) {
                   final m = positionMetrics[i];
-                  return Container(
+                  // 持有天数：下划线链接样式（metric-value--link，点击改持有天数）
+                  final isHoldDay = m.label == '持有天数';
+                  final cell = Container(
                     padding: EdgeInsets.fromLTRB(5.sx, 10.sx, 5.sx, 9.sx), // 20rpx 10rpx 18rpx
                     decoration: BoxDecoration(color: metricBg, borderRadius: BorderRadius.circular(8.sx)), // 16rpx
                     child: Column(
@@ -183,13 +197,40 @@ class PositionDetailsHeroCard extends StatelessWidget {
                           m.value,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: AppTextStyles.num(14.sx, color: m.valueColor ?? (isDark ? AppColors.darkText : AppColors.lightText),
-                              weight: FontWeight.w700, height: 1.2), // 28rpx
+                          style: AppTextStyles.num(
+                            16.sx, // 32rpx
+                            color: m.valueColor ?? (isDark ? AppColors.darkText : AppColors.lightText),
+                            height: 1.2,
+                          ).copyWith(
+                            decoration: isHoldDay ? TextDecoration.underline : null,
+                            decorationColor:
+                                m.valueColor ?? (isDark ? AppColors.darkText : AppColors.lightText),
+                          ),
                         ),
                       ],
                     ),
                   );
+                  if (isHoldDay && onHoldDayTap != null) {
+                    return GestureDetector(onTap: onHoldDayTap, child: cell);
+                  }
+                  return cell;
                 },
+              ),
+            ),
+          // metrics-collapse：折叠/展开箭头（有持仓时显示）
+          if (showCollapse)
+            GestureDetector(
+              onTap: onToggleCollapse,
+              behavior: HitTestBehavior.opaque,
+              child: Padding(
+                padding: EdgeInsets.only(top: 4.sx),
+                child: Center(
+                  child: Icon(
+                    collapsed ? Icons.keyboard_arrow_down : Icons.keyboard_arrow_up,
+                    size: 14.sx,
+                    color: labelColor,
+                  ),
+                ),
               ),
             ),
         ],

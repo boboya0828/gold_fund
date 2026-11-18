@@ -94,6 +94,10 @@ class ApiEndpoints {
   static const estimateSource = '/usercenter/api/User/estimate-source'; // GET 当前模式 / PUT 保存 {mode, bookId?}
   static const scrollContentCurrent = '/asset/api/ScrollContent/current'; // GET ?slotCode= 滚动通知条
   static const announcement = '/asset/api/Announcement';               // GET ?position=&limit= 公告开关
+  static const assetIndexCarousel = '/asset/api/Asset/index-carousel'; // GET 指数轮播（免鉴权）
+  static const symbolIndexes = '/asset/api/Symbol/indexes';            // GET ?MarketType=CN|HK|US|GL&PageIndex&PageSize
+  static const goldEyeV1Quotes = '/asset/api/gold-eye-v1/quotes';      // GET 黄金商品行情列表
+  static const goldEyeV1Intraday = '/asset/api/gold-eye-v1/intraday';  // GET /{symbolId} 需拼接 黄金分时
   static const communityGroupCount = '/asset/api/CommunityGroup/count'; // GET 基金群人数（匿名）
 
   // Profit
@@ -129,6 +133,9 @@ class ApiEndpoints {
   static const assetSymbolDailyLines = '/asset/api/Symbol/dailyLines'; // POST
   static const assetSymbolDailyLinesRange = '/asset/api/Symbol/dailyLines/range'; // GET ?symbolId=&startDate=&endDate=
   static const assetSymbolDailyLinesAfter = '/asset/api/Symbol/dailyLines/after'; // GET ?symbolId=&afterDate=&count=
+  static const assetSymbolDrawdownRecovery = '/asset/api/Symbol/drawdownRecovery'; // GET /{symbolId}?period= 需拼接
+  static const indexDetailQuote = '/asset/api/IndexDetail';             // GET /{symbolId}/quote 需拼接
+  static const indexDetailIntraday = '/asset/api/IndexDetail';          // GET /{symbolId}/intraday?days= 需拼接
   static const assetSymbolInfo = '/asset/api/Symbol';                  // GET /{symbolId} 需拼接
   static const assetSymbolBatchInfo = '/asset/api/Symbol/symbolIds';   // POST body=[symbolId...]
   static const assetSymbolFundHoldings = '/asset/api/Symbol/fundHoldings'; // GET /{symbolId} 十大重仓股
@@ -153,6 +160,14 @@ class ApiEndpoints {
   static const marketFundHoldTop = '/asset/api/Market/FundHoldTop';    // GET
   static const marketFundStreakTop = '/asset/api/Market/FundStreakTop'; // GET
   static const marketFundQuoteTop = '/asset/api/Market/FundQuoteTop';  // GET
+
+  // 基金持仓详情页 (pages/index/fund/position-details)
+  static const fundReturnRanking = '/asset/api/Market/FundReturnRanking'; // GET ?type=&period=&market=&pageIndex=&pageSize=
+  static const fundStockFundFlowRoundSummaries = '/asset/api/Market/fundStockFundFlowRoundSummaries'; // GET ?fundCode=
+  static const fundStockFundFlowDailyDetails = '/asset/api/Market/fundStockFundFlowDailyDetails'; // GET ?FundCode=&PageIndex=&PageSize=
+  static const assetHoldDay = '/asset/api/Asset';                     // PUT /{assetId}/hold-day 需拼接 {holdDay}
+  static const pointsAiDiagnosisAccess = '/asset/api/Points/ai-diagnosis/access'; // POST {businessNo}
+  static const pointsStatus = '/asset/api/Points/status';              // GET 积分余额兜底
 
   // Banner
   static const banner = '/asset/api/Banner';                           // GET ?limit=

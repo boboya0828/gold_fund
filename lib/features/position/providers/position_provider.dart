@@ -9,6 +9,11 @@ import '../../../core/network/api_client.dart';
 import '../../../core/network/api_endpoints.dart';
 
 /// 持仓列表项
+/// Hive/缓存读回的嵌套 map 是 Map<dynamic, dynamic>（不会深转 String key），
+/// 直接 `as Map<String, dynamic>` 会抛 TypeError（持仓列表整表空白的根因）。统一安全转换。
+Map<String, dynamic>? asStringKeyMap(dynamic v) =>
+    v is Map ? Map<String, dynamic>.from(v) : null;
+
 class PositionItem {
   final int assetId;
   final int symbolId;
@@ -82,7 +87,7 @@ class PositionItem {
   });
 
   factory PositionItem.fromJson(Map<String, dynamic> json) {
-    final lp = json['latestPrice'] as Map<String, dynamic>?;
+    final lp = asStringKeyMap(json['latestPrice']);
     final indicators = (json['indicators'] ?? json['indicatorList']) as List?;
     return PositionItem(
       assetId: json['assetId'] as int? ?? 0,
@@ -96,7 +101,9 @@ class PositionItem {
       holdChangeRatio: _toNum(json['holdChangeRatio']) ?? 0,
       isLatestNav: _toFlag(json['isLatestNav']),
       indicatorList: indicators
-          ?.map((e) => IndicatorItem.fromJson(e as Map<String, dynamic>))
+          ?.map(asStringKeyMap)
+          .whereType<Map<String, dynamic>>()
+          .map(IndicatorItem.fromJson)
           .toList(),
       latestPrice: lp != null ? LatestPriceInfo.fromJson(lp) : null,
       bookId: json['bookId'] as int?,
@@ -356,7 +363,9 @@ class LatestPriceInfo {
       latestTime: json['latestTime'] as String?,
       latestNavDate: json['latestNavDate'] as String?,
       indicatorList: indicators
-          ?.map((e) => IndicatorItem.fromJson(e as Map<String, dynamic>))
+          ?.map(asStringKeyMap)
+          .whereType<Map<String, dynamic>>()
+          .map(IndicatorItem.fromJson)
           .toList(),
     );
   }
@@ -437,7 +446,9 @@ class OverviewCard {
       riseCount: _toInt(json['riseCount']) ?? 0,
       fallCount: _toInt(json['fallCount']) ?? 0,
       trend: trendList
-              ?.map((e) => OverviewTrendPoint.fromJson(e as Map<String, dynamic>))
+              ?.map(asStringKeyMap)
+              .whereType<Map<String, dynamic>>()
+              .map(OverviewTrendPoint.fromJson)
               .toList() ??
           const [],
     );
@@ -507,6 +518,62 @@ class OverviewTrendPoint {
         if (dayProfitRate != null) 'dayProfitRate': dayProfitRate,
         if (assetAmount != null) 'assetAmount': assetAmount,
       };
+}
+
+/// 指数轮播条目（GET /asset/api/Asset/index-carousel indexes[]）
+class IndexCarouselItem {
+  final int symbolId;
+  final String name;
+  final String code;
+  final String marketCode;
+  final double? latestPrice;
+  final double? chgRate;
+  final double? changeAmount;
+  final int priceStatus; // 非 0 视为非正常交易状态（展示状态文案，不着涨跌色）
+  final String priceStatusText;
+
+  const IndexCarouselItem({
+    this.symbolId = 0,
+    this.name = '',
+    this.code = '',
+    this.marketCode = '',
+    this.latestPrice,
+    this.chgRate,
+    this.changeAmount,
+    this.priceStatus = 0,
+    this.priceStatusText = '',
+  });
+
+  static double? _num(dynamic v) {
+    if (v == null) return null;
+    if (v is num) return v.toDouble();
+    return double.tryParse('$v');
+  }
+
+  static int _int(dynamic v) {
+    if (v is num) return v.toInt();
+    return int.tryParse('$v') ?? 0;
+  }
+
+  factory IndexCarouselItem.fromJson(Map<String, dynamic> json) {
+    final lp = json['latestPrice'];
+    final lpMap = lp is Map ? lp : const <String, dynamic>{};
+    return IndexCarouselItem(
+      symbolId: _int(json['symbolId']),
+      name: (json['name'] ?? json['shortName'] ?? '').toString(),
+      code: (json['code'] ?? json['symbolCode'] ?? '').toString(),
+      marketCode: (json['marketCode'] ?? '').toString(),
+      latestPrice: _num(lpMap['latestPrice'] ?? json['latestPrice']),
+      chgRate: _num(json['chgRate'] ?? json['changeRatio'] ?? lpMap['chgRate']),
+      changeAmount: _num(json['changeAmount'] ?? lpMap['changeAmount'] ?? lpMap['change']),
+      priceStatus: _int(json['priceStatus'] ?? lpMap['priceStatus']),
+      priceStatusText: (json['priceStatusText'] ?? lpMap['priceStatusText'] ?? '').toString(),
+    );
+  }
+
+  /// 1:1 isSuspended：priceStatus!==0 → 展示状态文案且不着涨跌色
+  bool get isSuspended => priceStatus != 0;
+  String get statusText => priceStatusText.trim().isNotEmpty ? priceStatusText.trim() : '停牌';
 }
 
 /// 滚动通知条单条内容（GET /asset/api/ScrollContent/current items[]）
@@ -638,6 +705,8 @@ class PositionState {
   final double overviewTotalDayProfit;
   final double overviewTotalDayChangeRatio;
   final FeedNoticeItem? feedNotice; // 当前展示的滚动通知（null=不显示）
+  final int indexCarouselMode; // 1=静态首条 2=多条上下滚动
+  final List<IndexCarouselItem> indexCarouselItems;
   final String fundGroupCountText; // 基金群胶囊计数文字
   final bool marketCubeEnabled; // 公告 position=3 控制「市场魔方」胶囊
   // 表头管理配置（GET /usercenter/api/User/holding-columns）
@@ -674,6 +743,8 @@ class PositionState {
     this.overviewTotalDayProfit = 0,
     this.overviewTotalDayChangeRatio = 0,
     this.feedNotice,
+    this.indexCarouselMode = 1,
+    this.indexCarouselItems = const [],
     this.fundGroupCountText = '已有--入群',
     this.marketCubeEnabled = false,
     this.columnKeys,
@@ -711,6 +782,8 @@ class PositionState {
     double? overviewTotalDayChangeRatio,
     FeedNoticeItem? Function()? feedNotice,
     String? fundGroupCountText,
+    int? indexCarouselMode,
+    List<IndexCarouselItem>? indexCarouselItems,
     bool? marketCubeEnabled,
     List<String>? Function()? columnKeys,
     bool? showFundCode,
@@ -746,6 +819,8 @@ class PositionState {
     overviewTotalDayChangeRatio:
         overviewTotalDayChangeRatio ?? this.overviewTotalDayChangeRatio,
     feedNotice: feedNotice != null ? feedNotice() : this.feedNotice,
+    indexCarouselMode: indexCarouselMode ?? this.indexCarouselMode,
+    indexCarouselItems: indexCarouselItems ?? this.indexCarouselItems,
     fundGroupCountText: fundGroupCountText ?? this.fundGroupCountText,
     marketCubeEnabled: marketCubeEnabled ?? this.marketCubeEnabled,
     columnKeys: columnKeys != null ? columnKeys() : this.columnKeys,
@@ -765,6 +840,10 @@ class PositionState {
   int get overviewTabIndex => bookNames.length;
 
   bool get isOverviewTab => tabIndex == overviewTabIndex;
+
+  /// 指数轮播显示条件（1:1 showIndexCarousel：模块开关(App 恒 true) + 有有效条目）
+  bool get showIndexCarousel =>
+      indexCarouselItems.any((e) => e.name.trim().isNotEmpty);
 
   /// 当前选中的 bookId (null=全部/汇总)
   int? get currentBookId {
@@ -1197,6 +1276,7 @@ class PositionNotifier extends StateNotifier<PositionState> {
   @override
   void dispose() {
     _cacheSaveTimer?.cancel();
+    _indexCarouselTimer?.cancel();
     super.dispose();
   }
 
@@ -1455,6 +1535,57 @@ class PositionNotifier extends StateNotifier<PositionState> {
     }
   }
 
+  /// 指数轮播数据（GET /asset/api/Asset/index-carousel，免鉴权）
+  /// 对齐 uni-app loadIndexCarousel：接口静默失败时清空隐藏；60s 静默刷新（页面可见时）
+  Timer? _indexCarouselTimer;
+  static const _indexCarouselRefreshInterval = Duration(seconds: 60);
+
+  /// 指数轮播（1:1 源码 getIndexCarousel）：有 token 带 token，401 静默隐藏。
+  /// 之前误用纯匿名通道导致登录用户也拿不到数据、浮条一直隐藏。
+  Future<void> _loadIndexCarousel() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token');
+      final res = await _anonDio.get(
+        ApiEndpoints.assetIndexCarousel,
+        options: token != null && token.isNotEmpty
+            ? Options(headers: {'Authorization': 'Bearer $token'})
+            : null,
+      );
+      if (!mounted) return;
+      final data = res.data;
+      final payload = (data is Map && data['data'] is Map)
+          ? data['data'] as Map<String, dynamic>
+          : (data as Map<String, dynamic>? ?? {});
+      final indexes = payload['indexes'] is List ? payload['indexes'] as List : const [];
+      final items = indexes
+          .whereType<Map<String, dynamic>>()
+          .map(IndexCarouselItem.fromJson)
+          .where((e) => e.name.trim().isNotEmpty)
+          .toList();
+      final mode = payload['mode'] is num ? (payload['mode'] as num).toInt() : 1;
+      state = state.copyWith(indexCarouselItems: items, indexCarouselMode: mode);
+    } catch (_) {
+      if (!mounted) return;
+      state = state.copyWith(indexCarouselItems: const []);
+    }
+  }
+
+  /// 启动 60s 静默刷新循环（positionPageActive=true 语义：页面 onShow/init 时调用）
+  void startIndexCarouselLoop() {
+    stopIndexCarouselLoop();
+    unawaited(_loadIndexCarousel());
+    _indexCarouselTimer = Timer.periodic(_indexCarouselRefreshInterval, (_) {
+      unawaited(_loadIndexCarousel());
+    });
+  }
+
+  /// 停止刷新循环（页面隐藏/销毁时调用，对齐 clearIndexCarouselTimer）
+  void stopIndexCarouselLoop() {
+    _indexCarouselTimer?.cancel();
+    _indexCarouselTimer = null;
+  }
+
   /// 滚动通知条（slotCode=position_feed；失败/为空时隐藏）
   Future<void> _loadFeedNotice() async {
     try {
@@ -1520,7 +1651,12 @@ class PositionNotifier extends StateNotifier<PositionState> {
 
     // stale-while-revalidate：先恢复缓存立即渲染（每个 userKey 只恢复一次），
     // 再并行拉新数据覆盖（1:1 uni-app onLoad/onShow restorePositionCache）
-    await restorePositionCache();
+    // 防御：缓存损坏/解析失败不得阻塞后续拉新（否则整表空白）
+    try {
+      await restorePositionCache();
+    } catch (e) {
+      print('[position] restorePositionCache failed: $e');
+    }
 
     // 检查登录
     final prefs = await SharedPreferences.getInstance();

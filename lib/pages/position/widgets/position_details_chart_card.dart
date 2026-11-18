@@ -285,6 +285,11 @@ class PositionDetailsTrendPanel extends StatelessWidget {
   final ValueChanged<String> onRangeChange;
   final bool loading;
 
+  /// 货币基金模式：七日年化/万份收益 单线原值（无对比指数、无成本线、4 位精确值）
+  final bool moneyMode;
+  final String activeMoneyTab; // 'sevenDay' | 'per10000'
+  final ValueChanged<String>? onMoneyTabChange;
+
   const PositionDetailsTrendPanel({
     super.key,
     required this.isDark,
@@ -295,6 +300,9 @@ class PositionDetailsTrendPanel extends StatelessWidget {
     required this.activeRange,
     required this.onRangeChange,
     required this.loading,
+    this.moneyMode = false,
+    this.activeMoneyTab = 'sevenDay',
+    this.onMoneyTabChange,
   });
 
   @override
@@ -309,14 +317,29 @@ class PositionDetailsTrendPanel extends StatelessWidget {
     final legendDate = idx >= 0 ? points[idx].tradeDate : '--';
     final legendClose = idx >= 0 ? points[idx].close : 0.0;
     final legendVal = idx >= 0 ? points[idx].percent : 0.0;
-    final legendText = '${legendVal >= 0 ? '+' : ''}${legendVal.toStringAsFixed(2)}%';
+    // 货币模式：数值 4 位原值；常规：归一化涨跌幅%
+    final legendText = moneyMode
+        ? (idx >= 0 && !points[idx].percent.isNaN
+            ? points[idx].percent.toStringAsFixed(4)
+            : '--')
+        : '${legendVal >= 0 ? '+' : ''}${legendVal.toStringAsFixed(2)}%';
+    final legendName =
+        moneyMode ? (activeMoneyTab == 'sevenDay' ? '七日年化' : '万份收益') : '本基金';
+    final legendValueColor =
+        moneyMode ? textColor : (legendVal >= 0 ? kPdRiseColor : kPdFallColor);
 
-    final percents = [for (final p in points) p.percent];
+    final percents = [
+      for (final p in points)
+        if (!p.percent.isNaN) p.percent
+    ];
     final maxV = percents.isNotEmpty ? percents.reduce((a, b) => a > b ? a : b) : 0.0;
     final minV = percents.isNotEmpty ? percents.reduce((a, b) => a < b ? a : b) : 0.0;
     final range = (maxV - minV).abs() < 1e-9 ? 1.0 : maxV - minV;
     final pad = range * 0.18 > 1 ? range * 0.18 : 1.0;
     final mid = points.isNotEmpty ? (points.length - 1) ~/ 2 : 0;
+
+    String axisLabel(double v) =>
+        moneyMode ? v.toStringAsFixed(2) : '${v >= 0 ? '+' : ''}${v.toStringAsFixed(2)}%';
 
     return Padding(
       padding: EdgeInsets.fromLTRB(10.sx, 9.sx, 10.sx, 12.sx),
@@ -334,12 +357,43 @@ class PositionDetailsTrendPanel extends StatelessWidget {
               Row(children: [
                 Container(width: 6.sx, height: 6.sx, decoration: BoxDecoration(color: kPdChartRed, shape: BoxShape.circle)),
                 SizedBox(width: 3.sx),
-                Text('本基金', style: AppTextStyles.cn(11.sx, color: labelColor)),
+                Text(legendName, style: AppTextStyles.cn(11.sx, color: labelColor)),
                 SizedBox(width: 4.sx),
-                Text(legendText, style: AppTextStyles.num(12.sx, color: legendVal >= 0 ? kPdRiseColor : kPdFallColor)),
+                Text(legendText, style: AppTextStyles.num(12.sx, color: legendValueColor)),
               ]),
             ],
           ),
+          // money-trend-tabs：七日年化 / 万份收益（仅货币基金）
+          if (moneyMode)
+            Padding(
+              padding: EdgeInsets.only(top: 6.sx),
+              child: Row(children: [
+                for (final tab in [('sevenDay', '七日年化'), ('per10000', '万份收益')])
+                  GestureDetector(
+                    onTap: () => onMoneyTabChange?.call(tab.$1),
+                    child: Container(
+                      height: 27.sx, // 54rpx
+                      margin: EdgeInsets.only(right: 6.sx),
+                      padding: EdgeInsets.symmetric(horizontal: 10.sx),
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: activeMoneyTab == tab.$1
+                            ? const Color(0xFFE85F6F)
+                            : (isDark ? const Color(0xFF282828) : const Color(0xFFF6F6F8)),
+                        borderRadius: BorderRadius.circular(25.sx),
+                      ),
+                      child: Text(
+                        tab.$2,
+                        style: AppTextStyles.cn(12.sx,
+                            color: activeMoneyTab == tab.$1
+                                ? Colors.white
+                                : (isDark ? AppColors.darkTextSecondary : const Color(0xFFA3A8B5)),
+                            weight: activeMoneyTab == tab.$1 ? FontWeight.w600 : FontWeight.w400),
+                      ),
+                    ),
+                  ),
+              ]),
+            ),
           SizedBox(height: 7.sx), // 14rpx
           SizedBox(
             height: 215.sx, // 430rpx
@@ -348,13 +402,13 @@ class PositionDetailsTrendPanel extends StatelessWidget {
                 Positioned(
                   left: 0,
                   top: 10.sx,
-                  child: Text('${maxV >= 0 ? '+' : ''}${maxV.toStringAsFixed(2)}%',
+                  child: Text(axisLabel(maxV),
                       style: AppTextStyles.num(11.sx, color: labelColor)),
                 ),
                 Positioned(
                   left: 0,
                   bottom: 31.sx,
-                  child: Text('${minV >= 0 ? '+' : ''}${minV.toStringAsFixed(2)}%',
+                  child: Text(axisLabel(minV),
                       style: AppTextStyles.num(11.sx, color: labelColor)),
                 ),
                 Positioned.fill(
@@ -404,7 +458,10 @@ class PositionDetailsTrendPanel extends StatelessWidget {
                             ),
                             lineBarsData: [
                               LineChartBarData(
-                                spots: [for (var i = 0; i < points.length; i++) FlSpot(i.toDouble(), points[i].percent)],
+                                spots: [
+                                  for (var i = 0; i < points.length; i++)
+                                    if (!points[i].percent.isNaN) FlSpot(i.toDouble(), points[i].percent)
+                                ],
                                 isCurved: false,
                                 color: kPdChartRed,
                                 barWidth: 1.5,

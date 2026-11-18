@@ -36,11 +36,14 @@ flutter build apk|ios|web             # 生产构建
 - 很多页面用普通的 `setState` + 直接调用 `ApiClient()` 来管理自己的状态，而不是走 provider（例如 `pages/optional/optional_page.dart`）。只有当页面确实需要跨页面共享状态时，才引入 provider。
 
 ### 路由 (`lib/router.dart`, go_router)
-只有一个 `AppRouter.router`。登录相关路由（`/login`、`/login/phone` 等）在 shell 之外（无底部 Tab 栏）。一个 `ShellRoute` 把六个 Tab 页包在 `MainShell` 里（Tab 栏本身是在 `router.dart` 中内联构建的）：`/home /position /optional /market /member /profile`。`/position` 和 `/optional` 通过 `_authGuard` 重定向做登录门槛校验。详情/子页面在 shell 内以 push 方式打开。`initialLocation` 是 `/home`。通过 query 参数传递数据，在对应路由的 `pageBuilder` 里用 `state.uri.queryParameters` 读取；通过 `context.pop(value)` 返回结果，调用方用 `await context.push(...)` 接收。
+只有一个 `AppRouter.router`。`initialLocation` 是 `/position`（对齐 uni-app `goHome()` → positionv1）。`ShellRoute` 把六个 Tab 页包在 `MainShell` 里：`/position /optional /noblemetal /market /dark-market /profile`（持仓/自选/攒金/行情/暗盘/我的；`/home`、`/member` 页面保留但不在 Tab 中，对齐 uni-app tabBar 配置）。Tab 页允许游客访问（无强制登录拦截，页面内按 `isLoggedIn` 处理空态，401 由全局拦截器跳登录）。详情/子页面是**顶层路由**（不在 Shell 内），用 `AppRouter._slidePage` 全屏右滑转场打开（对齐 uni-app navigateTo）。通过 query 参数传递数据，在对应路由的 `pageBuilder` 里用 `state.uri.queryParameters` 读取；通过 `context.pop(value)` 返回结果，调用方用 `await context.push(...)` 接收。
 
 ### 网络层 (`lib/core/network/`)
-- `api_client.dart` — 单例 Dio 封装。`AuthInterceptor` 会从 SharedPreferences 的 `token` 键自动附加 `Bearer <token>`；`ErrorInterceptor` 处理 401（清除 token）以及网络/SSL 错误。使用 `ApiClient().get/post/put/delete`。
-- `api_endpoints.dart` — 所有接口都以 `static const` 的形式定义，`baseUrl = https://api.huangjinetf.com`。对齐 uni-app 的 `api/api.js`。新增接口应加在这里，而不是把 URL 写死在业务代码里。
+- `api_client.dart` — 单例 Dio 封装。`AuthInterceptor` 会从 SharedPreferences 的 `token` 键自动附加 `Bearer <token>`；`ErrorInterceptor` 处理 401（全局跳登录，对齐 uni-app req.js）以及网络/SSL 错误。使用 `ApiClient().get/post/put/delete`。
+- `api_endpoints.dart` — 所有接口都以 `static const` 的形式定义，`baseUrl = https://api2.huangjinetf.com`。对齐 uni-app 的 `api/api.js`。新增接口应加在这里，而不是把 URL 写死在业务代码里。
+
+### iOS 真机打包
+Windows 无 Mac 环境：push 到 master 触发 GitHub Actions 签名构建 → 下载 ipa → `tools/pyvenv` 里的 pymobiledevice3 装到手机。完整流程、UDID 注册、常见问题见 **`docs/ios-deploy.md`**。
 
 ### 实时通信 (`lib/core/services/signalr_service.dart`)
 基于原生 WebSocket（`web_socket_channel`）实现的轻量级 SignalR，hub 地址为 `ApiEndpoints.signalrUrl`（`/asset/hubs/market`），带指数退避重连。对齐 uni-app 的 `utils/signalr.js`。用于行情/价格的实时推送。

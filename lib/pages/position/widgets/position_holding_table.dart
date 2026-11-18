@@ -6,6 +6,7 @@ import '../../../theme/app_icons.dart';
 import '../../../theme/text_styles.dart';
 import '../../../features/position/providers/position_provider.dart';
 import '../../../shared/widgets/z_paging_refresh.dart';
+import '../../../core/utils/stock_switch_list.dart';
 import 'position_holding_row.dart';
 import '../../../core/utils/screen_adapt.dart';
 
@@ -431,9 +432,12 @@ class _PositionHoldingTableState extends ConsumerState<PositionHoldingTable> {
     final isAllFund =
         widget.state.tabIndex == 0 && item.assetType == 3;
     final assetId = isAllFund ? -1 : item.assetId;
+    // 1:1 源码：生成详情页左右切换列表 token（当前排序后基金列表的 symbolId 序列）
+    final switchToken = setStockSwitchList(
+        [for (final e in widget.state.sortedItems) e.symbolId]);
     context.push(
       '/position-details?symbolId=${item.symbolId}'
-      '&assetType=${item.assetType}&assetId=$assetId',
+      '&assetType=${item.assetType}&assetId=$assetId&switchToken=$switchToken',
     );
   }
 
